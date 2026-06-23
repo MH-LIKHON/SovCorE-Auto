@@ -403,3 +403,23 @@ async def sso_microsoft_callback(
 
     _set_refresh_cookie(response, result.refresh_token)
     return result.token_pair
+
+
+# ==================================================
+# CURRENT USER
+# ==================================================
+
+
+@router.get(
+    "/me",
+    summary="Return the currently authenticated user's profile",
+)
+async def me(current_user: User = Depends(get_current_user)) -> dict:
+    """
+    Returns id, email, full_name, is_email_verified, totp_enabled, and
+    created_at for the bearer-token holder. Used by the dashboard to
+    display user info without an additional account lookup.
+    """
+    from app.accounts.schemas.account_schemas import UserMeOut  # local import avoids circular
+
+    return UserMeOut.model_validate(current_user).model_dump(mode="json")

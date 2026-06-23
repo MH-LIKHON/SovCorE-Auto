@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.accounts.models.account import Account, AccountPreferences, AccountType
-from app.accounts.models.user import Membership, Role
+from app.accounts.models.user import Membership, Role, User
 
 # ==================================================
 # ACCOUNT REPOSITORY
@@ -91,6 +91,45 @@ class AccountRepository:
             .options(selectinload(Account.preferences))
         )
         return list(result.scalars().all())
+
+    async def update_account(
+        self, account: Account, name: str | None = None, account_type: AccountType | None = None
+    ) -> Account:
+        if name is not None:
+            account.name = name
+        if account_type is not None:
+            account.type = account_type
+        await self._session.flush()
+        return account
+
+    async def list_members(self, account_id: uuid.UUID) -> list[Membership]:
+        result = await self._session.execute(
+            select(Membership)
+            .where(Membership.account_id == account_id)
+            .options(selectinload(Membership.user))
+            .order_by(Membership.created_at)
+        )
+        return list(result.scalars().all())
+
+    async def get_member_by_id(
+        self, account_id: uuid.UUID, member_id: uuid.UUID
+    ) -> Membership | None:
+        result = await self._session.execute(
+            select(Membership)
+            .where(Membership.id == member_id)
+            .where(Membership.account_id == account_id)
+            .options(selectinload(Membership.user))
+        )
+        return result.scalar_one_or_none()
+
+    async def update_member_role(self, membership: Membership, role: Role) -> Membership:
+        membership.role = role
+        await self._session.flush()
+        return membership
+
+    async def delete_member(self, membership: Membership) -> None:
+        await self._session.delete(membership)
+        await self._session.flush()
 
     # ------------------------------ Preferences -----------------------------
 
