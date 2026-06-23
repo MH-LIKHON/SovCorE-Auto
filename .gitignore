@@ -198,6 +198,10 @@ cython_debug/
 #  It is never published. The repository is public, so PRIVATE stays local only.
 PRIVATE/
 
+# Claude Code local settings
+#  Personal per-project permission overrides. Local only, never published.
+.claude/settings.local.json
+
 # Un-ignore frontend source library directories so the Python-template
 # `lib/` rule above does not swallow frontend/web/src/lib/ and similar.
 !frontend/
