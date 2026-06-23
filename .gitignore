@@ -192,3 +192,8 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# SovCorE internal documentation
+#  PRIVATE/ is the internal record (blueprint, standards, status, roadmap).
+#  It is never published. The repository is public, so PRIVATE stays local only.
+PRIVATE/
