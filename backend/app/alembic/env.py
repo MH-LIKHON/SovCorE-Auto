@@ -30,7 +30,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# ---- Application imports ----
+# ------------------------------ Application imports -------------------------
 # Import Base so Alembic can read metadata. Domain model imports
 # are added below as each phase lands; they must be imported
 # before target_metadata is assigned.
@@ -57,6 +57,10 @@ import app.operational.models  # noqa: F401, E402
 
 # Phase 5 — tasks and reminders.
 import app.tasks.models  # noqa: F401, E402
+
+# Phase 7 — backups and erasure.
+import app.backups.models  # noqa: F401, E402
+import app.erasure.models  # noqa: F401, E402
 
 # ==================================================
 # ALEMBIC CONFIG

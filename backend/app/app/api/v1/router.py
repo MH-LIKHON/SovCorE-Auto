@@ -5,7 +5,17 @@
 # Purpose:
 #   Root router for the /api/v1 namespace. Domain routers are
 #   registered here as phases land. Health is Phase 0; auth and
-#   accounts are Phase 1. Phase 7 adds backups and erasure.
+#   accounts are Phase 1; vehicles and documents Phase 2;
+#   records and timeline Phase 3; operational modules Phase 4;
+#   tasks, reminders and health score Phase 5; reports, exports
+#   and search Phase 6; backups and erasure Phase 7.
+#
+# Design:
+#   Reminder endpoints live inside tasks_router (tasks.py).
+#   They are not a separate router module because they were
+#   introduced together with tasks in Phase 5 and the combined
+#   module stays well within a manageable size. The Phase 5
+#   include_router call therefore registers both resources.
 #
 # Consumed by:
 #   - backend/app/main.py (mounted at /api/v1)

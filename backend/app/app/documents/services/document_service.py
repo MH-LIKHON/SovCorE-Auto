@@ -30,6 +30,7 @@ from app.core.settings import get_settings
 from app.documents.models.document import Document
 from app.documents.repositories.document_repository import DocumentRepository
 from app.documents.schemas.document_schemas import (
+    MAX_UPLOAD_BYTES,
     DocumentCreateIn,
     DocumentOut,
     SignedUploadOut,
@@ -64,6 +65,11 @@ class DocumentService:
         r2_key = (
             f"{account_id}/vehicles/{data.vehicle_id}/docs/{ts}/{safe_name}"
         )
+        # generate_presigned_url (PUT) does not accept a Conditions block —
+        # that is a generate_presigned_post feature. The 50 MB cap is
+        # enforced at the schema layer (SignUploadIn + DocumentCreateIn).
+        # A future migration to generate_presigned_post would add R2-level
+        # content-length-range enforcement.
         upload_url = r2.generate_presigned_url(
             "put_object",
             Params={

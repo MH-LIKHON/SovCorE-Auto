@@ -21,10 +21,29 @@
 
 import uuid
 from datetime import date, datetime
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from app.documents.models.document import DocumentType
+
+# ==================================================
+# CONSTANTS
+# ==================================================
+
+# Only these MIME types may be uploaded. Executable and HTML types are
+# excluded to prevent serving active content from the R2 bucket.
+_ALLOWED_MIME_TYPES: frozenset[str] = frozenset({
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+})
+
+# 50 MB hard cap enforced on both the schema and the presigned URL
+# Conditions block. The schema rejects obviously wrong values before
+# a presigned URL is even generated.
+MAX_UPLOAD_BYTES: int = 50 * 1024 * 1024  # 50 MB
 
 # ==================================================
 # SIGNED UPLOAD
@@ -37,6 +56,16 @@ class SignUploadIn(BaseModel):
     filename: str
     content_type: str
     vehicle_id: uuid.UUID
+
+    @field_validator("content_type")
+    @classmethod
+    def content_type_must_be_allowed(cls, v: str) -> str:
+        if v not in _ALLOWED_MIME_TYPES:
+            raise ValueError(
+                f"Unsupported content type '{v}'. "
+                f"Allowed: {', '.join(sorted(_ALLOWED_MIME_TYPES))}."
+            )
+        return v
 
 
 # ------------------------------ Signed Upload Out ---------------------------
@@ -61,8 +90,18 @@ class DocumentCreateIn(BaseModel):
     r2_key: str
     filename: str
     content_type: str
-    size_bytes: int
+    size_bytes: int = Field(..., gt=0, le=MAX_UPLOAD_BYTES)
     expiry_date: date | None = None
+
+    @field_validator("content_type")
+    @classmethod
+    def content_type_must_be_allowed(cls, v: str) -> str:
+        if v not in _ALLOWED_MIME_TYPES:
+            raise ValueError(
+                f"Unsupported content type '{v}'. "
+                f"Allowed: {', '.join(sorted(_ALLOWED_MIME_TYPES))}."
+            )
+        return v
 
 
 # ------------------------------ Document Out --------------------------------
