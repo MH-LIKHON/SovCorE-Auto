@@ -23,6 +23,7 @@ import uuid
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.accounts.models.user import User
 from app.accounts.schemas.account_schemas import (
     AccountOut,
     AccountPatchIn,
@@ -31,11 +32,11 @@ from app.accounts.schemas.account_schemas import (
     PatchMemberRoleIn,
     TransferOwnershipIn,
 )
+from app.accounts.schemas.preferences_schemas import PreferencesOut, PreferencesPatchIn
 from app.accounts.services.account_service import AccountService
+from app.accounts.services.preferences_service import PreferencesService
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
-from app.core.permissions import require_admin, require_owner, require_viewer
-from app.accounts.models.user import User
+from app.core.permissions import require_admin, require_editor, require_owner, require_viewer
 
 # ==================================================
 # ROUTER
@@ -156,3 +157,35 @@ async def transfer_ownership(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     await AccountService(db).transfer_ownership(account_id, body, current_user.id)
+
+
+# ==================================================
+# PREFERENCES
+# ==================================================
+
+
+@router.get(
+    "/accounts/{account_id}/preferences",
+    response_model=PreferencesOut,
+    summary="Get display preferences for an account",
+)
+async def get_preferences(
+    account_id: uuid.UUID,
+    _: User = Depends(require_viewer),
+    db: AsyncSession = Depends(get_db),
+) -> PreferencesOut:
+    return await PreferencesService(db).get_preferences(account_id)
+
+
+@router.patch(
+    "/accounts/{account_id}/preferences",
+    response_model=PreferencesOut,
+    summary="Update display preferences for an account",
+)
+async def patch_preferences(
+    account_id: uuid.UUID,
+    body: PreferencesPatchIn,
+    _: User = Depends(require_editor),
+    db: AsyncSession = Depends(get_db),
+) -> PreferencesOut:
+    return await PreferencesService(db).patch_preferences(account_id, body)

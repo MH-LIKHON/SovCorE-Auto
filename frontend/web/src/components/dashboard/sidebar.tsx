@@ -44,6 +44,7 @@ const LINKS: ReadonlyArray<LinkSpec> = [
   { href: "/dashboard/tasks", label: "Tasks" },
   { href: "/dashboard/reports", label: "Reports" },
   { href: "/dashboard/settings/account", label: "Settings" },
+  { href: "/dashboard/settings/preferences", label: "Preferences" },
 ];
 
 // ==================================================
