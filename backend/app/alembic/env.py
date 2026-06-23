@@ -47,6 +47,11 @@ import app.auth.models      # noqa: F401, E402
 import app.vehicles.models  # noqa: F401, E402
 import app.documents.models  # noqa: F401, E402
 
+# Phase 3 — records domain models (records, attachments, tags, maintenance,
+# fuel, timeline_events) and audit_log.
+import app.records.models  # noqa: F401, E402
+import app.audit.models    # noqa: F401, E402
+
 # ==================================================
 # ALEMBIC CONFIG
 # ==================================================
