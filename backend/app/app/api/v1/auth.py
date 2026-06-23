@@ -5,7 +5,8 @@
 # Purpose:
 #   FastAPI router for /api/v1/auth/*. Handles the passwordless
 #   login flow (request-code, verify-code), token refresh,
-#   and logout. Microsoft SSO endpoints are added in Step 1.6.
+#   logout, TOTP two-factor authentication, and Microsoft
+#   OpenID Connect SSO.
 #
 # Design:
 #   The router owns HTTP concerns only: request parsing, cookie
@@ -24,11 +25,12 @@
 #   - backend/app/app/api/v1/router.py
 # ============================================================
 
+import uuid
+
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi.responses import RedirectResponse
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
-
-import uuid
 
 from app.accounts.models.user import User
 from app.auth.schemas.auth_schemas import (
@@ -41,6 +43,11 @@ from app.auth.schemas.auth_schemas import (
     VerifyCodeIn,
 )
 from app.auth.services.auth_service import AuthService, InvalidCodeError
+from app.auth.services.sso_service import (
+    MicrosoftSSOService,
+    SSOError,
+    generate_state,
+)
 from app.auth.services.totp_service import TotpError, TotpService
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
@@ -304,3 +311,95 @@ async def disable_2fa(
         return await service.disable(current_user.id, body.totp_code)
     except TotpError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+# ==================================================
+# MICROSOFT SSO — OPENID CONNECT
+# ==================================================
+
+# ------------------------------ Cookie config --------------------------------
+# The CSRF state token lives in an HTTP-only cookie for the duration of the
+# redirect round-trip. It expires after 5 minutes; that is more than enough
+# for the user to complete the Microsoft sign-in screen.
+
+_STATE_COOKIE_NAME = "sva_oauth_state"
+_STATE_COOKIE_MAX_AGE = 300  # seconds
+
+
+# ------------------------------ Start ---------------------------------------
+
+
+@router.get(
+    "/sso/microsoft/start",
+    summary="Begin the Microsoft OpenID Connect sign-in flow",
+    response_class=RedirectResponse,
+)
+async def sso_microsoft_start(response: Response) -> RedirectResponse:
+    """
+    Generate a CSRF state token, set it as an HTTP-only cookie, and
+    redirect the browser to Microsoft's authorization endpoint. Microsoft
+    redirects back to /sso/microsoft/callback with the code and state.
+    """
+    settings = get_settings()
+    if not settings.ms_client_id or not settings.ms_client_secret:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Microsoft SSO is not configured on this instance.",
+        )
+
+    state = generate_state()
+    auth_url = MicrosoftSSOService.build_auth_url(state)
+
+    redirect = RedirectResponse(url=auth_url, status_code=status.HTTP_302_FOUND)
+    redirect.set_cookie(
+        key=_STATE_COOKIE_NAME,
+        value=state,
+        httponly=True,
+        secure=settings.app_env == "production",
+        samesite="lax",
+        max_age=_STATE_COOKIE_MAX_AGE,
+    )
+    return redirect
+
+
+# ------------------------------ Callback ------------------------------------
+
+
+@router.get(
+    "/sso/microsoft/callback",
+    response_model=TokenPairOut,
+    summary="Complete the Microsoft OpenID Connect flow and issue tokens",
+)
+async def sso_microsoft_callback(
+    code: str,
+    state: str,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    sva_oauth_state: str | None = Cookie(default=None),
+) -> TokenPairOut:
+    """
+    Receive the authorization code from Microsoft, verify the CSRF state,
+    exchange the code for an id_token, resolve or create the user, and
+    issue a full access + refresh token pair.
+    """
+    # ~~~~~~~~~ CSRF check ~~~~~~~~~
+    if not sva_oauth_state or sva_oauth_state != state:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="State mismatch. Please start the sign-in process again.",
+        )
+
+    # Clear the one-time state cookie.
+    response.delete_cookie(key=_STATE_COOKIE_NAME, samesite="lax")
+
+    service = MicrosoftSSOService(db)
+    try:
+        result = await service.login(code)
+    except SSOError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    _set_refresh_cookie(response, result.refresh_token)
+    return result.token_pair

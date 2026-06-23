@@ -20,6 +20,7 @@
 #   - backend/app/app/core/security.py (JWT config)
 #   - backend/app/app/integrations/r2.py (R2 config)
 #   - backend/app/app/integrations/resend_client.py (Resend key)
+#   - backend/app/app/auth/services/sso_service.py (MS SSO config)
 # ============================================================
 
 from functools import lru_cache
@@ -57,6 +58,12 @@ class Settings(BaseSettings):
     # ------------------------------ Resend ------------------------------------
     resend_api_key: str = ""
     resend_from_address: str = "noreply@sovcore.com"
+
+    # ------------------------------ Microsoft SSO (OpenID Connect) ------------
+    ms_tenant_id: str = "common"
+    ms_client_id: str = ""
+    ms_client_secret: str = ""
+    ms_redirect_uri: str = "http://localhost:8000/api/v1/auth/sso/microsoft/callback"
 
     # ------------------------------ CORS --------------------------------------
     cors_origins: str = "http://localhost:3000"
