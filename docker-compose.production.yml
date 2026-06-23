@@ -1,0 +1,87 @@
+# ============================================================
+# docker-compose.production.yml
+# ============================================================
+#
+# Purpose:
+#   Production container orchestration for SovCorE Auto.
+#   Runs the frontend (Next.js) and backend (FastAPI + Gunicorn)
+#   without a local PostgreSQL container — production uses Neon.
+#
+# Usage:
+#   docker compose -f docker-compose.production.yml up -d
+#
+# Prerequisites:
+#   - backend/app/.env populated with real production values
+#   - frontend/web/.env.production populated with NEXT_PUBLIC_API_URL
+#   - Nginx installed on the host and configured from nginx/nginx.conf
+#   - cloudflared installed and a Tunnel configured per DEPLOYMENT/
+#     VM-CLOUDFLARE-PLAYBOOK.md
+#
+# Networking:
+#   Both containers bind to localhost ports only (127.0.0.1).
+#   Nginx on the host proxies to those ports. The Cloudflare Tunnel
+#   forwards public traffic to Nginx. No container port is exposed
+#   on the public interface of the VM.
+#
+# ============================================================
+
+version: "3.9"
+
+services:
+
+  # ----------------------------------------------------------
+  # FastAPI backend — Gunicorn + UvicornWorker
+  # ----------------------------------------------------------
+  backend:
+    build:
+      context: ./backend/app
+      dockerfile: Dockerfile
+    image: sovcore-auto-backend:latest
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      WORKERS: "4"
+    env_file:
+      - ./backend/app/.env
+    ports:
+      # Bound to localhost only — Nginx proxies to this port.
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "7"
+
+  # ----------------------------------------------------------
+  # Next.js frontend — standalone bundle
+  # ----------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend/web
+      dockerfile: Dockerfile
+      args:
+        # Baked into the bundle at build time. Set to the public-facing
+        # hostname that the browser uses to reach the backend API.
+        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-https://your-domain.com}"
+    image: sovcore-auto-frontend:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      # Bound to localhost only — Nginx proxies to this port.
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "7"

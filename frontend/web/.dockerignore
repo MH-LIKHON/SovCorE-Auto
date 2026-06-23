@@ -1,0 +1,34 @@
+# ============================================================
+# frontend/web/.dockerignore
+# ============================================================
+#
+# Purpose:
+#   Files excluded from the Docker build context. node_modules
+#   and .next are always rebuilt inside the image from a clean
+#   install, so excluding them from the context avoids copying
+#   gigabytes of host files that the build would ignore anyway.
+#
+# ============================================================
+
+# Node dependencies — reinstalled from package.json inside the image.
+node_modules/
+
+# Previous build output — rebuilt from source inside the image.
+.next/
+
+# Local environment files — NEXT_PUBLIC_* vars come via --build-arg.
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor and OS artefacts.
+.idea/
+.vscode/
+*.swp
+*.DS_Store
+Thumbs.db
+
+# Test artefacts.
+coverage/
+.nyc_output/
