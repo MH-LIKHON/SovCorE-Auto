@@ -33,6 +33,14 @@ from slowapi.util import get_remote_address
 
 
 def _client_ip(request: Request) -> str:
+    # Trust order: CF-Connecting-IP (Cloudflare) → X-Real-IP (Nginx) → raw socket.
+    # This is only safe when Cloudflare Tunnel and Nginx sit in front of the app,
+    # as documented in DEPLOYMENT/VM-CLOUDFLARE-PLAYBOOK.md. If the app is exposed
+    # directly (no tunnel), a client can inject a spoofed CF-Connecting-IP or
+    # X-Real-IP header and bypass the per-IP rate limit entirely. The current
+    # deployment architecture eliminates that risk, but any future deployment change
+    # that removes Cloudflare or Nginx must revisit this key function.
+
     # Cloudflare sets this header only when the request passes through
     # their network — it cannot be spoofed by the upstream client.
     cf_ip = request.headers.get("CF-Connecting-IP")
