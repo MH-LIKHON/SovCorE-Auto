@@ -34,6 +34,7 @@ from datetime import date, datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.health.services.health_service import score_for_card
 from app.vehicles.models.vehicle import Vehicle, VehicleRenewal
 from app.vehicles.repositories.vehicle_repository import VehicleRepository
 from app.vehicles.schemas.vehicle_schemas import (
@@ -249,7 +250,21 @@ class VehicleService:
             lifecycle_state=vehicle.lifecycle_state,
             image_key=vehicle.image_key,
             renewals=self._compute_rag(vehicle.renewal),
-            health_score=0,  # placeholder — Phase 5 defines the algorithm
+            health_score=self._compute_card_health(vehicle),
+        )
+
+    # ------------------------------ Card health score -----------------------
+
+    @staticmethod
+    def _compute_card_health(vehicle: Vehicle) -> int:
+        renewal = vehicle.renewal
+        return score_for_card(
+            mot_expiry=renewal.mot_expiry if renewal else None,
+            insurance_expiry=renewal.insurance_expiry if renewal else None,
+            service_due_date=renewal.service_due_date if renewal else None,
+            tax_due_date=renewal.tax_due_date if renewal else None,
+            service_due_mileage=renewal.service_due_mileage if renewal else None,
+            current_mileage=vehicle.mileage,
         )
 
     # ------------------------------ RAG computation -------------------------
