@@ -24,11 +24,14 @@ from typing import AsyncGenerator
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
 
 from app.api.v1.router import v1_router
 from app.core.logging import configure_logging
+from app.core.rate_limit import RateLimitExceeded, limiter
 from app.core.settings import get_settings
 from app.integrations.resend_client import configure_resend
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.scheduler.runner import start_scheduler, stop_scheduler
 
 # ==================================================
@@ -45,6 +48,7 @@ logger = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ~~~~~~~~~ Startup ~~~~~~~~~
+    settings.assert_production_secrets()  # Fails fast if placeholder secrets are in production
     configure_resend()
     start_scheduler()
     logger.info("sovcore_auto_starting", env=settings.app_env)
@@ -65,6 +69,18 @@ app = FastAPI(
     docs_url="/api/docs" if settings.app_debug else None,
     redoc_url="/api/redoc" if settings.app_debug else None,
     lifespan=lifespan,
+)
+
+# ------------------------------ Rate limiter --------------------------------
+# Attach the limiter to app.state so slowapi can find it at request time.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+# ------------------------------ Security headers ----------------------------
+# Added before CORS so headers are present on CORS preflight responses too.
+app.add_middleware(
+    SecurityHeadersMiddleware,
+    is_production=settings.app_env == "production",
 )
 
 # ------------------------------ CORS middleware ----------------------------

@@ -27,7 +27,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,6 +51,7 @@ from app.auth.services.sso_service import (
 from app.auth.services.totp_service import TotpError, TotpService
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import limiter
 from app.core.security import decode_token, issue_access_token
 from app.core.settings import get_settings
 
@@ -101,7 +102,9 @@ def _clear_refresh_cookie(response: Response) -> None:
     response_model=RequestCodeOut,
     summary="Request a six-digit login code",
 )
+@limiter.limit("5/minute")
 async def request_code(
+    request: Request,
     body: RequestCodeIn,
     db: AsyncSession = Depends(get_db),
 ) -> RequestCodeOut:
@@ -122,7 +125,9 @@ async def request_code(
     response_model=TokenPairOut,
     summary="Verify the login code and receive tokens",
 )
+@limiter.limit("10/minute")
 async def verify_code(
+    request: Request,
     body: VerifyCodeIn,
     response: Response,
     db: AsyncSession = Depends(get_db),
@@ -156,7 +161,9 @@ async def verify_code(
     response_model=TokenPairOut,
     summary="Exchange a refresh token for a new access token",
 )
+@limiter.limit("20/minute")
 async def refresh_token(
+    request: Request,
     response: Response,
     sva_refresh: str | None = Cookie(default=None),
 ) -> TokenPairOut:
@@ -224,7 +231,9 @@ async def logout(response: Response) -> None:
     response_model=TokenPairOut,
     summary="Complete the TOTP challenge after passwordless code login",
 )
+@limiter.limit("10/minute")
 async def verify_2fa_login(
+    request: Request,
     body: TotpChallengeIn,
     response: Response,
     current_user: User = Depends(get_current_user),

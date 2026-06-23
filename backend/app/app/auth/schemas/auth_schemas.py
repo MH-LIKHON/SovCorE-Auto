@@ -17,7 +17,9 @@
 #   - backend/app/app/api/v1/auth.py (router)
 # ============================================================
 
-from pydantic import BaseModel, EmailStr, field_validator
+import re
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # ==================================================
 # REQUEST SCHEMAS
@@ -48,7 +50,7 @@ class VerifyCodeIn(BaseModel):
     model_config = {"extra": "forbid"}
 
     email: EmailStr
-    code: str  # The six-digit code exactly as the user typed it.
+    code: str = Field(min_length=6, max_length=6)
 
     @field_validator("email", mode="before")
     @classmethod
@@ -57,8 +59,12 @@ class VerifyCodeIn(BaseModel):
 
     @field_validator("code", mode="before")
     @classmethod
-    def strip_code(cls, v: str) -> str:
-        return v.strip()
+    def validate_code(cls, v: str) -> str:
+        v = v.strip()
+        # Must be exactly six decimal digits — no letters, spaces or punctuation.
+        if not re.fullmatch(r"\d{6}", v):
+            raise ValueError("Code must be exactly six digits.")
+        return v
 
 
 # ------------------------------ TOTP Challenge ------------------------------
@@ -69,7 +75,15 @@ class TotpChallengeIn(BaseModel):
 
     model_config = {"extra": "forbid"}
 
-    totp_code: str  # Six-digit TOTP from the authenticator app.
+    totp_code: str = Field(min_length=6, max_length=6)
+
+    @field_validator("totp_code", mode="before")
+    @classmethod
+    def validate_totp_code(cls, v: str) -> str:
+        v = v.strip()
+        if not re.fullmatch(r"\d{6}", v):
+            raise ValueError("TOTP code must be exactly six digits.")
+        return v
 
 
 # ==================================================

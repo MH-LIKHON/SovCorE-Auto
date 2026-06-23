@@ -44,6 +44,10 @@ apscheduler==3.10.4
 # PDF generation (Phase 6 export)
 fpdf2==2.8.2
 
+# Rate limiting
+slowapi==0.1.9
+limits==3.13.0
+
 # Utilities
 python-dotenv==1.0.1
 structlog==24.4.0

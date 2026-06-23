@@ -68,9 +68,49 @@ class Settings(BaseSettings):
     # ------------------------------ CORS --------------------------------------
     cors_origins: str = "http://localhost:3000"
 
+    # ------------------------------ Rate limiting ------------------------------
+    # Disabled by default in testing; always enabled in production.
+    rate_limit_enabled: bool = True
+
+    # ------------------------------ Cron secret --------------------------------
+    # Guards the scheduled-job endpoints so they cannot be triggered externally.
+    cron_secret: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    def assert_production_secrets(self) -> None:
+        """
+        Raise ValueError if any secret still holds a placeholder value when
+        running in production. Called once at startup so the error surfaces
+        immediately rather than at the first protected request.
+        """
+        if self.app_env != "production":
+            return
+
+        _placeholder = "change-me-to-a-random-64-char-hex-string"
+        if self.app_secret_key == _placeholder or len(self.app_secret_key) < 32:
+            raise ValueError(
+                "APP_SECRET_KEY must be set to a random secret of at least 32 characters "
+                "before running in production."
+            )
+
+        if not self.resend_api_key or self.resend_api_key.startswith("re_your"):
+            raise ValueError(
+                "RESEND_API_KEY must be set to a real Resend API key in production."
+            )
+
+        if not self.database_url or "password@host" in self.database_url:
+            raise ValueError(
+                "DATABASE_URL must point to a real Neon PostgreSQL instance in production."
+            )
+
+        if self.app_debug:
+            raise ValueError(
+                "APP_DEBUG must be false in production to prevent the OpenAPI docs "
+                "from being publicly accessible."
+            )
 
 
 # ==================================================
