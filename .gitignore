@@ -128,13 +128,19 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+#   .env.* blocks all variants (.env.local, .env.production, etc.)
+#   Negations keep the committed templates and examples unignored.
 .env
+.env.*
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+!**/.env.template
+!**/.env.local.template
+!**/.env.production.example
 
 # Spyder project settings
 .spyderproject
