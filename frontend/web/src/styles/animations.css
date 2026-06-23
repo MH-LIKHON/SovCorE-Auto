@@ -1,0 +1,185 @@
+/* ============================================================
+   frontend/web/src/styles/animations.css
+   ============================================================
+
+   Purpose:
+     Defines all CSS keyframe animations used across the
+     SovCorE Auto frontend. Only keyframes live here — no
+     selectors, no class rules, no utility classes.
+
+     Components apply these animations via inline styles or
+     Tailwind arbitrary values referencing the keyframe name.
+
+   Origin:
+     Copied from SovCorE QR src/styles/animations.css, which
+     mirrors the SovCorE platform animation vocabulary exactly.
+     The qrRefresh keyframe is omitted; it was QR-specific.
+
+   Usage:
+     Imported once in globals.css via @import './animations.css'.
+     Keyframe names are then available globally.
+
+   ============================================================ */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 0%;
+  }
+  100% {
+    background-position: 200%;
+  }
+}
+
+@keyframes logoShimmer {
+  0% {
+    background-position: 200% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutLeft {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes progressFill {
+  from {
+    width: 24px;
+  }
+  to {
+    width: 40px;
+  }
+}
+
+@keyframes borderDraw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes shineSweep {
+  from {
+    left: -120%;
+  }
+  to {
+    left: 140%;
+  }
+}
+
+@keyframes spinSlow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes marqueeScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ── cardGlowSweep ──────────────────────────────────────────
+   Continuous top-edge gradient sweep on cards in glow mode.
+   The sweep div is sized at 400% width and translates from
+   -50% to 0% over 4s linear, looping forever. The container
+   has overflow:hidden so the sweep clips at the card edge.
+   Used by: frontend/web/src/components/ui/card.tsx.
+   ─────────────────────────────────────────────────────────── */
+@keyframes cardGlowSweep {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}

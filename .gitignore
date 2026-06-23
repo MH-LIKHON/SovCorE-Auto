@@ -197,3 +197,13 @@ cython_debug/
 #  PRIVATE/ is the internal record (blueprint, standards, status, roadmap).
 #  It is never published. The repository is public, so PRIVATE stays local only.
 PRIVATE/
+
+# Un-ignore frontend source library directories so the Python-template
+# `lib/` rule above does not swallow frontend/web/src/lib/ and similar.
+!frontend/
+!frontend/**/
+!frontend/**/*.ts
+!frontend/**/*.tsx
+!frontend/**/*.css
+!frontend/**/*.mjs
+!frontend/**/*.json

@@ -1,0 +1,174 @@
+/* ============================================================
+   frontend/web/src/styles/variables.css
+   ============================================================
+
+   Purpose:
+     Defines all CSS custom properties (design tokens) used
+     across the SovCorE Auto frontend. Every colour, radius,
+     spacing unit, font reference, and z-index value is
+     declared here so components never hard-code values.
+
+   Origin:
+     Copied from SovCorE QR src/styles/variables.css, which
+     mirrors the SovCorE platform design token set. The token
+     values are identical across the suite. Only the product
+     tint block at the foot of this file changes: it is renamed
+     from --product-qr to --product-auto with Auto's own tint.
+
+   Usage:
+     Imported once in globals.css via @import './variables.css'.
+     Available on every element via the :root cascade.
+
+   Sections:
+     1. Colours       - brand, surface, text, border, semantic
+     2. Typography    - font families, sizes, weights, line heights
+     3. Spacing       - base scale used for padding and margin
+     4. Radii         - border radius tokens
+     5. Shadows       - elevation tokens
+     6. Z-index       - stacking layer tokens
+     7. Transitions   - shared duration and easing values
+     8. Product tints - Auto tints (replaces QR tint block)
+
+   ============================================================ */
+
+:root {
+  /* ── 1. Colours ─────────────────────────────────────────── */
+
+  /* Brand */
+  --colour-accent: #6c63ff; /* Primary purple - buttons, active states, highlights */
+  --colour-accent-dim: #5548e0; /* Darker purple - button hover gradient end */
+  --colour-accent2: #00d4ff; /* Cyan - gradient partner, cursor ring on expand */
+  --colour-accent3: #ff6b6b; /* Coral red - negative deltas, error states */
+  --colour-amber: #fac875; /* Amber - warning states */
+  --colour-teal: #00d4aa; /* Teal - success states */
+
+  /* Surfaces */
+  --colour-bg: #08080f; /* Page background - deepest layer */
+  --colour-bg-2: #0f0f1a; /* Elevated surface - cards, panels */
+  --colour-bg-3: #141422; /* Further elevated - nested cards, sidebar */
+  --colour-bg-card: rgba(14, 14, 22, 0.85); /* Standard card background */
+  --colour-bg-card-solid: rgba(14, 14, 22, 0.92); /* Solid card - modals, sticky panels */
+
+  /* Text */
+  --colour-text: #f0f0f8; /* Primary text - headings, labels */
+  --colour-text-muted: #8888aa; /* Secondary text - descriptions, placeholders */
+  --colour-text-faint: rgba(136, 136, 170, 0.45); /* Tertiary - column headers, hints */
+
+  /* Borders */
+  --colour-border: rgba(255, 255, 255, 0.07); /* Default border */
+  --colour-border-hover: rgba(255, 255, 255, 0.12); /* Hovered border */
+  --colour-border-accent: rgba(108, 99, 255, 0.35); /* Accent-tinted border */
+  --colour-border-active: rgba(108, 99, 255, 0.55); /* Active / focused border */
+
+  /* Semantic */
+  --colour-success: #00d4aa;
+  --colour-warning: #fac875;
+  --colour-error: #ff6b6b;
+  --colour-info: #00d4ff;
+
+  /* Glows - used for box-shadow accents on cards and buttons */
+  --glow-accent: 0 0 30px rgba(108, 99, 255, 0.3);
+  --glow-accent-strong: 0 0 50px rgba(108, 99, 255, 0.5);
+  --glow-card: 0 28px 70px rgba(0, 0, 0, 0.4), 0 0 36px rgba(108, 99, 255, 0.08);
+
+  /* ── 2. Typography ──────────────────────────────────────── */
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: clamp(28px, 4vw, 50px);
+  --text-hero: clamp(40px, 7vw, 80px);
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 600;
+
+  --leading-tight: 1.06;
+  --leading-snug: 1.3;
+  --leading-normal: 1.7;
+  --leading-loose: 1.8;
+
+  --tracking-tight: -2px;
+  --tracking-normal: 0px;
+  --tracking-wide: 0.5px;
+  --tracking-wider: 1px;
+  --tracking-widest: 2px;
+
+  /* ── 3. Spacing ─────────────────────────────────────────── */
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-28: 112px;
+
+  /* ── 4. Radii ───────────────────────────────────────────── */
+
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* ── 5. Shadows ─────────────────────────────────────────── */
+
+  --shadow-card: 0 50px 120px rgba(0, 0, 0, 0.7);
+  --shadow-modal: 0 40px 100px rgba(0, 0, 0, 0.6);
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.3);
+
+  /* ── 6. Z-index ─────────────────────────────────────────── */
+
+  --z-background: 0;
+  --z-base: 1;
+  --z-sticky: 10;
+  --z-sidenav: 100;
+  --z-nav: 1000;
+  --z-menu: 999;
+  --z-modal: 2000;
+  --z-cursor: 99999;
+
+  /* ── 7. Transitions ─────────────────────────────────────── */
+
+  --duration-fast: 0.15s;
+  --duration-normal: 0.25s;
+  --duration-slow: 0.4s;
+  --duration-sticky: 0.45s;
+  --duration-carousel: 0.55s;
+
+  --ease-default: ease;
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── 8. Product tints ───────────────────────────────────── */
+
+  /* Auto - purple-cyan blend, consistent with the SovCorE suite */
+  --product-auto: #6c63ff;
+  --product-auto-2: #00d4ff;
+  --product-auto-bg: rgba(108, 99, 255, 0.12);
+  --product-auto-border: rgba(108, 99, 255, 0.25);
+  --product-auto-tag-bg: rgba(108, 99, 255, 0.1);
+  --product-auto-tag-text: #9d97ff;
+
+  /* Lifecycle state colours - used by vehicle status indicators */
+  --state-active: #00d4aa; /* Vehicle in active use */
+  --state-sold: #fac875; /* Vehicle sold */
+  --state-scrapped: #ff6b6b; /* Vehicle scrapped */
+  --state-archived: rgba(136, 136, 170, 0.7); /* Vehicle archived */
+}
