@@ -1,0 +1,42 @@
+# ============================================================
+# backend/app/requirements.txt
+# ============================================================
+#
+# Purpose:
+#   Python dependencies for the SovCorE Auto backend.
+#   Pin major versions. Update deliberately.
+#
+# ============================================================
+
+# Web framework and server
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+
+# Data validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Database
+sqlalchemy==2.0.36
+sqlmodel==0.0.22
+alembic==1.14.0
+asyncpg==0.30.0
+greenlet==3.1.1
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.12
+
+# Object storage (Cloudflare R2 is S3-compatible)
+boto3==1.35.72
+
+# Email
+resend==2.5.0
+
+# HTTP client (for internal service calls)
+httpx==0.28.1
+
+# Utilities
+python-dotenv==1.0.1
+structlog==24.4.0
