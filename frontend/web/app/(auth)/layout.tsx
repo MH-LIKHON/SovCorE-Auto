@@ -94,7 +94,27 @@ const AUTH_STYLES = `
     text-align: right;
     max-width: 480px;
   }
-  @media (max-width: 767px) {
+  /* ---------- Tablet ---------- */
+  @media (max-width: 1023px) {
+    .auth-shell__head { padding: var(--space-5) var(--space-6); }
+    .auth-shell__foot { padding: var(--space-5) var(--space-6); }
+    .auth-shell__main { padding: var(--space-6) var(--space-6); }
+  }
+
+  /* ---------- Small phone ---------- */
+  @media (max-width: 479px) {
+    .auth-shell__head { padding: var(--space-4) var(--space-5); }
+    .auth-shell__main {
+      padding: var(--space-5) var(--space-4);
+      /* Anchor to top so tall cards are not clipped on short screens. */
+      align-items: flex-start;
+    }
+    .auth-shell__foot { padding: var(--space-4) var(--space-5); flex-direction: column; align-items: flex-start; }
+    .auth-shell__disclosure { text-align: left; }
+  }
+
+  /* ---------- Legacy 767px rule — override disclosure alignment ---------- */
+  @media (min-width: 480px) and (max-width: 767px) {
     .auth-shell__head { padding: var(--space-4) var(--space-5); }
     .auth-shell__foot { padding: var(--space-4) var(--space-5); flex-direction: column; align-items: flex-start; }
     .auth-shell__disclosure { text-align: left; }
