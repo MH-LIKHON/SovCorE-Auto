@@ -27,6 +27,7 @@ from app.accounts.models.user import User
 from app.accounts.schemas.account_schemas import (
     AccountOut,
     AccountPatchIn,
+    DashboardSummaryOut,
     InviteMemberIn,
     MemberOut,
     PatchMemberRoleIn,
@@ -189,3 +190,21 @@ async def patch_preferences(
     db: AsyncSession = Depends(get_db),
 ) -> PreferencesOut:
     return await PreferencesService(db).patch_preferences(account_id, body)
+
+
+# ==================================================
+# DASHBOARD SUMMARY
+# ==================================================
+
+
+@router.get(
+    "/accounts/{account_id}/summary",
+    response_model=DashboardSummaryOut,
+    summary="Aggregated dashboard stats for an account",
+)
+async def get_dashboard_summary(
+    account_id: uuid.UUID,
+    _: User = Depends(require_viewer),
+    db: AsyncSession = Depends(get_db),
+) -> DashboardSummaryOut:
+    return await AccountService(db).get_dashboard_summary(account_id)

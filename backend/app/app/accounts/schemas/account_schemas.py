@@ -138,6 +138,26 @@ class TransferOwnershipIn(BaseModel):
 
 
 # ==================================================
+# DASHBOARD SUMMARY
+# ==================================================
+
+
+class DashboardSummaryOut(BaseModel):
+    """
+    Aggregated stats for the dashboard overview panel.
+    Returned by GET /accounts/{id}/summary.
+    """
+
+    active_vehicle_count: int
+    member_count: int
+    open_task_count: int
+    # Reminders with due_date within the next 30 days and active=True.
+    due_soon_reminder_count: int
+    # Sum of record costs for the current calendar month, in pence.
+    monthly_spend_pence: int
+
+
+# ==================================================
 # CURRENT USER (me)
 # ==================================================
 

@@ -18,8 +18,9 @@
 # ============================================================
 
 import uuid
+from datetime import date, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -138,3 +139,68 @@ class AccountRepository:
             select(AccountPreferences).where(AccountPreferences.account_id == account_id)
         )
         return result.scalar_one_or_none()
+
+    # ------------------------------ Dashboard summary ----------------------
+
+    async def get_dashboard_summary(self, account_id: uuid.UUID) -> dict[str, int]:
+        """
+        Returns five aggregated counts for the dashboard overview panel.
+        All queries run against already-indexed account_id columns.
+        """
+        from app.records.models.record import Record
+        from app.tasks.models.reminder import Reminder
+        from app.tasks.models.task import Task
+        from app.vehicles.models.vehicle import Vehicle
+
+        today = date.today()
+        month_start = today.replace(day=1)
+        due_soon_cutoff = today + timedelta(days=30)
+
+        # ~~~~~~~~~ Active vehicle count ~~~~~~~~~
+        veh_res = await self._session.execute(
+            select(func.count(Vehicle.id))
+            .where(Vehicle.account_id == account_id)
+            .where(Vehicle.lifecycle_state == "active")
+        )
+        active_vehicle_count: int = veh_res.scalar_one() or 0
+
+        # ~~~~~~~~~ Member count ~~~~~~~~~
+        mem_res = await self._session.execute(
+            select(func.count(Membership.id))
+            .where(Membership.account_id == account_id)
+        )
+        member_count: int = mem_res.scalar_one() or 0
+
+        # ~~~~~~~~~ Open task count (not completed) ~~~~~~~~~
+        task_res = await self._session.execute(
+            select(func.count(Task.id))
+            .where(Task.account_id == account_id)
+            .where(Task.status != "completed")
+        )
+        open_task_count: int = task_res.scalar_one() or 0
+
+        # ~~~~~~~~~ Due-soon reminder count (active, due within 30 days) ~~~~~~~~~
+        rem_res = await self._session.execute(
+            select(func.count(Reminder.id))
+            .where(Reminder.account_id == account_id)
+            .where(Reminder.active.is_(True))
+            .where(Reminder.due_date >= today)
+            .where(Reminder.due_date <= due_soon_cutoff)
+        )
+        due_soon_reminder_count: int = rem_res.scalar_one() or 0
+
+        # ~~~~~~~~~ Monthly spend in pence (current calendar month) ~~~~~~~~~
+        spend_res = await self._session.execute(
+            select(func.coalesce(func.sum(Record.cost), 0))
+            .where(Record.account_id == account_id)
+            .where(Record.date >= month_start)
+        )
+        monthly_spend_pence: int = spend_res.scalar_one() or 0
+
+        return {
+            "active_vehicle_count": active_vehicle_count,
+            "member_count": member_count,
+            "open_task_count": open_task_count,
+            "due_soon_reminder_count": due_soon_reminder_count,
+            "monthly_spend_pence": monthly_spend_pence,
+        }

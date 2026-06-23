@@ -36,6 +36,7 @@ from app.accounts.repositories.user_repository import UserRepository
 from app.accounts.schemas.account_schemas import (
     AccountOut,
     AccountPatchIn,
+    DashboardSummaryOut,
     InviteMemberIn,
     MemberOut,
     PatchMemberRoleIn,
@@ -202,6 +203,12 @@ class AccountService:
             new_owner_user_id=str(body.new_owner_user_id),
             previous_owner_user_id=str(current_user_id),
         )
+
+    # ------------------------------ Dashboard summary -----------------------
+
+    async def get_dashboard_summary(self, account_id: uuid.UUID) -> DashboardSummaryOut:
+        data = await self._accounts.get_dashboard_summary(account_id)
+        return DashboardSummaryOut(**data)
 
 
 # ==================================================
