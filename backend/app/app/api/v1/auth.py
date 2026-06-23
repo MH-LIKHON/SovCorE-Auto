@@ -28,18 +28,24 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import uuid
+
+from app.accounts.models.user import User
 from app.auth.schemas.auth_schemas import (
     RequestCodeIn,
     RequestCodeOut,
     TokenPairOut,
+    TotpChallengeIn,
+    TotpSetupOut,
+    TotpVerifyOut,
     VerifyCodeIn,
 )
 from app.auth.services.auth_service import AuthService, InvalidCodeError
+from app.auth.services.totp_service import TotpError, TotpService
 from app.core.database import get_db
+from app.core.dependencies import get_current_user
 from app.core.security import decode_token, issue_access_token
 from app.core.settings import get_settings
-
-import uuid
 
 router = APIRouter()
 _settings = get_settings()
@@ -197,3 +203,104 @@ async def logout(response: Response) -> None:
     own schedule; the frontend should discard it immediately.
     """
     _clear_refresh_cookie(response)
+
+
+# ==================================================
+# TWO-FACTOR AUTHENTICATION
+# ==================================================
+
+# ------------------------------ Post-login 2FA challenge --------------------
+
+
+@router.post(
+    "/2fa/verify",
+    response_model=TokenPairOut,
+    summary="Complete the TOTP challenge after passwordless code login",
+)
+async def verify_2fa_login(
+    body: TotpChallengeIn,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TokenPairOut:
+    """
+    Called when verify-code returned requires_2fa=true. Verifies the
+    six-digit TOTP code and issues the full access + refresh token pair.
+    The partial access token (type=partial) is accepted by get_current_user.
+    """
+    service = TotpService(db)
+    try:
+        result = await service.verify_login(current_user.id, body.totp_code)
+    except TotpError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    _set_refresh_cookie(response, result.refresh_token)
+    return result.token_pair
+
+
+# ------------------------------ TOTP setup (from account settings) ----------
+
+
+@router.post(
+    "/2fa/setup",
+    response_model=TotpSetupOut,
+    summary="Begin TOTP two-factor authentication setup",
+)
+async def setup_2fa(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TotpSetupOut:
+    """
+    Generate a new TOTP secret and return the provisioning URI.
+    2FA is not active until /2fa/confirm is called with a valid code.
+    """
+    service = TotpService(db)
+    return await service.setup(current_user.id)
+
+
+# ------------------------------ TOTP confirm --------------------------------
+
+
+@router.post(
+    "/2fa/confirm",
+    response_model=TotpVerifyOut,
+    summary="Confirm TOTP setup with the first authenticator code",
+)
+async def confirm_2fa(
+    body: TotpChallengeIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TotpVerifyOut:
+    """
+    Verify the first TOTP code after setup. On success, 2FA is active
+    and every future login requires a TOTP code after the email code.
+    """
+    service = TotpService(db)
+    try:
+        return await service.confirm(current_user.id, body.totp_code)
+    except TotpError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+# ------------------------------ Disable 2FA --------------------------------
+
+
+@router.post(
+    "/2fa/disable",
+    response_model=TotpVerifyOut,
+    summary="Disable TOTP two-factor authentication",
+)
+async def disable_2fa(
+    body: TotpChallengeIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> TotpVerifyOut:
+    """
+    Disable 2FA for the account. A valid TOTP code is required so a
+    stolen session cannot silently remove the second factor.
+    """
+    service = TotpService(db)
+    try:
+        return await service.disable(current_user.id, body.totp_code)
+    except TotpError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
