@@ -72,8 +72,12 @@ services:
       context: ./frontend/web
       dockerfile: Dockerfile.dev
     restart: unless-stopped
-    env_file:
-      - ./frontend/web/.env.local
+    environment:
+      # The two frontend vars are static in development and baked in here
+      # so there is no separate frontend env file to manage.
+      # In production these are build args (see docker-compose.production.yml).
+      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+      NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
     ports:
       - "3000:3000"
     volumes:
