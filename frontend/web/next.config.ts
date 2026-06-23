@@ -43,7 +43,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 // nonce implementation. Adding nonces is a Phase 9 hardening item.
 const csp = [
   `default-src 'self'`,
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,  // unsafe-eval needed by Next.js dev
+  `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,  // unsafe-eval required by Next.js App Router in production; remove only after adopting nonces (Phase 9)
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self' data: blob:`,
   `font-src 'self' data:`,

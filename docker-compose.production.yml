@@ -67,9 +67,11 @@ services:
       context: ./frontend/web
       dockerfile: Dockerfile
       args:
-        # Baked into the bundle at build time. Set to the public-facing
-        # hostname that the browser uses to reach the backend API.
-        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-https://your-domain.com}"
+        # Baked into the bundle at build time. NEXT_PUBLIC_API_URL must be
+        # set in the shell (or .env) before running docker compose up --build.
+        # No default is provided so a missing value fails the build immediately
+        # rather than baking a placeholder URL into the production bundle.
+        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL}"
     image: sovcore-auto-frontend:latest
     restart: unless-stopped
     environment:

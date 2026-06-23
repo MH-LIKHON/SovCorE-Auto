@@ -45,6 +45,11 @@ services:
       dockerfile: Dockerfile.dev
     restart: unless-stopped
     environment:
+      # DATABASE_URL is set here explicitly so the backend always connects to
+      # the local Postgres container in dev, regardless of what env_file says.
+      # If you point your .env at Neon or another remote database, this line
+      # takes precedence and you will still hit the local container. Remove or
+      # comment this line only if you intentionally want the .env value to win.
       DATABASE_URL: postgresql+asyncpg://sovcore:sovcore_dev@postgres/sovcore_auto
       APP_ENV: development
       APP_DEBUG: "true"
