@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import v1_router
 from app.core.logging import configure_logging
 from app.core.settings import get_settings
+from app.integrations.resend_client import configure_resend
 
 # ==================================================
 # STARTUP / SHUTDOWN
@@ -43,6 +44,7 @@ logger = structlog.get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ~~~~~~~~~ Startup ~~~~~~~~~
+    configure_resend()
     logger.info("sovcore_auto_starting", env=settings.app_env)
     yield
     # ~~~~~~~~~ Shutdown ~~~~~~~~~
