@@ -37,6 +37,12 @@ from alembic import context
 from app.core.database import Base
 from app.core.settings import get_settings
 
+# Phase 1 — identity, accounts and auth models.
+# These imports register the ORM tables with Base.metadata so
+# autogenerate and manual migrations can see the full schema.
+import app.accounts.models  # noqa: F401, E402
+import app.auth.models      # noqa: F401, E402
+
 # ==================================================
 # ALEMBIC CONFIG
 # ==================================================
