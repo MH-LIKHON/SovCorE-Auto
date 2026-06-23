@@ -41,6 +41,9 @@ httpx==0.28.1
 # Background scheduler
 apscheduler==3.10.4
 
+# PDF generation (Phase 6 export)
+fpdf2==2.8.2
+
 # Utilities
 python-dotenv==1.0.1
 structlog==24.4.0

@@ -113,6 +113,54 @@ function maxOf(items: MonthlyTotal[]): number {
 }
 
 // ==================================================
+// EXPORT BUTTON
+// ==================================================
+
+interface ExportButtonProps {
+  accountId: string;
+  vehicleId: string;
+  type: string;
+  label: string;
+}
+
+function ExportButton({ accountId, vehicleId, type, label }: ExportButtonProps) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleExport() {
+    setBusy(true);
+    try {
+      const res = await apiFetch(
+        `/api/v1/accounts/${accountId}/exports/vehicle/${vehicleId}?type=${type}`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        // ~~~~~~~~~ Trigger a browser file download from the response bytes ~~~~~~~~~
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const today = new Date().toISOString().split("T")[0];
+        a.href = url;
+        a.download = `sovcoreAuto-${type.replace("_", "-")}-${today}.pdf`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      className="rec-btn rec-btn--ghost rpt-export-btn"
+      onClick={handleExport}
+      disabled={busy}
+    >
+      {busy ? "…" : label}
+    </button>
+  );
+}
+
+// ==================================================
 // PAGE
 // ==================================================
 
@@ -430,6 +478,37 @@ export default function ReportsPage() {
         )}
       </section>
 
+      {/* ---- Exports section ---- */}
+      {costs && costs.by_vehicle.length > 0 && (
+        <section className="rpt-section">
+          <h2 className="rpt-section-heading">Export</h2>
+          <Card>
+            <h3 className="rec-section-title">PDF reports by vehicle</h3>
+            <p className="rpt-note" style={{ marginTop: 0, paddingTop: 0, border: "none" }}>
+              Download a PDF report for any vehicle. Reports open as file downloads.
+            </p>
+            <div className="rec-rows">
+              {costs.by_vehicle.map((v) => (
+                <div key={v.vehicle_id} className="rpt-row">
+                  <div className="rpt-row__left">
+                    <span className="rpt-row__label rpt-row__reg">{v.registration}</span>
+                    <span className="rpt-row__count">
+                      {v.make} {v.model}{v.year ? ` · ${v.year}` : ""}
+                    </span>
+                  </div>
+                  <div className="rpt-export-btns">
+                    <ExportButton accountId={accountId} vehicleId={v.vehicle_id} type="vehicle" label="Vehicle report" />
+                    <ExportButton accountId={accountId} vehicleId={v.vehicle_id} type="service_history" label="Service history" />
+                    <ExportButton accountId={accountId} vehicleId={v.vehicle_id} type="maintenance" label="Maintenance" />
+                    <ExportButton accountId={accountId} vehicleId={v.vehicle_id} type="expenses" label="Expenses" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </section>
+      )}
+
       <style>{RPT_STYLES}</style>
     </div>
   );
@@ -554,6 +633,18 @@ const RPT_STYLES = `
     border-top: 0.5px solid var(--colour-border);
   }
 
+  /* ---- Export buttons strip ---- */
+  .rpt-export-btns {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .rpt-export-btn {
+    font-size: var(--text-xs);
+    padding: 4px 10px;
+  }
+
   /* ---- Responsive ---- */
   @media (max-width: 767px) {
     .rpt-stats { grid-template-columns: repeat(2, 1fr); }
@@ -561,5 +652,6 @@ const RPT_STYLES = `
     .rpt-bar-amount { display: none; }
     .rpt-row { flex-direction: column; align-items: flex-start; }
     .rpt-row__right { align-items: flex-start; }
+    .rpt-export-btns { margin-top: var(--space-2); }
   }
 `;
