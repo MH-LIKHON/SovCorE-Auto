@@ -18,10 +18,10 @@
 // ==================================================
 
 // Wordmark shown next to the logo across every surface.
-export const BRAND_NAME = "SoVCorE";
+export const BRAND_NAME = "SovCorE";
 
 // Legal entity name used in the copyright line.
-export const BRAND_LEGAL = "SoVCorE";
+export const BRAND_LEGAL = "SovCorE";
 
 // Product label shown next to the brand mark inside this app.
 export const PRODUCT_LABEL = "Auto";
