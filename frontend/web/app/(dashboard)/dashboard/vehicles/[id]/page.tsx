@@ -400,6 +400,12 @@ export default function VehicleProfilePage() {
         <Link href={`/dashboard/vehicles/${vehicle.id}/warranty`} className="vd-tab">
           Warranty
         </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/tasks`} className="vd-tab">
+          Tasks
+        </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/reminders`} className="vd-tab">
+          Reminders
+        </Link>
         <Link href={`/dashboard/vehicles/${vehicle.id}/timeline`} className="vd-tab">
           Timeline
         </Link>
