@@ -8,7 +8,8 @@
 #   accounts are Phase 1; vehicles and documents Phase 2;
 #   records and timeline Phase 3; operational modules Phase 4;
 #   tasks, reminders and health score Phase 5; reports, exports
-#   and search Phase 6; backups and erasure Phase 7.
+#   and search Phase 6; backups and erasure Phase 7;
+#   photos and record attachments Phase 8.
 #
 # Design:
 #   Reminder endpoints live inside tasks_router (tasks.py).
@@ -24,6 +25,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.accounts import router as accounts_router
+from app.api.v1.attachments import router as attachments_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.backups import router as backups_router
@@ -73,3 +75,5 @@ v1_router.include_router(search_router, tags=["search"])
 # Phase 7 — backups and erasure
 v1_router.include_router(backups_router, tags=["backups"])
 v1_router.include_router(erasure_router, tags=["erasure"])
+# Phase 8 — record attachments and photos
+v1_router.include_router(attachments_router, tags=["attachments"])

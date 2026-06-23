@@ -41,7 +41,7 @@ from app.records.models.record import AttachmentKind, MaintenanceCategory, Recor
 # ATTACHMENT SCHEMAS
 # ==================================================
 
-# ------------------------------ Input ---------------------------------------
+# ------------------------------ Create In -----------------------------------
 
 
 class AttachmentCreateIn(BaseModel):
@@ -66,6 +66,30 @@ class AttachmentOut(BaseModel):
     content_type: str
     size_bytes: int
     created_at: datetime
+
+
+# ------------------------------ Sign In -------------------------------------
+# Request body for the presigned upload endpoint. The vehicle_id is used
+# to build the R2 key path; the record and vehicle ownership are verified
+# server-side before the URL is issued.
+
+
+class AttachmentSignIn(BaseModel):
+    kind: AttachmentKind
+    # Original filename, used to derive the extension.
+    filename: str
+    content_type: str
+    # File size in bytes — stored on the attachment row after confirm.
+    size_bytes: int = Field(gt=0)
+
+
+# ------------------------------ Sign Out ------------------------------------
+
+
+class AttachmentSignOut(BaseModel):
+    upload_url: str
+    # R2 key to pass back to POST /attachments after the browser PUT completes.
+    key: str
 
 
 # ==================================================
