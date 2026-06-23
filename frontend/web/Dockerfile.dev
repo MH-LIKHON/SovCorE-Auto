@@ -1,0 +1,25 @@
+# ============================================================
+# frontend/web/Dockerfile.dev
+# ============================================================
+#
+# Purpose:
+#   Development Docker image for the SovCorE Auto frontend.
+#   Installs Node.js dependencies and runs `next dev` with
+#   hot module replacement. Not used for production.
+#
+# ============================================================
+
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Install dependencies before copying source so the layer is
+# cached and npm installs do not re-run on source changes.
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

@@ -1,0 +1,27 @@
+# ============================================================
+# backend/app/Dockerfile.dev
+# ============================================================
+#
+# Purpose:
+#   Development Docker image for the SovCorE Auto backend.
+#   Installs Python dependencies and runs uvicorn with --reload.
+#   Not used for production; production uses Dockerfile (Phase 8).
+#
+# ============================================================
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install dependencies before copying source so the layer is
+# cached and dependency installs do not re-run on source changes.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source after dependencies so hot-reload changes only
+# invalidate this layer.
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
