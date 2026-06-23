@@ -17,6 +17,7 @@ from app.api.v1.accounts import router as accounts_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.backups import router as backups_router
+from app.api.v1.erasure import router as erasure_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.expenses import router as expenses_router
 from app.api.v1.fuel import router as fuel_router
@@ -61,3 +62,4 @@ v1_router.include_router(exports_router, tags=["exports"])
 v1_router.include_router(search_router, tags=["search"])
 # Phase 7 — backups and erasure
 v1_router.include_router(backups_router, tags=["backups"])
+v1_router.include_router(erasure_router, tags=["erasure"])

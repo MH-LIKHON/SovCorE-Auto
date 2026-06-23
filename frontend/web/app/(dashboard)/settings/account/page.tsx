@@ -5,8 +5,17 @@
 // Purpose:
 //   Account settings page. Displays the account name and type
 //   with an inline edit form, shows the current user's profile
-//   (email, 2FA status, member since), and provides a danger
-//   zone for account-level actions.
+//   (email, 2FA status, member since), and provides the UK GDPR
+//   right-to-erasure danger zone with a two-step confirmation.
+//
+// Design:
+//   Erasure flow has two steps:
+//   Step 1 — POST /erasure: creates the erasure_request row.
+//   Step 2 — POST /erasure/confirm: caller types exactly
+//   "DELETE MY ACCOUNT" to confirm. The backend validates the
+//   phrase, purges all database rows and R2 objects, and returns
+//   a summary. After completion the session is cleared and the
+//   user is redirected to /login.
 //
 // Consumed by:
 //   - Routed at /dashboard/settings/account
@@ -15,6 +24,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
@@ -66,6 +76,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 // ==================================================
 
 export default function AccountSettingsPage() {
+  const router = useRouter();
   const [account, setAccount] = useState<AccountData | null>(null);
   const [me, setMe] = useState<UserMe | null>(null);
   const [editing, setEditing] = useState(false);
@@ -73,6 +84,12 @@ export default function AccountSettingsPage() {
   const [typeInput, setTypeInput] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Erasure state
+  const [erasureStep, setErasureStep] = useState<"idle" | "requested" | "confirming">("idle");
+  const [erasurePhrase, setErasurePhrase] = useState("");
+  const [erasureLoading, setErasureLoading] = useState(false);
+  const [erasureError, setErasureError] = useState<string | null>(null);
 
   useEffect(() => {
     const accountId = sessionStorage.getItem("sva_account_id");
@@ -115,6 +132,44 @@ export default function AccountSettingsPage() {
         year: "numeric",
       })
     : null;
+
+  async function handleRequestErasure() {
+    if (!account) return;
+    setErasureLoading(true);
+    setErasureError(null);
+    const res = await apiFetch(`/api/v1/accounts/${account.id}/erasure`, { method: "POST" });
+    setErasureLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErasureError(data.detail ?? "Failed to submit request. Please try again.");
+      return;
+    }
+    setErasureStep("requested");
+  }
+
+  async function handleConfirmErasure() {
+    if (!account || erasurePhrase.trim() !== "DELETE MY ACCOUNT") {
+      setErasureError("You must type exactly: DELETE MY ACCOUNT");
+      return;
+    }
+    setErasureLoading(true);
+    setErasureError(null);
+    const res = await apiFetch(`/api/v1/accounts/${account.id}/erasure/confirm`, {
+      method: "POST",
+      body: JSON.stringify({ confirmation: erasurePhrase.trim() }),
+    });
+    setErasureLoading(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setErasureError(data.detail ?? "Confirmation failed. Please try again.");
+      return;
+    }
+    // Account deleted — clear session and redirect.
+    if (typeof window !== "undefined") {
+      sessionStorage.clear();
+    }
+    router.push("/login");
+  }
 
   return (
     <div className="set-shell">
@@ -244,24 +299,84 @@ export default function AccountSettingsPage() {
         </dl>
       </Card>
 
-      {/* ---------- Danger zone ---------- */}
+      {/* ---------- Danger zone (UK GDPR right to erasure) ---------- */}
       <Card>
         <h2 className="set-section" style={{ color: "var(--colour-error)" }}>
           Danger zone
         </h2>
-        <p className="set-danger-copy">
-          Deleting your account wipes all vehicles, records, documents, and expenses from this
-          account. This cannot be undone. If you are the account owner, all members will lose
-          access.
-        </p>
-        <p style={{ marginTop: 12 }}>
-          <a
-            href="mailto:support@sovcore.com?subject=Delete my SovCorE Auto account"
-            className="set-link set-link--error"
-          >
-            Email support@sovcore.com to request deletion.
-          </a>
-        </p>
+
+        {erasureStep === "idle" && (
+          <>
+            <p className="set-danger-copy">
+              Deleting your account permanently removes all vehicles, records, documents,
+              tasks, reminders, and expenses associated with this account. All members will
+              lose access. This cannot be undone.
+            </p>
+            <p className="set-danger-copy" style={{ marginTop: 8 }}>
+              Your right to erasure under the UK General Data Protection Regulation (UK GDPR,
+              Article 17) is fulfilled in full. A deletion receipt is retained by the system
+              to record that the erasure occurred; it contains no personal data.
+            </p>
+            {erasureError && (
+              <p className="set-error" style={{ marginTop: 12 }}>{erasureError}</p>
+            )}
+            <div style={{ marginTop: "var(--space-4)" }}>
+              <button
+                className="set-btn set-btn--ghost"
+                onClick={handleRequestErasure}
+                disabled={erasureLoading}
+                style={{ borderColor: "var(--colour-error)", color: "var(--colour-error)" }}
+              >
+                {erasureLoading ? "Submitting…" : "Request account deletion"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {erasureStep === "requested" && (
+          <>
+            <p className="set-danger-copy">
+              Your deletion request has been received. To proceed, type exactly
+              <strong style={{ color: "var(--colour-error)" }}> DELETE MY ACCOUNT</strong> in
+              the field below and confirm. All data will be permanently deleted immediately.
+            </p>
+            {erasureError && (
+              <p className="set-error" style={{ marginTop: 8 }}>{erasureError}</p>
+            )}
+            <div className="set-form" style={{ marginTop: "var(--space-4)" }}>
+              <label className="set-label">
+                <span className="set-label__text" style={{ color: "var(--colour-error)" }}>
+                  Type: DELETE MY ACCOUNT
+                </span>
+                <input
+                  className="set-input"
+                  style={{ borderColor: "var(--colour-error)" }}
+                  value={erasurePhrase}
+                  onChange={(e) => { setErasurePhrase(e.target.value); setErasureError(null); }}
+                  placeholder="DELETE MY ACCOUNT"
+                  autoFocus
+                />
+              </label>
+              <div className="set-form-actions">
+                <button
+                  className="set-btn set-btn--ghost"
+                  onClick={handleConfirmErasure}
+                  disabled={erasureLoading || erasurePhrase.trim() !== "DELETE MY ACCOUNT"}
+                  style={{ borderColor: "var(--colour-error)", color: "var(--colour-error)" }}
+                >
+                  {erasureLoading ? "Deleting…" : "Permanently delete my account"}
+                </button>
+                <button
+                  className="set-btn set-btn--ghost"
+                  onClick={() => { setErasureStep("idle"); setErasureError(null); setErasurePhrase(""); }}
+                  disabled={erasureLoading}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </Card>
 
       <style>{SET_STYLES}</style>
