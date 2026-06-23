@@ -29,7 +29,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { RecordTypeBadge } from "@/src/components/records/record-type-badge";
@@ -211,6 +211,12 @@ export default function VehicleRecordsPage() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Attachment upload
+  const attachInputRef = useRef<HTMLInputElement | null>(null);
+  const [attachUploading, setAttachUploading] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [deletingAttachId, setDeletingAttachId] = useState<string | null>(null);
+
   // ==================================================
   // DATA LOADING
   // ==================================================
@@ -353,6 +359,66 @@ export default function VehicleRecordsPage() {
     setExpandedDetail(null);
     setRecords((prev) => prev.filter((r) => r.id !== recordId));
     setTotal((prev) => prev - 1);
+  }
+
+  // ==================================================
+  // ATTACHMENT UPLOAD / DELETE
+  // ==================================================
+
+  function kindFromFile(file: File): string {
+    if (file.type.startsWith("image/")) return "photo";
+    if (file.type === "application/pdf") return "invoice";
+    return "document";
+  }
+
+  async function handleAttachUpload(file: File) {
+    if (!expandedDetail || !accountId) return;
+    setAttachUploading(true);
+    setAttachError(null);
+    const kind = kindFromFile(file);
+    try {
+      const signRes = await apiFetch(
+        `/api/v1/accounts/${accountId}/vehicles/${id}/records/${expandedDetail.id}/attachments/sign`,
+        {
+          method: "POST",
+          body: JSON.stringify({ kind, filename: file.name, content_type: file.type, size_bytes: file.size }),
+        }
+      );
+      if (!signRes.ok) { setAttachError("Could not generate upload URL."); return; }
+      const { upload_url, key } = await signRes.json();
+      const putRes = await fetch(upload_url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) { setAttachError("Upload to storage failed."); return; }
+      const createRes = await apiFetch(
+        `/api/v1/accounts/${accountId}/vehicles/${id}/records/${expandedDetail.id}/attachments`,
+        {
+          method: "POST",
+          body: JSON.stringify({ kind, r2_key: key, filename: file.name, content_type: file.type, size_bytes: file.size }),
+        }
+      );
+      if (!createRes.ok) { setAttachError("Could not register attachment."); return; }
+      await loadDetail(expandedDetail.id);
+    } catch {
+      setAttachError("An unexpected error occurred.");
+    } finally {
+      setAttachUploading(false);
+    }
+  }
+
+  async function handleAttachDelete(attachmentId: string) {
+    if (!window.confirm("Delete this attachment? This cannot be undone.")) return;
+    setDeletingAttachId(attachmentId);
+    const res = await apiFetch(
+      `/api/v1/accounts/${accountId}/attachments/${attachmentId}`,
+      { method: "DELETE" }
+    );
+    setDeletingAttachId(null);
+    if (res.ok && expandedDetail) {
+      await loadDetail(expandedDetail.id);
+    }
   }
 
   // ==================================================
@@ -610,6 +676,52 @@ export default function VehicleRecordsPage() {
                           </div>
                         )}
 
+                        {/* ~~~~~~~~~ Attachments ~~~~~~~~~ */}
+                        <div className="rec-detail-sub">
+                          <div className="rec-attach-head">
+                            <p className="rec-detail-heading">Attachments</p>
+                            <button
+                              className="rec-attach-add"
+                              onClick={() => { setAttachError(null); attachInputRef.current?.click(); }}
+                              disabled={attachUploading}
+                            >
+                              {attachUploading ? "Uploading…" : "+ Add file"}
+                            </button>
+                          </div>
+                          <input
+                            ref={attachInputRef}
+                            type="file"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                            style={{ display: "none" }}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleAttachUpload(f);
+                              e.target.value = "";
+                            }}
+                          />
+                          {attachError && <p className="rec-error" style={{ marginTop: "6px" }}>{attachError}</p>}
+                          {expandedDetail.attachments.length === 0 && !attachUploading ? (
+                            <p className="rec-attach-empty">No attachments. Upload invoices, photos or documents.</p>
+                          ) : (
+                            <div className="rec-attach-list">
+                              {expandedDetail.attachments.map((a) => (
+                                <div key={a.id} className="rec-attach-row">
+                                  <span className="rec-attach-kind">{a.kind}</span>
+                                  <span className="rec-attach-name">{a.filename}</span>
+                                  <span className="rec-attach-size">{(a.size_bytes / 1024).toFixed(0)} KB</span>
+                                  <button
+                                    className="rec-btn rec-btn--danger-sm"
+                                    onClick={() => handleAttachDelete(a.id)}
+                                    disabled={deletingAttachId === a.id}
+                                  >
+                                    {deletingAttachId === a.id ? "…" : "Delete"}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                         {/* Actions */}
                         <div className="rec-detail-actions">
                           <button
@@ -742,6 +854,43 @@ const REC_STYLES = `
   .rec-tag { padding: 2px 10px; border-radius: var(--radius-full, 999px); font-size: var(--text-xs); background: rgba(255,255,255,0.06); color: var(--colour-text-muted); border: 1px solid var(--colour-border); }
 
   .rec-detail-actions { margin-top: var(--space-4); display: flex; gap: var(--space-3); }
+
+  /* Attachments */
+  .rec-attach-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+  .rec-attach-add {
+    font-size: var(--text-xs);
+    color: var(--colour-accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: none;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .rec-attach-add:disabled { opacity: 0.5; }
+  .rec-attach-empty { font-size: var(--text-sm); color: var(--colour-text-muted); margin: 0; }
+  .rec-attach-list { display: flex; flex-direction: column; gap: 6px; }
+  .rec-attach-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 6px 0;
+    border-bottom: 0.5px solid var(--colour-border);
+    flex-wrap: wrap;
+  }
+  .rec-attach-row:last-child { border-bottom: none; }
+  .rec-attach-kind {
+    font-size: var(--text-xs);
+    color: var(--colour-text-muted);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-full, 999px);
+    padding: 1px 8px;
+    text-transform: capitalize;
+    white-space: nowrap;
+  }
+  .rec-attach-name { font-size: var(--text-sm); color: var(--colour-text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-attach-size { font-size: var(--text-xs); color: var(--colour-text-muted); white-space: nowrap; }
 
   /* Buttons */
   .rec-btn { padding: 8px 18px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; border: none; transition: opacity 0.2s, background 0.2s, color 0.2s; }

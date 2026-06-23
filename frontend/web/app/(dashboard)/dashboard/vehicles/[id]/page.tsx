@@ -29,7 +29,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
@@ -160,6 +160,11 @@ export default function VehicleProfilePage() {
   const [editingRenewals, setEditingRenewals] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Cover photo upload
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   // Lifecycle change
   const [lifecycleState, setLifecycleState] = useState<string>("");
@@ -306,6 +311,39 @@ export default function VehicleProfilePage() {
     router.push("/dashboard/vehicles");
   }
 
+  // ------------------------------ Cover photo upload -------------------------
+  async function handlePhotoUpload(file: File) {
+    if (!accountId || !vehicle) return;
+    setPhotoUploading(true);
+    setPhotoError(null);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    try {
+      const signRes = await apiFetch(
+        `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}/photo/sign`,
+        { method: "POST", body: JSON.stringify({ ext }) }
+      );
+      if (!signRes.ok) { setPhotoError("Could not generate upload URL."); return; }
+      const { upload_url, key } = await signRes.json();
+      const putRes = await fetch(upload_url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "image/jpeg" },
+        body: file,
+      });
+      if (!putRes.ok) { setPhotoError("Upload to storage failed."); return; }
+      const patchRes = await apiFetch(
+        `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}`,
+        { method: "PATCH", body: JSON.stringify({ image_key: key }) }
+      );
+      if (!patchRes.ok) { setPhotoError("Could not save photo key."); return; }
+      const updated = await patchRes.json();
+      setVehicle(updated);
+    } catch {
+      setPhotoError("An unexpected error occurred.");
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
+
   const title = vehicle
     ? [vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Vehicle"
     : "Vehicle";
@@ -353,18 +391,40 @@ export default function VehicleProfilePage() {
           </div>
         </div>
         <div className="vd-head__media">
-          {imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={imageUrl} alt={title} className="vd-thumb" />
-          ) : (
-            <div className="vd-thumb vd-thumb--fallback">
-              <BodyTypeIcon
-                bodyType={vehicle.body_type as Parameters<typeof BodyTypeIcon>[0]["bodyType"]}
-                size={56}
-                className="vd-thumb__icon"
-              />
-            </div>
-          )}
+          <div className="vd-photo-wrap">
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={imageUrl} alt={title} className="vd-thumb" />
+            ) : (
+              <div className="vd-thumb vd-thumb--fallback">
+                <BodyTypeIcon
+                  bodyType={vehicle.body_type as Parameters<typeof BodyTypeIcon>[0]["bodyType"]}
+                  size={56}
+                  className="vd-thumb__icon"
+                />
+              </div>
+            )}
+            <button
+              className="vd-photo-btn"
+              onClick={() => photoInputRef.current?.click()}
+              disabled={photoUploading}
+              title="Change cover photo"
+            >
+              {photoUploading ? "…" : imageUrl ? "Change" : "Add photo"}
+            </button>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handlePhotoUpload(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          {photoError && <p className="vd-photo-error">{photoError}</p>}
         </div>
       </header>
 
@@ -379,6 +439,9 @@ export default function VehicleProfilePage() {
             {t === "overview" ? "Overview" : t === "info" ? "Details" : t === "ownership" ? "Ownership" : "Renewals"}
           </button>
         ))}
+        <Link href={`/dashboard/vehicles/${vehicle.id}/photos`} className="vd-tab">
+          Photos
+        </Link>
         <Link href={`/dashboard/vehicles/${vehicle.id}/documents`} className="vd-tab">
           Documents
         </Link>
@@ -755,6 +818,21 @@ const VD_STYLES = `
     background: rgba(108,99,255,0.06);
   }
   .vd-thumb__icon { color: rgba(136,136,170,0.5); }
+
+  .vd-photo-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .vd-photo-btn {
+    font-size: var(--text-xs);
+    color: var(--colour-text-muted);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: none;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .vd-photo-btn:hover { color: var(--colour-text); }
+  .vd-photo-btn:disabled { opacity: 0.5; }
+  .vd-photo-error { font-size: var(--text-xs); color: var(--colour-error); margin: 0; }
 
   /* ---- Tabs ---- */
   .vd-tabs {
