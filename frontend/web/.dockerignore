@@ -16,11 +16,15 @@ node_modules/
 # Previous build output — rebuilt from source inside the image.
 .next/
 
-# Local environment files — NEXT_PUBLIC_* vars come via --build-arg.
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Local environment files — NEXT_PUBLIC_* vars come via --build-arg, not via
+# .env files. Block all .env variants so a stray .env.production on disk
+# cannot silently override the build arg and bake wrong values into the bundle.
+.env
+.env.*
+# Keep the committed templates and examples in the build context (harmless —
+# they contain only placeholders, not real values).
+!.env.local.template
+!.env.production.example
 
 # Editor and OS artefacts.
 .idea/
