@@ -22,6 +22,12 @@
 //   BrandLockup. All other links are muted while any link is
 //   active so the active link is the only bright element.
 //
+//   Responsive:
+//     > 767 px: horizontal link set visible.
+//     ≤ 767 px: link set hidden; hamburger button appears.
+//     Clicking the hamburger opens a mobile menu panel below
+//     the navbar. Navigating any link closes the menu.
+//
 // Consumed by:
 //   - app/layout.tsx
 // ============================================================
@@ -29,7 +35,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { BrandLockup } from "@/src/components/ui/brand-lockup";
@@ -167,6 +173,12 @@ function NavLinkItem({
 
 export function Navbar() {
   const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the mobile menu whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   // The dashboard has its own sidebar navigation.
   if (pathname.startsWith("/app")) return null;
@@ -187,7 +199,7 @@ export function Navbar() {
           <BrandLockup subtitle="Auto" size="md" />
         </Link>
 
-        {/* ---------- Primary links + auth slot ---------- */}
+        {/* ---------- Primary links + auth slot (desktop) ---------- */}
         <nav className="sov-nav__links" aria-label="Primary">
           {LINKS.map((link) => {
             const active = isActivePage(link);
@@ -210,7 +222,54 @@ export function Navbar() {
             Sign in
           </Link>
         </nav>
+
+        {/* ---------- Hamburger — visible only on mobile ---------- */}
+        <button
+          className="sov-nav__hamburger"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={menuOpen}
+          aria-controls="sov-nav-mobile"
+        >
+          <span className="sov-nav__hbar" aria-hidden="true" />
+          <span className="sov-nav__hbar" aria-hidden="true" />
+          <span className="sov-nav__hbar" aria-hidden="true" />
+        </button>
       </div>
+
+      {/* ---------- Mobile menu — rendered only when open ---------- */}
+      {menuOpen && (
+        <nav
+          id="sov-nav-mobile"
+          className="sov-nav__mobile"
+          aria-label="Mobile navigation"
+        >
+          {LINKS.map((link) => {
+            const active = isActivePage(link);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={
+                  active
+                    ? "sov-nav__mobile-link sov-nav__mobile-link--active"
+                    : "sov-nav__mobile-link"
+                }
+                onClick={() => setMenuOpen(false)}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
+          <Link
+            href="/login"
+            className="sov-nav__mobile-link"
+            onClick={() => setMenuOpen(false)}
+          >
+            Sign in
+          </Link>
+        </nav>
+      )}
 
       <style>{NAV_STYLES}</style>
     </header>
@@ -309,18 +368,66 @@ const NAV_STYLES = `
     flex-shrink: 0;
   }
 
+  /* ---------- Hamburger button — hidden on desktop ---------- */
+  .sov-nav__hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    background: none;
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    transition: border-color 0.2s;
+  }
+  .sov-nav__hamburger:hover { border-color: rgba(108, 99, 255, 0.45); }
+  .sov-nav__hbar {
+    display: block;
+    width: 18px;
+    height: 1.5px;
+    background: var(--colour-text-muted);
+    border-radius: 1px;
+  }
+
+  /* ---------- Mobile menu panel ---------- */
+  .sov-nav__mobile {
+    display: flex;
+    flex-direction: column;
+    background: rgba(8, 8, 15, 0.97);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 0.5px solid var(--colour-border);
+    padding: var(--space-3) var(--space-5) var(--space-4);
+    gap: 2px;
+  }
+  .sov-nav__mobile-link {
+    display: block;
+    padding: 10px 14px;
+    font-size: var(--text-sm);
+    color: var(--colour-text-muted);
+    text-decoration: none;
+    border-radius: var(--radius-md);
+    transition: background 0.2s, color 0.2s;
+  }
+  .sov-nav__mobile-link:hover { background: rgba(108, 99, 255, 0.06); color: var(--colour-text); }
+  .sov-nav__mobile-link--active { color: var(--colour-text); }
+
+  /* Guard: never show mobile menu at desktop (window-resize edge case). */
+  @media (min-width: 768px) {
+    .sov-nav__mobile { display: none !important; }
+  }
+
   /* ---------- Tablet ---------- */
   @media (max-width: 1023px) {
     .sov-nav__inner { padding: 16px var(--space-6); gap: var(--space-5); }
     .sov-nav__links { gap: var(--space-5); }
   }
 
-  /* ---------- Small phone ---------- */
+  /* ---------- Mobile — swap link set for hamburger ---------- */
   @media (max-width: 767px) {
     .sov-nav__inner { padding: 14px var(--space-5); gap: var(--space-5); }
-    .sov-nav__links { gap: var(--space-4); }
-    .sov-nav__link--muted { display: none; }
-    .sov-nav__auth-signin { margin-left: 0; }
+    .sov-nav__links { display: none; }
+    .sov-nav__hamburger { display: flex; }
     .sov-nav__auth-pill { margin-left: 0; padding: 4px 10px 4px 4px; }
   }
 `;
