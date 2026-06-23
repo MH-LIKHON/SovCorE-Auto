@@ -385,6 +385,21 @@ export default function VehicleProfilePage() {
         <Link href={`/dashboard/vehicles/${vehicle.id}/records`} className="vd-tab">
           Records
         </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/fuel`} className="vd-tab">
+          Fuel
+        </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/expenses`} className="vd-tab">
+          Expenses
+        </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/pcns`} className="vd-tab">
+          PCNs
+        </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/damage`} className="vd-tab">
+          Damage
+        </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/warranty`} className="vd-tab">
+          Warranty
+        </Link>
         <Link href={`/dashboard/vehicles/${vehicle.id}/timeline`} className="vd-tab">
           Timeline
         </Link>
