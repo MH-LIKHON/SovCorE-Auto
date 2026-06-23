@@ -57,3 +57,17 @@ def send_email(
         "html": html,
     }
     return resend.Emails.send(params)
+
+
+async def send_reminder_email(to: str, subject: str, body: str) -> None:
+    # Async-compatible wrapper for the scheduler job. Resend SDK is
+    # synchronous, so this runs send_email in a thread executor to avoid
+    # blocking the asyncio event loop during reminder dispatch.
+    import asyncio
+
+    html = (
+        f"<p>{body.replace(chr(10), '<br>')}</p>"
+        f"<p style='color:#6c63ff;font-size:12px;margin-top:24px'>SovCorE Auto</p>"
+    )
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, lambda: send_email(to=to, subject=subject, html=html))

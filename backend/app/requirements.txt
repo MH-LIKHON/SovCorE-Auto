@@ -38,6 +38,9 @@ resend==2.5.0
 # HTTP client (for internal service calls)
 httpx==0.28.1
 
+# Background scheduler
+apscheduler==3.10.4
+
 # Utilities
 python-dotenv==1.0.1
 structlog==24.4.0

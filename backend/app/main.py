@@ -29,6 +29,7 @@ from app.api.v1.router import v1_router
 from app.core.logging import configure_logging
 from app.core.settings import get_settings
 from app.integrations.resend_client import configure_resend
+from app.scheduler.runner import start_scheduler, stop_scheduler
 
 # ==================================================
 # STARTUP / SHUTDOWN
@@ -45,9 +46,11 @@ logger = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ~~~~~~~~~ Startup ~~~~~~~~~
     configure_resend()
+    start_scheduler()
     logger.info("sovcore_auto_starting", env=settings.app_env)
     yield
     # ~~~~~~~~~ Shutdown ~~~~~~~~~
+    stop_scheduler()
     logger.info("sovcore_auto_stopping")
 
 

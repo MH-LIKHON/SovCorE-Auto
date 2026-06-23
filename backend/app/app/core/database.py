@@ -56,6 +56,10 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False,
 )
 
+# Alias exposed for the background scheduler, which creates its own sessions
+# outside the FastAPI dependency injection system (no request scope).
+async_session_factory = AsyncSessionLocal
+
 # ==================================================
 # DECLARATIVE BASE
 # ==================================================
