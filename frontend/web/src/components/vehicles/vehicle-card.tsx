@@ -165,8 +165,8 @@ export function VehicleCard({ vehicle, accountId }: VehicleCardProps) {
 
   return (
     <Link href={href} className="vc-link" aria-label={`Open ${title}`}>
-      <Card hover="tilt" className="vc-card">
-        {/* ---------- Image / icon panel ---------- */}
+      <Card hoverEffect="tilt" className="vc-card">
+        {/* ~~~~~~~~~ Image / icon panel ~~~~~~~~~ */}
         <div className="vc-media">
           {imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -193,24 +193,20 @@ export function VehicleCard({ vehicle, accountId }: VehicleCardProps) {
           )}
         </div>
 
-        {/* ---------- Body ---------- */}
+        {/* ~~~~~~~~~ Body ~~~~~~~~~ */}
         <div className="vc-body">
-          {/* Registration plate */}
           <div className="vc-plate">
             {vehicle.registration ?? "No plate"}
           </div>
 
-          {/* Make / model */}
           <p className="vc-title">{title}</p>
           {sub && <p className="vc-sub">{sub}</p>}
 
-          {/* Mileage + health row */}
           <div className="vc-meta">
             <span className="vc-mileage">{formatMileage(vehicle.mileage)}</span>
             <HealthRing score={vehicle.health_score} />
           </div>
 
-          {/* RAG indicator strip */}
           <div className="vc-rag">
             {(["mot", "tax", "insurance", "service"] as const).map((key) => {
               const s = vehicle.renewals[key];
