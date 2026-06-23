@@ -15,6 +15,10 @@
 //   cells sit on top, the 1 px gap exposes the container colour
 //   as a thin divider. Cleaner than per-cell borders.
 //
+//   Responsive layout is driven by CSS media queries (not the
+//   useBreakpoint JS hook) so the server renders the correct
+//   column count and there is no hydration layout shift.
+//
 // Consumed by:
 //   - app/page.tsx (between marquee and pillars)
 // ============================================================
@@ -22,17 +26,16 @@
 "use client";
 
 import { ScrollReveal } from "@/src/components/ui/scroll-reveal";
-import { useBreakpoint } from "@/src/hooks/use-breakpoint";
 
 // ==================================================
 // DATA
 // ==================================================
 
 const STATS = [
-  { id: "uk-first",      value: "UK-first",   label: "MOT, SORN, ULEZ alerts" },
-  { id: "vehicles",      value: "Unlimited",  label: "Vehicles per account" },
-  { id: "reminder-types",value: "20+",        label: "Reminder and task types" },
-  { id: "latency",       value: "Sub-100 ms", label: "Dashboard load" },
+  { id: "uk-first",       value: "UK-first",   label: "MOT, SORN, ULEZ alerts" },
+  { id: "vehicles",       value: "Unlimited",  label: "Vehicles per account" },
+  { id: "reminder-types", value: "20+",        label: "Reminder and task types" },
+  { id: "latency",        value: "Sub-100 ms", label: "Dashboard load" },
 ] as const;
 
 // ==================================================
@@ -40,22 +43,13 @@ const STATS = [
 // ==================================================
 
 export function StatsRow() {
-  const { isMobileOrTablet, isMobile } = useBreakpoint();
-
   return (
-    <section
-      style={{
-        padding: "var(--space-20) var(--space-10)",
-        position: "relative",
-        zIndex: 1,
-      }}
-    >
+    <section className="stats-section" style={{ position: "relative", zIndex: 1 }}>
       <div style={{ maxWidth: 900, margin: "0 auto" }}>
         <ScrollReveal>
           <div
+            className="stats-grid"
             style={{
-              display: "grid",
-              gridTemplateColumns: isMobileOrTablet ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
               gap: "1px",
               background: "rgba(255, 255, 255, 0.06)",
               borderRadius: "var(--radius-xl)",
@@ -66,9 +60,9 @@ export function StatsRow() {
             {STATS.map((stat) => (
               <div
                 key={stat.id}
+                className="stats-cell"
                 style={{
                   background: "rgba(14, 14, 22, 0.90)",
-                  padding: isMobile ? "28px 16px" : "36px 28px",
                   textAlign: "center",
                   transition: "background var(--duration-normal)",
                 }}
@@ -82,8 +76,8 @@ export function StatsRow() {
                 }}
               >
                 <div
+                  className="stats-value"
                   style={{
-                    fontSize: isMobile ? 20 : 28,
                     fontWeight: 500,
                     letterSpacing: "-0.5px",
                     marginBottom: 6,
@@ -112,6 +106,35 @@ export function StatsRow() {
           </div>
         </ScrollReveal>
       </div>
+
+      <style>{STATS_STYLES}</style>
     </section>
   );
 }
+
+// ==================================================
+// STYLES
+// ==================================================
+
+const STATS_STYLES = `
+  /* ---- Desktop base ---- */
+  .stats-section { padding: var(--space-20) var(--space-10); }
+  .stats-grid    { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .stats-cell    { padding: 36px 28px; }
+  .stats-value   { font-size: 28px; }
+
+  /* ---- Tablet: 2-column grid ---- */
+  @media (max-width: 1023px) {
+    .stats-section { padding: var(--space-16) var(--space-6); }
+    .stats-grid    { grid-template-columns: repeat(2, 1fr); }
+    .stats-cell    { padding: 28px 20px; }
+    .stats-value   { font-size: 22px; }
+  }
+
+  /* ---- Small phone ---- */
+  @media (max-width: 479px) {
+    .stats-section { padding: var(--space-12) var(--space-5); }
+    .stats-cell    { padding: 24px 16px; }
+    .stats-value   { font-size: 20px; }
+  }
+`;
