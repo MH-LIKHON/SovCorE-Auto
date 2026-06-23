@@ -382,6 +382,15 @@ export default function VehicleProfilePage() {
         <Link href={`/dashboard/vehicles/${vehicle.id}/documents`} className="vd-tab">
           Documents
         </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/records`} className="vd-tab">
+          Records
+        </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/timeline`} className="vd-tab">
+          Timeline
+        </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/audit`} className="vd-tab">
+          Audit
+        </Link>
       </nav>
 
       {/* ==================================================
