@@ -112,6 +112,12 @@ class Settings(BaseSettings):
                 "from being publicly accessible."
             )
 
+        if not self.cron_secret or len(self.cron_secret) < 16:
+            raise ValueError(
+                "CRON_SECRET must be set to a random string of at least 16 characters "
+                "in production to prevent unauthenticated triggering of scheduled jobs."
+            )
+
 
 # ==================================================
 # SINGLETON

@@ -35,7 +35,7 @@ from app.backups.schemas.backup_schemas import (
 )
 from app.backups.services.backup_service import BackupService
 from app.core.database import get_db
-from app.core.permissions import require_admin, require_viewer
+from app.core.permissions import require_admin, require_owner, require_viewer
 
 # ==================================================
 # ROUTER
@@ -98,7 +98,7 @@ async def get_download_url(
 async def restore_backup(
     account_id: uuid.UUID,
     backup_id: uuid.UUID,
-    _: User = Depends(require_admin),
+    _: User = Depends(require_owner),
     db: AsyncSession = Depends(get_db),
 ) -> BackupRestoreOut:
     return await BackupService(db).restore_backup(account_id, backup_id)

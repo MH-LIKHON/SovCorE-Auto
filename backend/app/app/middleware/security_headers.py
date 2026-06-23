@@ -49,8 +49,9 @@ _HEADERS: dict[str, str] = {
 }
 
 _HSTS_HEADER = "Strict-Transport-Security"
-# 1 year max-age; includeSubDomains covers any API subdomains.
-_HSTS_VALUE = "max-age=31536000; includeSubDomains"
+# 1 year max-age; includeSubDomains covers any API subdomains;
+# preload enables submission to browser HSTS preload lists.
+_HSTS_VALUE = "max-age=31536000; includeSubDomains; preload"
 
 # ==================================================
 # MIDDLEWARE
