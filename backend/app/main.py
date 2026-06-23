@@ -31,6 +31,7 @@ from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimitExceeded, limiter
 from app.core.settings import get_settings
 from app.integrations.resend_client import configure_resend
+from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.scheduler.runner import start_scheduler, stop_scheduler
 
@@ -75,6 +76,11 @@ app = FastAPI(
 # Attach the limiter to app.state so slowapi can find it at request time.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+# ------------------------------ Request ID ----------------------------------
+# Outermost middleware — generates or propagates X-Request-ID before any
+# other layer runs so the ID appears in every structlog line for the request.
+app.add_middleware(RequestIDMiddleware)
 
 # ------------------------------ Security headers ----------------------------
 # Added before CORS so headers are present on CORS preflight responses too.
