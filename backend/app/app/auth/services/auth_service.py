@@ -208,8 +208,11 @@ async def _send_login_code(email: str, code: str) -> None:
     the code is logged as a warning so sign-in can still be tested.
     """
     if not _settings.resend_api_key:
-        # Development fallback — never log the code in production.
-        logger.warning("resend_not_configured_code_in_log", email=email, code=code)
+        # Only log the plaintext code in non-production environments.
+        # An absent resend_api_key in production is caught at startup by
+        # assert_production_secrets, so this branch should never fire there.
+        if _settings.app_env != "production":
+            logger.warning("resend_not_configured_code_in_log", email=email, code=code)
         return
 
     body_html = f"""

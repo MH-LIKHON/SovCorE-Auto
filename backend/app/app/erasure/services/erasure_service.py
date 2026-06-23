@@ -36,6 +36,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import datetime, timezone
 
@@ -54,6 +55,25 @@ logger = structlog.get_logger(__name__)
 
 # The typed confirmation phrase the caller must submit to confirm erasure.
 _CONFIRMATION_PHRASE = "DELETE MY ACCOUNT"
+
+
+def _purge_prefix_sync(r2: object, bucket: str, prefix: str) -> int:
+    """
+    Synchronous boto3 list + delete for a single R2 prefix.
+    Called via asyncio.to_thread to avoid blocking the event loop.
+    """
+    paginator = r2.get_paginator("list_objects_v2")  # type: ignore[attr-defined]
+    deleted = 0
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        objects = page.get("Contents", [])
+        if not objects:
+            continue
+        r2.delete_objects(  # type: ignore[attr-defined]
+            Bucket=bucket,
+            Delete={"Objects": [{"Key": obj["Key"]} for obj in objects], "Quiet": True},
+        )
+        deleted += len(objects)
+    return deleted
 
 # System account ID — a well-known all-zeros UUID used for system audit entries.
 _SYSTEM_ACCOUNT_ID = uuid.UUID("00000000-0000-0000-0000-000000000000")
@@ -173,19 +193,10 @@ class ErasureService:
         total_deleted = 0
 
         for prefix in [f"documents/{account_id}/", f"backups/{account_id}/"]:
-            paginator = r2.get_paginator("list_objects_v2")
-            pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-
-            for page in pages:
-                objects = page.get("Contents", [])
-                if not objects:
-                    continue
-                # Boto3 batch delete — up to 1,000 objects per call.
-                r2.delete_objects(
-                    Bucket=bucket,
-                    Delete={"Objects": [{"Key": obj["Key"]} for obj in objects], "Quiet": True},
-                )
-                total_deleted += len(objects)
+            # boto3 list + delete are synchronous; run in a thread pool to
+            # avoid blocking the asyncio event loop during account erasure.
+            count = await asyncio.to_thread(_purge_prefix_sync, r2, bucket, prefix)
+            total_deleted += count
 
         return total_deleted
 

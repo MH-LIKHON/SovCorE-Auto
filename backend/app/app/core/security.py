@@ -42,6 +42,15 @@ from app.core.settings import get_settings
 _settings = get_settings()
 
 # ==================================================
+# JTI BLOCKLIST
+# ==================================================
+
+# In-memory set of revoked JWT IDs. Populated on logout; checked in decode_token.
+# Must be moved to Redis before horizontal scaling — entries are not shared
+# between worker processes and are lost on restart.
+jti_blocklist: set[str] = set()
+
+# ==================================================
 # JWT
 # ==================================================
 
@@ -69,10 +78,11 @@ def issue_refresh_token(user_id: uuid.UUID) -> str:
     """Issue a long-lived refresh token for the given user."""
     now = datetime.now(timezone.utc)
     expire = now + timedelta(days=_settings.jwt_refresh_token_expire_days)
+    jti = str(uuid.uuid4())
     payload: dict[str, Any] = {
         "sub": str(user_id),
         "type": "refresh",
-        "jti": str(uuid.uuid4()),
+        "jti": jti,
         "iat": now,
         "exp": expire,
     }
@@ -87,7 +97,13 @@ def decode_token(token: str) -> dict[str, Any]:
     Decode and verify a JWT. Raises JWTError on any failure.
     Callers catch JWTError and return HTTP 401.
     """
-    return jwt.decode(token, _settings.app_secret_key, algorithms=[_settings.jwt_algorithm])  # type: ignore[return-value]
+    payload: dict[str, Any] = jwt.decode(
+        token, _settings.app_secret_key, algorithms=[_settings.jwt_algorithm]
+    )
+    jti = payload.get("jti")
+    if jti and jti in jti_blocklist:
+        raise JWTError("Token has been revoked.")
+    return payload
 
 
 def get_token_user_id(token: str) -> uuid.UUID:
