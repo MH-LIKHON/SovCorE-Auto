@@ -10,8 +10,18 @@
 // Design:
 //   Exact structural mirror of SovCorE QR sidebar.tsx — same
 //   CSS class names, same animation on the foot section, same
-//   responsive collapse at 900 px. Only the brand subtitle and
-//   the nav links differ (Auto vs QR).
+//   visual styles. Only the brand subtitle and the nav links
+//   differ (Auto vs QR).
+//
+//   Responsive behaviour:
+//     > 1023 px: sticky left panel, always visible in the flex
+//                row established by dash-shell.
+//     ≤ 1023 px: off-canvas drawer. Hidden by default
+//                (transform: translateX(-100%)). Controlled by
+//                the open/onClose props from DashboardLayout,
+//                which owns the hamburger trigger and backdrop.
+//                Clicking any nav link also calls onClose so the
+//                drawer closes on navigation.
 //
 // Consumed by:
 //   - frontend/web/app/(dashboard)/layout.tsx
@@ -53,21 +63,35 @@ const LINKS: ReadonlyArray<LinkSpec> = [
 
 interface SidebarProps {
   email: string | null;
+  open?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ email }: SidebarProps) {
+export function Sidebar({ email, open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
   return (
-    <aside className="sov-side">
+    <aside className={open ? "sov-side sov-side--open" : "sov-side"} aria-label="Dashboard">
+      {/* ---------- Mobile close button (hidden on desktop) ---------- */}
+      <button
+        className="sov-side__close"
+        onClick={onClose}
+        aria-label="Close navigation"
+      >
+        {/* × character — two lines crossing */}
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      </button>
+
       {/* ---------- Brand ---------- */}
       <Link href="/" className="sov-side__brand" aria-label="SovCorE Auto home">
         <BrandLockup subtitle="Auto" size="md" />
       </Link>
 
       {/* ---------- Nav ---------- */}
-      <nav className="sov-side__nav" aria-label="Dashboard">
+      <nav className="sov-side__nav" aria-label="Dashboard navigation">
         {LINKS.map((l) => {
           const active =
             l.href === "/dashboard"
@@ -78,6 +102,7 @@ export function Sidebar({ email }: SidebarProps) {
               key={l.href}
               href={l.href}
               className={active ? "sov-side__link sov-side__link--active" : "sov-side__link"}
+              onClick={onClose}
             >
               {l.label}
             </Link>
@@ -103,6 +128,7 @@ export function Sidebar({ email }: SidebarProps) {
 // ==================================================
 
 const SIDE_STYLES = `
+  /* ---- Desktop: sticky left panel ---- */
   .sov-side {
     width: 260px;
     flex-shrink: 0;
@@ -131,7 +157,13 @@ const SIDE_STYLES = `
   .sov-side__link:hover { background: rgba(108, 99, 255, 0.06); color: var(--colour-text); }
   .sov-side__link--active { background: rgba(108, 99, 255, 0.12); color: var(--colour-text); }
 
-  .sov-side__foot { display: flex; flex-direction: column; gap: 8px; padding-top: var(--space-4); border-top: 1px solid var(--colour-border); }
+  .sov-side__foot {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--colour-border);
+  }
   .sov-side__email { font-size: var(--text-xs); color: var(--colour-text-muted); margin: 0; word-break: break-all; }
   .sov-side__signout {
     background: none;
@@ -145,7 +177,43 @@ const SIDE_STYLES = `
   }
   .sov-side__signout:hover { color: var(--colour-error); }
 
-  @media (max-width: 900px) {
-    .sov-side { position: static; width: 100%; min-height: auto; border-right: none; border-bottom: 0.5px solid var(--colour-border); }
+  /* Mobile close button — hidden on desktop, shown inside the drawer on tablet/mobile */
+  .sov-side__close {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--colour-text-muted);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    align-self: flex-end;
+    transition: color 0.2s, background 0.2s;
+  }
+  .sov-side__close:hover { color: var(--colour-text); background: rgba(255, 255, 255, 0.06); }
+
+  /* ---- Tablet and below: off-canvas drawer ---- */
+  @media (max-width: 1023px) {
+    .sov-side {
+      /* Take the sidebar out of the flow and fix it to the left edge. */
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      min-height: 100vh;
+      z-index: var(--z-modal);
+      overflow-y: auto;
+      /* Hidden state: translated left off-screen. */
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                  box-shadow 0.3s;
+    }
+    .sov-side--open {
+      transform: translateX(0);
+      box-shadow: 4px 0 32px rgba(0, 0, 0, 0.6);
+    }
+    .sov-side__close {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 `;
