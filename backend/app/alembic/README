@@ -1,0 +1,16 @@
+SovCorE Auto — Alembic migrations
+
+Run migrations:
+  alembic upgrade head
+
+Create a new revision (autogenerate from models):
+  alembic revision --autogenerate -m "short description"
+
+Roll back one step:
+  alembic downgrade -1
+
+Check current revision:
+  alembic current
+
+View migration history:
+  alembic history --verbose
