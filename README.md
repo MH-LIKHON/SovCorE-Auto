@@ -71,6 +71,8 @@ The backend holds a strict layering. A router calls a service, a service calls a
 - **Vehicle health score.** A red, amber or green standing per vehicle from its key dates and condition.
 - **Collaboration.** Account types and Owner, Admin, Editor and Viewer roles, with shared vehicles and ownership transfer.
 - **Reports and export.** Cost and fuel reporting, PDF vehicle and service-history exports, and a full account export.
+- **UK GDPR erasure.** Two-step account and data erasure purging all database rows and stored files.
+- **Backups.** Manual and nightly scheduled backups to object storage with download and restore.
 
 ---
 
@@ -78,7 +80,8 @@ The backend holds a strict layering. A router calls a service, a service calls a
 
 - **Layered architecture** with dependencies pointing one way, so each layer is testable and replaceable.
 - **Type safety end to end**, TypeScript on the frontend and Pydantic schemas on the backend.
-- **Security by design**: passwordless authentication, role-based access on every protected endpoint, account isolation, and an audit record of changes.
+- **Security by design**: passwordless authentication, role-based access on every protected endpoint, account isolation, audit record of changes, rate limiting on auth endpoints, and seven security response headers on every response.
+- **Built to ISO/IEC 27001:2022 control principles.** Not currently certified.
 - **A documented commenting standard** applied to every file, so the codebase reads clearly.
 - **Conventional commits** and a phased delivery plan, each phase broken into small, reviewable steps.
 - **British English** throughout the product copy and documentation.
@@ -87,7 +90,7 @@ The backend holds a strict layering. A router calls a service, a service calls a
 
 ## Project status
 
-In active development. The product is delivered in phases, from the foundations and the shared design system, through authentication and accounts, vehicles and the dashboard, the record system, the operational modules, reminders and the health score, reports and export, collaboration, and finally hardening for release.
+Complete. Eight phases delivered, from the foundations and the shared design system, through authentication and accounts, vehicles and the dashboard, the record system, the operational modules, reminders and the health score, reports and export, collaboration, and hardening for production deployment.
 
 ---
 
