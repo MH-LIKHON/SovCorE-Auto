@@ -26,7 +26,7 @@ import { legalEmails } from "@/src/lib/constants/legal";
 // ==================================================
 
 export const metadata: Metadata = {
-  title: "Security — SovCorE Auto",
+  title: "Security | SovCorE Auto",
   description:
     "Security policy for SovCorE Auto. Our security posture, responsible disclosure, and contact details.",
 };

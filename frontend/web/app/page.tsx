@@ -31,7 +31,7 @@ import { ScrollReveal } from "@/src/components/ui/scroll-reveal";
 // ==================================================
 
 export const metadata: Metadata = {
-  title: "SovCorE Auto — vehicle management for UK drivers",
+  title: "SovCorE Auto | vehicle management for UK drivers",
 };
 
 // ==================================================
@@ -72,7 +72,7 @@ export default function HomePage() {
       <section className="hero">
         <div className="page-shell hero__inner">
           <Badge tone="success" className="hero__tag">
-            UK-first vehicle management — MOT, SORN, insurance, ULEZ.
+            UK-first vehicle management: MOT, SORN, insurance, ULEZ.
           </Badge>
 
           <h1 className="hero__title">

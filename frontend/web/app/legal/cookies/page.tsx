@@ -22,7 +22,7 @@ import { legalEmails } from "@/src/lib/constants/legal";
 // ==================================================
 
 export const metadata: Metadata = {
-  title: "Cookies — SovCorE Auto",
+  title: "Cookies | SovCorE Auto",
   description:
     "Cookie policy for SovCorE Auto. Which cookies we set, their purposes, and the consent posture under PECR 2003.",
 };

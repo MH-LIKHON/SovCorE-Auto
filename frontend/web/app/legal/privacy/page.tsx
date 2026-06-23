@@ -23,7 +23,7 @@ import { legalEmails } from "@/src/lib/constants/legal";
 // ==================================================
 
 export const metadata: Metadata = {
-  title: "Privacy — SovCorE Auto",
+  title: "Privacy | SovCorE Auto",
   description:
     "Privacy policy for SovCorE Auto. What personal data we collect, why, how long we keep it, and your rights under UK GDPR.",
 };
@@ -75,7 +75,7 @@ const SECTIONS: readonly LegalSection[] = [
           </li>
           <li>
             <strong>Uploaded documents.</strong> Certificates, schedules, photos, and other
-            files you upload. These documents may themselves contain personal data — for example
+            files you upload. These documents may themselves contain personal data, for example
             a V5C (vehicle logbook) names the registered keeper. We do not read or analyse the
             content of documents you upload.
           </li>

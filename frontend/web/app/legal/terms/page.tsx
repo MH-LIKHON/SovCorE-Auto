@@ -21,7 +21,7 @@ import { legalEmails } from "@/src/lib/constants/legal";
 // ==================================================
 
 export const metadata: Metadata = {
-  title: "Terms — SovCorE Auto",
+  title: "Terms | SovCorE Auto",
   description:
     "Terms of service for SovCorE Auto, operated by VelVadY LTD trading as SovCorE.",
 };
@@ -215,7 +215,7 @@ export default function TermsPage() {
         <>
           <p>
             These terms set out the rules for using SovCorE Auto. They govern the relationship
-            between you and VelVadY LTD trading as SovCorE. Please read them before creating
+            between you and VelVadY LTD trading as SovCorE. Read them before creating
             an account.
           </p>
         </>
