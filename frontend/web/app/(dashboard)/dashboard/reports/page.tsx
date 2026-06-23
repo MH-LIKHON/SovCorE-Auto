@@ -116,6 +116,46 @@ function maxOf(items: MonthlyTotal[]): number {
 // EXPORT BUTTON
 // ==================================================
 
+// ==================================================
+// ACCOUNT EXPORT BUTTON
+// ==================================================
+
+function AccountExportButton({ accountId }: { accountId: string }) {
+  const [busy, setBusy] = useState(false);
+
+  async function handleExport() {
+    setBusy(true);
+    try {
+      const res = await apiFetch(
+        `/api/v1/accounts/${accountId}/exports/account`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const today = new Date().toISOString().split("T")[0];
+        a.href = url;
+        a.download = `sovcoreAuto-export-${today}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      className="rec-btn rec-btn--primary"
+      onClick={handleExport}
+      disabled={busy}
+    >
+      {busy ? "Preparing export…" : "Download account data"}
+    </button>
+  );
+}
+
 interface ExportButtonProps {
   accountId: string;
   vehicleId: string;
@@ -478,7 +518,19 @@ export default function ReportsPage() {
         )}
       </section>
 
-      {/* ---- Exports section ---- */}
+      {/* ---- Account data export ---- */}
+      <section className="rpt-section">
+        <h2 className="rpt-section-heading">Account data export</h2>
+        <Card>
+          <h3 className="rec-section-title">Download your data</h3>
+          <p className="rpt-note" style={{ marginTop: 0, paddingTop: 0, border: "none", marginBottom: "var(--space-4)" }}>
+            Export all your vehicles, records, documents, tasks, reminders, and operational data as a ZIP archive of CSV files.
+          </p>
+          <AccountExportButton accountId={accountId} />
+        </Card>
+      </section>
+
+      {/* ---- PDF exports section ---- */}
       {costs && costs.by_vehicle.length > 0 && (
         <section className="rpt-section">
           <h2 className="rpt-section-heading">Export</h2>

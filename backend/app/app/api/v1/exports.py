@@ -37,6 +37,7 @@ from app.accounts.models.user import User
 from app.core.database import get_db
 from app.core.permissions import require_viewer
 from app.exports.services.pdf_service import PDFService
+from app.exports.services.zip_service import ZipService
 
 # ==================================================
 # ROUTER
@@ -88,5 +89,31 @@ async def export_vehicle_pdf(
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ==================================================
+# ZIP ACCOUNT EXPORT
+# ==================================================
+
+
+@router.post(
+    "/accounts/{account_id}/exports/account",
+    summary="Full account data export as ZIP",
+    response_class=Response,
+)
+async def export_account_zip(
+    account_id: uuid.UUID,
+    _: User = Depends(require_viewer),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    # ~~~~~~~~~ Build the full account export archive in memory ~~~~~~~~~
+    zip_bytes = await ZipService(db).account_export(account_id)
+    filename = f"sovcoreAuto-export-{date.today().isoformat()}.zip"
+
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
