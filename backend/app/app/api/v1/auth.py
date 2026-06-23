@@ -25,7 +25,9 @@
 #   - backend/app/app/api/v1/router.py
 # ============================================================
 
+import time
 import uuid
+from collections import defaultdict
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -50,13 +52,24 @@ from app.auth.services.sso_service import (
 )
 from app.auth.services.totp_service import TotpError, TotpService
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_partial_token
 from app.core.rate_limit import limiter
-from app.core.security import decode_token, issue_access_token
+from app.core.security import decode_token, issue_access_token, jti_blocklist
 from app.core.settings import get_settings
 
 router = APIRouter()
 _settings = get_settings()
+
+# ==================================================
+# PER-EMAIL RATE LIMIT
+# ==================================================
+
+# In-memory tracker for per-email request-code rate limiting.
+# Stores a list of monotonic timestamps per email address.
+# Must be moved to Redis before horizontal scaling (same caveat as jti_blocklist).
+_EMAIL_RATE_WINDOW = 600  # 10 minutes in seconds
+_EMAIL_RATE_MAX = 5
+_email_request_times: defaultdict[str, list[float]] = defaultdict(list)
 
 # ==================================================
 # COOKIE HELPER
@@ -113,6 +126,22 @@ async def request_code(
     Returns a generic acknowledgment whether or not the address
     is registered — prevents user enumeration.
     """
+    # ~~~~~~~~~ Per-email rate limit ~~~~~~~~~
+    # Sliding window: 5 requests per 10 minutes per email address.
+    # Complements the IP-level @limiter.limit above; an attacker who rotates
+    # IPs could otherwise spam codes to a single mailbox without triggering
+    # the IP limit.
+    now = time.monotonic()
+    cutoff = now - _EMAIL_RATE_WINDOW
+    recent = [t for t in _email_request_times[body.email] if t > cutoff]
+    if len(recent) >= _EMAIL_RATE_MAX:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many code requests for this address. Wait ten minutes and try again.",
+        )
+    recent.append(now)
+    _email_request_times[body.email] = recent
+
     service = AuthService(db)
     return await service.request_code(email=body.email)
 
@@ -211,11 +240,23 @@ async def refresh_token(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Revoke the refresh token",
 )
-async def logout(response: Response) -> None:
+async def logout(
+    response: Response,
+    sva_refresh: str | None = Cookie(default=None),
+) -> None:
     """
-    Clear the refresh-token cookie. The access token expires on its
-    own schedule; the frontend should discard it immediately.
+    Revoke the refresh token by adding its jti to the blocklist, then
+    clear the cookie. The access token expires on its own schedule;
+    the frontend should discard it immediately.
     """
+    if sva_refresh:
+        try:
+            payload = decode_token(sva_refresh)
+            jti = payload.get("jti")
+            if jti:
+                jti_blocklist.add(jti)
+        except JWTError:
+            pass  # Already invalid — nothing to revoke.
     _clear_refresh_cookie(response)
 
 
@@ -236,13 +277,13 @@ async def verify_2fa_login(
     request: Request,
     body: TotpChallengeIn,
     response: Response,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_partial_token),
     db: AsyncSession = Depends(get_db),
 ) -> TokenPairOut:
     """
     Called when verify-code returned requires_2fa=true. Verifies the
     six-digit TOTP code and issues the full access + refresh token pair.
-    The partial access token (type=partial) is accepted by get_current_user.
+    Requires a type=partial token; full access tokens are rejected here.
     """
     service = TotpService(db)
     try:

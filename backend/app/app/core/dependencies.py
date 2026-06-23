@@ -11,6 +11,13 @@
 #   get_current_user: reads the Authorization header, decodes
 #   the access token, loads the User row. Raises 401 if the
 #   token is missing, invalid, expired, or the user is inactive.
+#   Accepts only type="access" tokens; partial tokens are
+#   rejected here and must use require_partial_token instead.
+#
+#   require_partial_token: identical to get_current_user but
+#   accepts only type="partial" tokens. Used exclusively by
+#   the 2FA verify endpoint so a partial token cannot be
+#   replayed on any other protected route.
 #
 #   require_verified_email: raises 403 if the user's email has
 #   not been verified. Composed on top of get_current_user.
@@ -22,6 +29,7 @@
 #
 # Consumed by:
 #   - Every protected route via `Depends(get_current_user)`
+#   - The 2FA verify endpoint via `Depends(require_partial_token)`
 # ============================================================
 
 import uuid
@@ -75,13 +83,69 @@ async def get_current_user(
         ) from exc
 
     # ~~~~~~~~~ Check token type ~~~~~~~~~
-    if payload.get("type") not in ("access", "partial"):
+    # Only full access tokens are accepted here; partial tokens are limited to
+    # the 2FA verify endpoint and must go through require_partial_token instead.
+    if payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token type is not accepted here.",
         )
 
     # ~~~~~~~~~ Load the user ~~~~~~~~~
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token.")
+
+    try:
+        user_id = uuid.UUID(user_id_str)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token.") from exc
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or deactivated.",
+        )
+
+    return user
+
+
+# ------------------------------ Partial token (2FA step) -------------------
+
+
+async def require_partial_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """
+    Accepts only type="partial" tokens. Wired exclusively to the 2FA verify
+    endpoint so a partial token cannot access any other protected route.
+    """
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        payload = decode_token(credentials.credentials)
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is invalid or has expired.",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    if payload.get("type") != "partial":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token type is not accepted here.",
+        )
+
     user_id_str = payload.get("sub")
     if not user_id_str:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token.")

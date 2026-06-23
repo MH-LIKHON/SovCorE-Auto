@@ -60,7 +60,7 @@ async def sign_upload(
     _: User = Depends(require_editor),
     db: AsyncSession = Depends(get_db),
 ) -> SignedUploadOut:
-    return DocumentService(db).sign_upload(account_id, body)
+    return await DocumentService(db).sign_upload(account_id, body)
 
 
 # ==================================================

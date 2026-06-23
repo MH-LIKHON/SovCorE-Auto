@@ -23,7 +23,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
@@ -37,6 +37,7 @@ from app.records.schemas.record_schemas import (
     RecordPatchIn,
 )
 from app.records.services.record_service import RecordService
+from app.vehicles.repositories.vehicle_repository import VehicleRepository
 
 # ==================================================
 # ROUTER
@@ -132,4 +133,12 @@ async def delete_record(
     _: User = Depends(require_editor),
     db: AsyncSession = Depends(get_db),
 ) -> None:
+    # Verify the vehicle belongs to the account before writing a timeline entry.
+    # 404 is intentional — do not reveal that the vehicle exists in another account.
+    vehicle = await VehicleRepository(db).get_by_id(vehicle_id, account_id)
+    if vehicle is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vehicle not found.",
+        )
     await RecordService(db).delete_record(record_id, account_id, vehicle_id)

@@ -54,9 +54,20 @@ class DocumentService:
     # SIGNED UPLOAD
     # ==================================================
 
-    def sign_upload(
+    async def sign_upload(
         self, account_id: uuid.UUID, data: SignUploadIn
     ) -> SignedUploadOut:
+        from app.vehicles.repositories.vehicle_repository import VehicleRepository
+
+        # Verify the vehicle belongs to this account before issuing a presigned URL.
+        # 404 is intentional — do not reveal whether the vehicle exists elsewhere.
+        vehicle = await VehicleRepository(self._db).get_by_id(data.vehicle_id, account_id)
+        if vehicle is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vehicle not found.",
+            )
+
         settings = get_settings()
         r2 = get_r2_client()
         # Key pattern: {account_id}/vehicles/{vehicle_id}/docs/{timestamp}/{filename}
