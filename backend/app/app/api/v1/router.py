@@ -25,6 +25,7 @@ from app.api.v1.records import router as records_router
 from app.api.v1.timeline import router as timeline_router
 from app.api.v1.exports import router as exports_router
 from app.api.v1.reports import router as reports_router
+from app.api.v1.search import router as search_router
 from app.api.v1.tasks import router as tasks_router
 from app.api.v1.vehicle_health import router as vehicle_health_router
 from app.api.v1.vehicles import router as vehicles_router
@@ -56,3 +57,4 @@ v1_router.include_router(tasks_router, tags=["tasks"])
 # Phase 6 — reports, export, search
 v1_router.include_router(reports_router, tags=["reports"])
 v1_router.include_router(exports_router, tags=["exports"])
+v1_router.include_router(search_router, tags=["search"])
