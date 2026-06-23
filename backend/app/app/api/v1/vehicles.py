@@ -18,18 +18,26 @@
 #   rather than the generic PATCH so the intent is unambiguous
 #   in the audit log.
 #
+#   Cover photo flow (GAP-2):
+#     1. POST /accounts/{id}/vehicles/{vid}/photo/sign → presigned PUT URL + key.
+#     2. Browser PUTs the image directly to R2.
+#     3. Browser calls PATCH /accounts/{id}/vehicles/{vid} with { image_key }.
+#
 # Consumed by:
 #   - backend/app/app/api/v1/router.py
 # ============================================================
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
 from app.core.database import get_db
 from app.core.permissions import require_admin, require_editor, require_viewer
+from app.core.settings import get_settings
+from app.integrations.r2 import get_r2_client
+from app.vehicles.repositories.vehicle_repository import VehicleRepository
 from app.vehicles.schemas.vehicle_schemas import (
     VehicleCardOut,
     VehicleCreateIn,
@@ -38,6 +46,8 @@ from app.vehicles.schemas.vehicle_schemas import (
     VehicleOwnershipOut,
     VehicleOwnershipPatchIn,
     VehiclePatchIn,
+    VehiclePhotoSignIn,
+    VehiclePhotoSignOut,
     VehicleRenewalOut,
     VehicleRenewalPutIn,
 )
@@ -214,3 +224,48 @@ async def patch_ownership(
     db: AsyncSession = Depends(get_db),
 ) -> VehicleOwnershipOut:
     return await VehicleService(db).patch_ownership(vehicle_id, account_id, body)
+
+
+# ==================================================
+# COVER PHOTO
+# ==================================================
+
+_ALLOWED_PHOTO_EXTS = {"jpg", "jpeg", "png", "webp"}
+_PHOTO_URL_EXPIRY = 15 * 60  # 15 minutes
+
+
+@router.post(
+    "/accounts/{account_id}/vehicles/{vehicle_id}/photo/sign",
+    response_model=VehiclePhotoSignOut,
+    summary="Generate a presigned R2 upload URL for the vehicle cover photo",
+)
+async def sign_cover_photo(
+    account_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    body: VehiclePhotoSignIn,
+    _: User = Depends(require_editor),
+    db: AsyncSession = Depends(get_db),
+) -> VehiclePhotoSignOut:
+    ext = body.ext.lower().lstrip(".")
+    if ext not in _ALLOWED_PHOTO_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Extension '{ext}' is not allowed. Use jpg, png, or webp.",
+        )
+    vehicle = await VehicleRepository(db).get_by_id(vehicle_id, account_id)
+    if vehicle is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
+    settings = get_settings()
+    r2 = get_r2_client()
+    key = f"{account_id}/vehicles/{vehicle_id}/cover/{uuid.uuid4()}.{ext}"
+    content_type = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
+    upload_url: str = r2.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": settings.r2_bucket_name,
+            "Key": key,
+            "ContentType": content_type,
+        },
+        ExpiresIn=_PHOTO_URL_EXPIRY,
+    )
+    return VehiclePhotoSignOut(upload_url=upload_url, key=key)

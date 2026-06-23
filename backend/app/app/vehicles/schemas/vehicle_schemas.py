@@ -257,3 +257,23 @@ class VehicleOwnershipPatchIn(BaseModel):
 
 class VehicleLifecycleIn(BaseModel):
     state: LifecycleState
+
+
+# ==================================================
+# COVER PHOTO SIGN
+# ==================================================
+
+# ------------------------------ Sign In -------------------------------------
+
+
+class VehiclePhotoSignIn(BaseModel):
+    # File extension without a dot. Accepted values: jpg, jpeg, png, webp.
+    ext: str
+
+
+# ------------------------------ Sign Out ------------------------------------
+
+
+class VehiclePhotoSignOut(BaseModel):
+    upload_url: str
+    key: str
