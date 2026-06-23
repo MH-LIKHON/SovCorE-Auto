@@ -1,0 +1,412 @@
+// ============================================================
+// frontend/web/app/(dashboard)/dashboard/vehicles/[id]/pcns/page.tsx
+// ============================================================
+//
+// Purpose:
+//   Penalty charge notice (PCN) management page for a vehicle.
+//   Lists all PCNs with reference, authority, date, amount, and
+//   status. Provides an inline form to add a new PCN and a status
+//   update action on each row.
+//
+// Design:
+//   Status values: open, paid, appealed, cancelled.
+//   Status badge colours follow the platform convention:
+//     open → amber, paid → green, appealed → accent, cancelled → muted.
+//   Amount is stored and returned in pence; displayed in GBP.
+//
+//   Mirrors SovCorE QR card and list patterns: rec-shell, Card,
+//   rec-btn, rec-row, cursor: none on all interactive elements.
+//
+// Consumed by:
+//   - Routed at /dashboard/vehicles/[id]/pcns
+// ============================================================
+
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import { Card } from "@/src/components/ui/card";
+import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+
+// ==================================================
+// TYPES
+// ==================================================
+
+type PCNStatus = "open" | "paid" | "appealed" | "cancelled";
+
+interface PCNItem {
+  id: string;
+  reference: string | null;
+  authority: string | null;
+  date: string;
+  amount: number;
+  status: PCNStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface PCNPage {
+  items: PCNItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+interface AddForm {
+  reference: string;
+  authority: string;
+  date: string;
+  amount: string;    // pounds, converted to pence on submit
+  status: PCNStatus;
+  notes: string;
+}
+
+// ==================================================
+// CONSTANTS
+// ==================================================
+
+const STATUSES: { value: PCNStatus; label: string }[] = [
+  { value: "open",      label: "Open" },
+  { value: "paid",      label: "Paid" },
+  { value: "appealed",  label: "Appealed" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+const EMPTY_FORM: AddForm = {
+  reference: "",
+  authority: "",
+  date:      new Date().toISOString().split("T")[0],
+  amount:    "",
+  status:    "open",
+  notes:     "",
+};
+
+// ==================================================
+// HELPERS
+// ==================================================
+
+function formatGBP(pence: number): string {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
+}
+
+function formatDate(d: string | null): string {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function statusBadgeClass(s: PCNStatus): string {
+  if (s === "open")      return "pcn-badge pcn-badge--open";
+  if (s === "paid")      return "pcn-badge pcn-badge--paid";
+  if (s === "appealed")  return "pcn-badge pcn-badge--appealed";
+  return "pcn-badge pcn-badge--cancelled";
+}
+
+function statusLabel(s: PCNStatus): string {
+  return STATUSES.find((st) => st.value === s)?.label ?? s;
+}
+
+// ==================================================
+// PAGE
+// ==================================================
+
+export default function PCNsPage() {
+  const { id } = useParams<{ id: string }>();
+  const accountId = getAccountId() ?? "";
+
+  const [pcns, setPCNs] = useState<PCNItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<AddForm>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // ==================================================
+  // DATA LOADING
+  // ==================================================
+
+  async function loadPCNs() {
+    if (!accountId || !id) return;
+    setLoading(true);
+    const res = await apiFetch(
+      `/api/v1/accounts/${accountId}/vehicles/${id}/pcns?page=1&page_size=100`
+    );
+    if (res.ok) {
+      const data: PCNPage = await res.json();
+      setPCNs(data.items);
+      setTotal(data.total);
+    }
+    setLoading(false);
+  }
+
+  useEffect(() => { loadPCNs(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ==================================================
+  // ADD PCN FORM
+  // ==================================================
+
+  function handleFormChange<K extends keyof AddForm>(field: K, value: AddForm[K]) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setSaveError(null);
+  }
+
+  async function handleAdd() {
+    if (!form.date) { setSaveError("Date is required."); return; }
+    if (!form.amount) { setSaveError("Amount is required."); return; }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await apiFetch(
+        `/api/v1/accounts/${accountId}/vehicles/${id}/pcns`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            reference: form.reference || null,
+            authority: form.authority || null,
+            date: form.date,
+            // Amount entered in pounds; convert to pence.
+            amount: Math.round(parseFloat(form.amount) * 100),
+            status: form.status,
+            notes: form.notes || null,
+          }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setSaveError(err.detail ?? "Could not save the PCN.");
+        return;
+      }
+      setShowForm(false);
+      setForm(EMPTY_FORM);
+      await loadPCNs();
+    } catch {
+      setSaveError("An unexpected error occurred.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ==================================================
+  // STATUS UPDATE
+  // ==================================================
+
+  async function handleStatusChange(pcn: PCNItem, newStatus: PCNStatus) {
+    setUpdatingId(pcn.id);
+    await apiFetch(
+      `/api/v1/accounts/${accountId}/pcns/${pcn.id}`,
+      { method: "PATCH", body: JSON.stringify({ status: newStatus }) }
+    );
+    setUpdatingId(null);
+    setPCNs((prev) =>
+      prev.map((p) => (p.id === pcn.id ? { ...p, status: newStatus } : p))
+    );
+  }
+
+  // ==================================================
+  // DELETE
+  // ==================================================
+
+  async function handleDelete(pcnId: string) {
+    if (!window.confirm("Delete this PCN? This cannot be undone.")) return;
+    setDeletingId(pcnId);
+    await apiFetch(
+      `/api/v1/accounts/${accountId}/pcns/${pcnId}`,
+      { method: "DELETE" }
+    );
+    setDeletingId(null);
+    setPCNs((prev) => prev.filter((p) => p.id !== pcnId));
+    setTotal((prev) => prev - 1);
+  }
+
+  // ==================================================
+  // RENDER
+  // ==================================================
+
+  return (
+    <div className="rec-shell">
+      {/* ---- Header ---- */}
+      <header className="rec-head">
+        <Link href={`/dashboard/vehicles/${id}`} className="rec-back">← Vehicle</Link>
+        <div className="rec-head__row">
+          <div>
+            <h1 className="rec-title">Penalty charge notices</h1>
+            <p className="rec-sub">Council and private parking charges raised against this vehicle.</p>
+          </div>
+          <button
+            className="rec-btn rec-btn--primary"
+            onClick={() => { setShowForm(!showForm); setSaveError(null); }}
+          >
+            {showForm ? "Cancel" : "Add PCN"}
+          </button>
+        </div>
+      </header>
+
+      {/* ---- Add form ---- */}
+      {showForm && (
+        <Card>
+          <h2 className="rec-section-title">New PCN</h2>
+          <div className="rec-form">
+
+            <div className="rec-form-row">
+              <label className="rec-label">
+                <span className="rec-label__text">Date</span>
+                <input className="rec-input" type="date" value={form.date} onChange={(e) => handleFormChange("date", e.target.value)} disabled={saving} />
+              </label>
+              <label className="rec-label">
+                <span className="rec-label__text">Amount (£)</span>
+                <input className="rec-input" type="number" step="0.01" placeholder="e.g. 70.00" value={form.amount} onChange={(e) => handleFormChange("amount", e.target.value)} disabled={saving} />
+              </label>
+              <label className="rec-label">
+                <span className="rec-label__text">Status</span>
+                <select className="rec-select" value={form.status} onChange={(e) => handleFormChange("status", e.target.value as PCNStatus)} disabled={saving}>
+                  {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </label>
+            </div>
+
+            <div className="rec-form-row">
+              <label className="rec-label rec-label--wide">
+                <span className="rec-label__text">Reference number</span>
+                <input className="rec-input" type="text" placeholder="e.g. PCN12345" value={form.reference} onChange={(e) => handleFormChange("reference", e.target.value)} disabled={saving} />
+              </label>
+              <label className="rec-label rec-label--wide">
+                <span className="rec-label__text">Issuing authority</span>
+                <input className="rec-input" type="text" placeholder="e.g. Westminster City Council" value={form.authority} onChange={(e) => handleFormChange("authority", e.target.value)} disabled={saving} />
+              </label>
+            </div>
+
+            <label className="rec-label rec-label--full">
+              <span className="rec-label__text">Notes</span>
+              <textarea className="rec-textarea" rows={2} placeholder="Any additional notes…" value={form.notes} onChange={(e) => handleFormChange("notes", e.target.value)} disabled={saving} />
+            </label>
+
+            {saveError && <p className="rec-error">{saveError}</p>}
+            <div className="rec-form-actions">
+              <button className="rec-btn rec-btn--primary" onClick={handleAdd} disabled={saving}>
+                {saving ? "Saving…" : "Save PCN"}
+              </button>
+              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ---- PCN list ---- */}
+      <Card>
+        <div className="rec-list-head">
+          <span className="rec-count">{total} PCN{total !== 1 ? "s" : ""}</span>
+        </div>
+
+        {loading ? (
+          <div className="rec-skeleton" />
+        ) : pcns.length === 0 ? (
+          <div className="rec-empty">
+            <p>No penalty charge notices recorded for this vehicle.</p>
+            <button className="rec-btn rec-btn--primary" onClick={() => setShowForm(true)}>Add a PCN</button>
+          </div>
+        ) : (
+          <div className="rec-rows">
+            {pcns.map((pcn) => (
+              <div key={pcn.id} className="pcn-row">
+                <div className="pcn-row__left">
+                  <span className={statusBadgeClass(pcn.status)}>{statusLabel(pcn.status)}</span>
+                  <span className="pcn-row__date">{formatDate(pcn.date)}</span>
+                  {pcn.authority && <span className="pcn-row__authority">{pcn.authority}</span>}
+                  {pcn.reference && <span className="pcn-row__ref">{pcn.reference}</span>}
+                </div>
+                <div className="pcn-row__right">
+                  <span className="pcn-row__amount">{formatGBP(pcn.amount)}</span>
+                  {/* Inline status change */}
+                  <select
+                    className="pcn-status-select"
+                    value={pcn.status}
+                    onChange={(e) => handleStatusChange(pcn, e.target.value as PCNStatus)}
+                    disabled={updatingId === pcn.id}
+                    aria-label="Update status"
+                  >
+                    {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                  <button
+                    className="rec-btn rec-btn--danger-sm"
+                    onClick={() => handleDelete(pcn.id)}
+                    disabled={deletingId === pcn.id}
+                  >
+                    {deletingId === pcn.id ? "…" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <style>{PCN_STYLES}</style>
+    </div>
+  );
+}
+
+// ==================================================
+// STYLES
+// ==================================================
+
+const PCN_STYLES = `
+  /* ---- PCN rows ---- */
+  .pcn-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 0.5px solid var(--colour-border);
+    flex-wrap: wrap;
+  }
+  .pcn-row:last-child { border-bottom: none; }
+  .pcn-row__left { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .pcn-row__right { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+  .pcn-row__date { font-size: var(--text-sm); color: var(--colour-text-muted); white-space: nowrap; }
+  .pcn-row__authority { font-size: var(--text-sm); color: var(--colour-text); }
+  .pcn-row__ref { font-size: var(--text-xs); color: var(--colour-text-muted); font-family: monospace; }
+  .pcn-row__amount { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text); white-space: nowrap; }
+
+  /* ---- Status badges ---- */
+  .pcn-badge {
+    font-size: var(--text-xs);
+    padding: 2px 8px;
+    border-radius: var(--radius-full, 999px);
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .pcn-badge--open      { color: #f59e0b; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
+  .pcn-badge--paid      { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
+  .pcn-badge--appealed  { color: var(--colour-accent); border-color: rgba(108,99,255,0.3); background: rgba(108,99,255,0.08); }
+  .pcn-badge--cancelled { color: var(--colour-text-muted); border-color: var(--colour-border); background: none; }
+
+  /* ---- Status select ---- */
+  .pcn-status-select {
+    background: var(--colour-bg);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    font-size: var(--text-xs);
+    color: var(--colour-text);
+    cursor: none;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .pcn-status-select:focus { border-color: var(--colour-accent); }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 767px) {
+    .pcn-row { flex-direction: column; align-items: flex-start; }
+    .pcn-row__right { flex-wrap: wrap; }
+  }
+`;

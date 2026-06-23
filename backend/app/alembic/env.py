@@ -52,6 +52,9 @@ import app.documents.models  # noqa: F401, E402
 import app.records.models  # noqa: F401, E402
 import app.audit.models    # noqa: F401, E402
 
+# Phase 4 — operational modules (PCN, damage, warranty).
+import app.operational.models  # noqa: F401, E402
+
 # ==================================================
 # ALEMBIC CONFIG
 # ==================================================
