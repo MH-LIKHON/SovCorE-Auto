@@ -31,7 +31,7 @@ import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.scheduler.jobs import dispatch_reminders
+from app.scheduler.jobs import dispatch_reminders, run_scheduled_backups
 
 logger = structlog.get_logger(__name__)
 
@@ -55,6 +55,15 @@ def start_scheduler() -> None:
         id="dispatch_reminders",
         replace_existing=True,
         misfire_grace_time=3600,  # allow up to one hour late fire on startup
+    )
+    # ~~~~~~~~~ Register the nightly scheduled backup job ~~~~~~~~~
+    # Fires at 02:00 UTC, outside peak hours, for all accounts.
+    _scheduler.add_job(
+        run_scheduled_backups,
+        trigger=CronTrigger(hour=2, minute=0, timezone="UTC"),
+        id="run_scheduled_backups",
+        replace_existing=True,
+        misfire_grace_time=3600,
     )
     _scheduler.start()
     logger.info("scheduler_started", jobs=[j.id for j in _scheduler.get_jobs()])

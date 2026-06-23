@@ -4,10 +4,15 @@
 #
 # Purpose:
 #   Background job functions executed by the APScheduler.
-#   The reminder dispatch job runs daily at 09:00 UTC. It
-#   queries all active reminders, computes the days remaining
-#   until each due date, and sends a Resend email for every
-#   interval that fires today and has not already been sent.
+#
+#   dispatch_reminders — runs daily at 09:00 UTC. Queries all
+#   active reminders, computes days remaining, and sends a
+#   Resend email for each interval that fires today.
+#
+#   run_scheduled_backups — runs nightly at 02:00 UTC. Iterates
+#   all account IDs and triggers a 'scheduled' backup for each.
+#   Errors on individual accounts are caught and logged without
+#   stopping the run for subsequent accounts.
 #
 # Design:
 #   The job creates its own database session via the async
@@ -36,6 +41,47 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 logger = structlog.get_logger(__name__)
+
+# ==================================================
+# SCHEDULED BACKUP JOB
+# ==================================================
+
+
+async def run_scheduled_backups() -> None:
+    """
+    Nightly backup job that runs at 02:00 UTC for every account.
+    Each account backup is independent — a failure on one account
+    is logged and skipped without blocking the rest.
+    """
+    from sqlalchemy import select
+
+    from app.accounts.models.account import Account
+    from app.backups.services.backup_service import BackupService
+    from app.core.database import async_session_factory
+
+    log = logger.bind(job="run_scheduled_backups")
+    log.info("scheduled_backups_started")
+
+    async with async_session_factory() as db:
+        result = await db.execute(select(Account.id))
+        account_ids = list(result.scalars().all())
+
+    success_count = 0
+    for account_id in account_ids:
+        try:
+            async with async_session_factory() as db:
+                svc = BackupService(db)
+                await svc.trigger_backup(account_id=account_id, kind="scheduled")
+                await db.commit()
+            success_count += 1
+        except Exception:
+            log.exception("scheduled_backup_failed_for_account", account_id=str(account_id))
+
+    log.info(
+        "scheduled_backups_complete",
+        total=len(account_ids),
+        succeeded=success_count,
+    )
 
 # ==================================================
 # REMINDER DISPATCH JOB

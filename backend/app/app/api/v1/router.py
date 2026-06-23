@@ -5,7 +5,7 @@
 # Purpose:
 #   Root router for the /api/v1 namespace. Domain routers are
 #   registered here as phases land. Health is Phase 0; auth and
-#   accounts are Phase 1.
+#   accounts are Phase 1. Phase 7 adds backups and erasure.
 #
 # Consumed by:
 #   - backend/app/main.py (mounted at /api/v1)
@@ -16,6 +16,7 @@ from fastapi import APIRouter
 from app.api.v1.accounts import router as accounts_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.backups import router as backups_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.expenses import router as expenses_router
 from app.api.v1.fuel import router as fuel_router
@@ -58,3 +59,5 @@ v1_router.include_router(tasks_router, tags=["tasks"])
 v1_router.include_router(reports_router, tags=["reports"])
 v1_router.include_router(exports_router, tags=["exports"])
 v1_router.include_router(search_router, tags=["search"])
+# Phase 7 — backups and erasure
+v1_router.include_router(backups_router, tags=["backups"])

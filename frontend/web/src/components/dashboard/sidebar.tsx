@@ -55,6 +55,8 @@ const LINKS: ReadonlyArray<LinkSpec> = [
   { href: "/dashboard/reports", label: "Reports" },
   { href: "/dashboard/search", label: "Search" },
   { href: "/dashboard/settings/account", label: "Settings" },
+  { href: "/dashboard/settings/users", label: "Members" },
+  { href: "/dashboard/settings/backups", label: "Backups" },
   { href: "/dashboard/settings/preferences", label: "Preferences" },
 ];
 
