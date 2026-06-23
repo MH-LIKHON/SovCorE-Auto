@@ -177,57 +177,60 @@ export default function UsersPage() {
         ) : members.length === 0 ? (
           <p className="set-muted">No members found.</p>
         ) : (
-          <table className="mem-table">
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Member since</th>
-                {isOwnerOrAdmin && <th>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m) => {
-                const isMe = m.user_id === myUserId;
-                const joinedDate = new Date(m.created_at).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                });
-                return (
-                  <tr key={m.id} className={isMe ? "mem-row mem-row--me" : "mem-row"}>
-                    <td>{m.email}{isMe && <span className="mem-you"> (you)</span>}</td>
-                    <td>{m.full_name || <span className="set-muted">—</span>}</td>
-                    <td>
-                      <Badge tone={ROLE_BADGE_TONE[m.role]}>{m.role}</Badge>
-                    </td>
-                    <td className="set-muted">{joinedDate}</td>
-                    {isOwnerOrAdmin && (
+          {/* Horizontal scroll wrapper — prevents the table overflowing on narrow screens. */}
+          <div className="mem-table-wrap">
+            <table className="mem-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th className="mem-col--name">Name</th>
+                  <th>Role</th>
+                  <th className="mem-col--since">Member since</th>
+                  {isOwnerOrAdmin && <th>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m) => {
+                  const isMe = m.user_id === myUserId;
+                  const joinedDate = new Date(m.created_at).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  });
+                  return (
+                    <tr key={m.id} className={isMe ? "mem-row mem-row--me" : "mem-row"}>
+                      <td>{m.email}{isMe && <span className="mem-you"> (you)</span>}</td>
+                      <td className="mem-col--name">{m.full_name || <span className="set-muted">—</span>}</td>
                       <td>
-                        {!isMe && m.role !== "owner" && (
-                          <div className="mem-actions">
-                            <select
-                              className="mem-role-select"
-                              value={m.role}
-                              onChange={(e) => handleRoleChange(m, e.target.value as Member["role"])}
-                            >
-                              {ASSIGNABLE_ROLES.map((r) => (
-                                <option key={r} value={r}>{r}</option>
-                              ))}
-                            </select>
-                            <button className="mem-remove-btn" onClick={() => handleRemove(m)}>
-                              Remove
-                            </button>
-                          </div>
-                        )}
+                        <Badge tone={ROLE_BADGE_TONE[m.role]}>{m.role}</Badge>
                       </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="mem-col--since set-muted">{joinedDate}</td>
+                      {isOwnerOrAdmin && (
+                        <td>
+                          {!isMe && m.role !== "owner" && (
+                            <div className="mem-actions">
+                              <select
+                                className="mem-role-select"
+                                value={m.role}
+                                onChange={(e) => handleRoleChange(m, e.target.value as Member["role"])}
+                              >
+                                {ASSIGNABLE_ROLES.map((r) => (
+                                  <option key={r} value={r}>{r}</option>
+                                ))}
+                              </select>
+                              <button className="mem-remove-btn" onClick={() => handleRemove(m)}>
+                                Remove
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
 
@@ -346,8 +349,10 @@ const SET_STYLES = `
   .set-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
   .set-btn--ghost:disabled { opacity: 0.55; }
 
+  /* ---------- Member table ---------- */
+  .mem-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .mem-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-  .mem-table th { text-align: left; color: var(--colour-text-muted); font-weight: 500; padding: 0 12px 10px 0; border-bottom: 1px solid var(--colour-border); }
+  .mem-table th { text-align: left; color: var(--colour-text-muted); font-weight: 500; padding: 0 12px 10px 0; border-bottom: 1px solid var(--colour-border); white-space: nowrap; }
   .mem-row td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--colour-border); color: var(--colour-text); vertical-align: middle; }
   .mem-row:last-child td { border-bottom: none; }
   .mem-row--me { background: rgba(108,99,255,0.04); }
@@ -357,4 +362,11 @@ const SET_STYLES = `
   .mem-role-select { background: var(--colour-bg); border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 4px 8px; font-size: var(--text-xs); color: var(--colour-text); cursor: none; }
   .mem-remove-btn { background: none; border: none; color: var(--colour-error); font-size: var(--text-xs); cursor: none; padding: 4px 6px; border-radius: var(--radius-sm); transition: background 0.2s; }
   .mem-remove-btn:hover { background: rgba(239,68,68,0.1); }
+
+  /* ---------- Small phone — hide lower-priority columns ---------- */
+  @media (max-width: 640px) {
+    /* Name and member-since are less critical on small screens. */
+    .mem-col--name { display: none; }
+    .mem-col--since { display: none; }
+  }
 `;
