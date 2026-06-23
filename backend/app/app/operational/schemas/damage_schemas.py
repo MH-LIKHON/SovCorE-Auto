@@ -3,7 +3,9 @@
 # ============================================================
 #
 # Purpose:
-#   Pydantic schemas for the damage history module.
+#   Pydantic schemas for the damage history module. Covers CRUD
+#   schemas for damage entries and the presigned photo upload flow
+#   for before and after images.
 #
 # Consumed by:
 #   - backend/app/app/operational/schemas/__init__.py
@@ -13,6 +15,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -77,3 +80,25 @@ class DamagePage(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# ==================================================
+# PHOTO SIGN
+# ==================================================
+
+# ------------------------------ Sign In -------------------------------------
+
+
+class DamagePhotoSignIn(BaseModel):
+    # Which image slot to sign. "before" = pre-repair, "after" = post-repair.
+    slot: Literal["before", "after"]
+    # File extension without a dot. Accepted values: jpg, jpeg, png, webp.
+    ext: str
+
+
+# ------------------------------ Sign Out ------------------------------------
+
+
+class DamagePhotoSignOut(BaseModel):
+    upload_url: str
+    key: str

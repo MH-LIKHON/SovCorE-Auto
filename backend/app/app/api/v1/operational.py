@@ -17,23 +17,36 @@
 #   PCNs and damage entries use the same page-envelope convention:
 #   { items, total, page, page_size }.
 #
+#   Damage photo flow (GAP-3):
+#     1. POST .../damage/{id}/photo/sign → presigned PUT URL + key.
+#     2. Browser PUTs the image directly to R2.
+#     3. Browser calls PATCH /accounts/{id}/damage/{id} with
+#        { before_key } or { after_key }.
+#     4. DELETE .../damage/{id}/photo/{slot} removes the key from
+#        the entry and deletes the R2 object.
+#
 # Consumed by:
 #   - backend/app/app/api/v1/router.py
 # ============================================================
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
 from app.core.database import get_db
 from app.core.permissions import require_editor, require_viewer
+from app.core.settings import get_settings
+from app.integrations.r2 import get_r2_client
+from app.operational.repositories.damage_repository import DamageRepository
 from app.operational.schemas import (
     DamageCreateIn,
     DamageOut,
     DamagePage,
     DamagePatchIn,
+    DamagePhotoSignIn,
+    DamagePhotoSignOut,
     PCNCreateIn,
     PCNOut,
     PCNPage,
@@ -46,6 +59,7 @@ from app.operational.schemas import (
 from app.operational.services.damage_service import DamageService
 from app.operational.services.pcn_service import PCNService
 from app.operational.services.warranty_service import WarrantyService
+from app.vehicles.repositories.vehicle_repository import VehicleRepository
 
 # ==================================================
 # ROUTER
@@ -193,6 +207,95 @@ async def delete_damage(
     db: AsyncSession = Depends(get_db),
 ) -> None:
     await DamageService(db).delete(entry_id, account_id)
+
+
+# ==================================================
+# DAMAGE PHOTO ENDPOINTS
+# ==================================================
+
+_ALLOWED_DAMAGE_PHOTO_EXTS = {"jpg", "jpeg", "png", "webp"}
+_DAMAGE_PHOTO_URL_EXPIRY = 15 * 60  # 15 minutes
+
+
+@router.post(
+    "/accounts/{account_id}/vehicles/{vehicle_id}/damage/{entry_id}/photo/sign",
+    response_model=DamagePhotoSignOut,
+    summary="Generate a presigned R2 upload URL for a damage photo",
+)
+async def sign_damage_photo(
+    account_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    body: DamagePhotoSignIn,
+    _: User = Depends(require_editor),
+    db: AsyncSession = Depends(get_db),
+) -> DamagePhotoSignOut:
+    ext = body.ext.lower().lstrip(".")
+    if ext not in _ALLOWED_DAMAGE_PHOTO_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Extension '{ext}' is not allowed. Use jpg, png, or webp.",
+        )
+    vehicle = await VehicleRepository(db).get_by_id(vehicle_id, account_id)
+    if vehicle is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
+    entry = await DamageRepository(db).get_by_id(entry_id, account_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Damage entry not found.")
+    settings = get_settings()
+    r2 = get_r2_client()
+    key = (
+        f"{account_id}/vehicles/{vehicle_id}/damage/{entry_id}"
+        f"/{body.slot}/{uuid.uuid4()}.{ext}"
+    )
+    content_type = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
+    upload_url: str = r2.generate_presigned_url(
+        "put_object",
+        Params={
+            "Bucket": settings.r2_bucket_name,
+            "Key": key,
+            "ContentType": content_type,
+        },
+        ExpiresIn=_DAMAGE_PHOTO_URL_EXPIRY,
+    )
+    return DamagePhotoSignOut(upload_url=upload_url, key=key)
+
+
+@router.delete(
+    "/accounts/{account_id}/damage/{entry_id}/photo/{slot}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a damage photo from R2 and clear its key on the entry",
+)
+async def delete_damage_photo(
+    account_id: uuid.UUID,
+    entry_id: uuid.UUID,
+    slot: str,
+    _: User = Depends(require_editor),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    if slot not in ("before", "after"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Slot must be 'before' or 'after'.",
+        )
+    repo = DamageRepository(db)
+    entry = await repo.get_by_id(entry_id, account_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Damage entry not found.")
+    r2_key: str | None = entry.before_key if slot == "before" else entry.after_key
+    if r2_key:
+        try:
+            settings = get_settings()
+            r2 = get_r2_client()
+            r2.delete_object(Bucket=settings.r2_bucket_name, Key=r2_key)
+        except Exception:
+            pass  # do not block row update on R2 errors
+    # Null the key directly on the ORM object; exclude_none patch cannot clear to None.
+    if slot == "before":
+        entry.before_key = None
+    else:
+        entry.after_key = None
+    await db.flush()
 
 
 # ==================================================
