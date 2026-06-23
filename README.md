@@ -66,7 +66,7 @@ The backend holds a strict layering. A router calls a service, a service calls a
 - **Record system.** Every action is a record: maintenance, repair, fuel, MOT, tax, insurance, parking, penalty notices, warranty, diagnostics and damage.
 - **Maintenance history.** A structured catalogue across engine, transmission, brakes, suspension, steering, wheels, cooling, electrical, climate control and exhaust.
 - **Fuel and running costs.** Fuel logs with economy and cost-per-mile analytics, and a complete running-costs view.
-- **Documents and photos.** Certificates, invoices and agreements attached to a vehicle and its records.
+- **Documents and photos.** Certificates, invoices and agreements attached to a vehicle and its records. Cover photo per vehicle, before and after damage photos with a photos gallery, and record attachments of any kind.
 - **Reminders and tasks.** Staged email reminders for the dates that matter, with assignable follow-up tasks.
 - **Vehicle health score.** A red, amber or green standing per vehicle from its key dates and condition.
 - **Collaboration.** Account types and Owner, Admin, Editor and Viewer roles, with shared vehicles and ownership transfer.
