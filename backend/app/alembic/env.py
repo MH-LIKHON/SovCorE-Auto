@@ -43,6 +43,10 @@ from app.core.settings import get_settings
 import app.accounts.models  # noqa: F401, E402
 import app.auth.models      # noqa: F401, E402
 
+# Phase 2 — vehicles domain models.
+import app.vehicles.models  # noqa: F401, E402
+import app.documents.models  # noqa: F401, E402
+
 # ==================================================
 # ALEMBIC CONFIG
 # ==================================================
