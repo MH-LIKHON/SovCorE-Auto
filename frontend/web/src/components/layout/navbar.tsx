@@ -194,12 +194,12 @@ export function Navbar() {
   return (
     <header className="sov-nav">
       <div className="sov-nav__inner">
-        {/* ---------- Brand lockup ---------- */}
+        {/* ~~~~~~~~~ Brand lockup ~~~~~~~~~ */}
         <Link href="/" className="sov-nav__brand" aria-label="SovCorE Auto, home">
           <BrandLockup subtitle="Auto" size="md" />
         </Link>
 
-        {/* ---------- Primary links + auth slot (desktop) ---------- */}
+        {/* ~~~~~~~~~ Primary links + auth slot (desktop) ~~~~~~~~~ */}
         <nav className="sov-nav__links" aria-label="Primary">
           {LINKS.map((link) => {
             const active = isActivePage(link);
@@ -215,7 +215,7 @@ export function Navbar() {
             );
           })}
 
-          {/* ---------- Auth slot ----------
+          {/* ~~~~~~~~~ Auth slot ~~~~~~~~~
               Phase 0: renders a "Sign in" link unconditionally.
               Phase 1 replaces this with the JWT session state. */}
           <Link href="/login" className="sov-nav__auth-signin sov-link">
@@ -223,7 +223,7 @@ export function Navbar() {
           </Link>
         </nav>
 
-        {/* ---------- Hamburger — visible only on mobile ---------- */}
+        {/* ~~~~~~~~~ Hamburger — visible only on mobile ~~~~~~~~~ */}
         <button
           className="sov-nav__hamburger"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -237,7 +237,7 @@ export function Navbar() {
         </button>
       </div>
 
-      {/* ---------- Mobile menu — rendered only when open ---------- */}
+      {/* ~~~~~~~~~ Mobile menu — rendered only when open ~~~~~~~~~ */}
       {menuOpen && (
         <nav
           id="sov-nav-mobile"

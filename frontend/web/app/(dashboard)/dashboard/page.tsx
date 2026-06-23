@@ -126,13 +126,13 @@ export default function DashboardPage() {
   return (
     <div className="db-shell">
 
-      {/* ---------- Page header ---------- */}
+      {/* ~~~~~~~~~ Page header ~~~~~~~~~ */}
       <header className="db-head">
         <h1 className="db-title">Dashboard</h1>
         <p className="db-sub">Your fleet at a glance.</p>
       </header>
 
-      {/* ---------- Stats row ---------- */}
+      {/* ~~~~~~~~~ Stats row ~~~~~~~~~ */}
       <div className="db-stats">
         <div className="db-stat">
           <span className="db-stat__value">{loading ? "—" : (summary?.active_vehicle_count ?? activeVehicles.length)}</span>
@@ -177,7 +177,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ---------- Fleet health bar ---------- */}
+      {/* ~~~~~~~~~ Fleet health bar ~~~~~~~~~ */}
       {!loading && activeVehicles.length > 0 && (
         <Card>
           <div className="db-health-head">
@@ -214,10 +214,10 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* ---------- Content grid ---------- */}
+      {/* ~~~~~~~~~ Content grid ~~~~~~~~~ */}
       <div className="db-grid">
 
-        {/* --- Vehicles panel --- */}
+        {/* ~~~~~~~~~ Vehicles panel ~~~~~~~~~ */}
         <section className="db-panel db-panel--wide">
           <div className="db-panel__head">
             <h2 className="db-panel__title">Vehicles</h2>
@@ -256,7 +256,7 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* --- Quick actions + stats panel --- */}
+        {/* ~~~~~~~~~ Quick actions + stats panel ~~~~~~~~~ */}
         <div className="db-side-col">
           <section className="db-panel">
             <h2 className="db-panel__title">Quick actions</h2>
@@ -288,7 +288,7 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* --- Attention panel (tasks + reminders) --- */}
+          {/* ~~~~~~~~~ Attention panel (tasks + reminders) ~~~~~~~~~ */}
           {!loading && summary && (
             <section className="db-panel db-panel--attention">
               <h2 className="db-panel__title">Attention needed</h2>

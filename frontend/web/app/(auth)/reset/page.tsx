@@ -15,6 +15,7 @@
 //
 // Consumed by:
 //   - Next.js App Router (renders at /reset)
+// ============================================================
 
 import Link from 'next/link'
 

@@ -76,24 +76,23 @@ export function Sidebar({ email, open = false, onClose }: SidebarProps) {
 
   return (
     <aside className={open ? "sov-side sov-side--open" : "sov-side"} aria-label="Dashboard">
-      {/* ---------- Mobile close button (hidden on desktop) ---------- */}
+      {/* ~~~~~~~~~ Mobile close button (hidden on desktop) ~~~~~~~~~ */}
       <button
         className="sov-side__close"
         onClick={onClose}
         aria-label="Close navigation"
       >
-        {/* × character — two lines crossing */}
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
       </button>
 
-      {/* ---------- Brand ---------- */}
+      {/* ~~~~~~~~~ Brand ~~~~~~~~~ */}
       <Link href="/" className="sov-side__brand" aria-label="SovCorE Auto home">
         <BrandLockup subtitle="Auto" size="md" />
       </Link>
 
-      {/* ---------- Nav ---------- */}
+      {/* ~~~~~~~~~ Nav ~~~~~~~~~ */}
       <nav className="sov-side__nav" aria-label="Dashboard navigation">
         {LINKS.map((l) => {
           const active =
@@ -113,7 +112,7 @@ export function Sidebar({ email, open = false, onClose }: SidebarProps) {
         })}
       </nav>
 
-      {/* ---------- User + sign out ---------- */}
+      {/* ~~~~~~~~~ User + sign out ~~~~~~~~~ */}
       <div className="sov-side__foot">
         {email && <p className="sov-side__email">{email}</p>}
         <button onClick={() => signOut(router)} className="sov-side__signout">

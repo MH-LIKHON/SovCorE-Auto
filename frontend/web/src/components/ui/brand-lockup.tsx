@@ -4,7 +4,7 @@
 //
 // Purpose:
 //   The brand mark used in the navbar and footer: 3D cube logo
-//   plus the wordmark "SoVCorE | Auto" with a bidirectional
+//   plus the wordmark "SovCorE | Auto" with a bidirectional
 //   gradient underline spanning the full wordmark width.
 //
 // Origin:
@@ -110,12 +110,12 @@ export function BrandLockup({ subtitle = "Auto", size = "md" }: BrandLockupProps
         gap,
       }}
     >
-      {/* ---------- Logo mark ---------- */}
+      {/* ~~~~~~~~~ Logo mark ~~~~~~~~~ */}
       <Logo size={logoSize} />
 
-      {/* ---------- Wordmark + underline ---------- */}
+      {/* ~~~~~~~~~ Wordmark + underline ~~~~~~~~~ */}
       <div style={{ position: "relative", display: "inline-block" }}>
-        {/* ---------- "SoVCorE | Auto" on one line ---------- */}
+        {/* ~~~~~~~~~ "SovCorE | Auto" on one line ~~~~~~~~~ */}
         <div
           style={{
             fontSize: nameSize,
@@ -153,7 +153,7 @@ export function BrandLockup({ subtitle = "Auto", size = "md" }: BrandLockupProps
           )}
         </div>
 
-        {/* ---------- Full-width animated underline ---------- */}
+        {/* ~~~~~~~~~ Full-width animated underline ~~~~~~~~~ */}
         {subtitle && (
           <div
             ref={underlineRef}
@@ -173,7 +173,7 @@ export function BrandLockup({ subtitle = "Auto", size = "md" }: BrandLockupProps
         )}
       </div>
 
-      {/* ---------- Theme-aware CSS variables + keyframe ---------- */}
+      {/* ~~~~~~~~~ Theme-aware CSS variables + keyframe ~~~~~~~~~ */}
       <style>{BRAND_STYLES}</style>
     </div>
   );

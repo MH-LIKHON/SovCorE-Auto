@@ -45,7 +45,7 @@ export function CustomCursor() {
 
   return (
     <>
-      {/* ---------- Dot ---------- */}
+      {/* ~~~~~~~~~ Dot ~~~~~~~~~ */}
       <div
         ref={dotRef}
         aria-hidden="true"
@@ -63,7 +63,7 @@ export function CustomCursor() {
         }}
       />
 
-      {/* ---------- Ring ---------- */}
+      {/* ~~~~~~~~~ Ring ~~~~~~~~~ */}
       <div
         ref={ringRef}
         aria-hidden="true"
@@ -82,7 +82,7 @@ export function CustomCursor() {
         }}
       />
 
-      {/* ---------- Hover icon ----------
+      {/* ~~~~~~~~~ Hover icon ~~~~~~~~~
           Tracks the ring position. Both dot and ring are gone;
           this replaces them over every interactive element. */}
       <div
@@ -133,7 +133,6 @@ export function CustomCursor() {
                 <stop offset="100%" stopColor="#00d4ff" />
               </linearGradient>
             </defs>
-            {/* Three gradient arc segments */}
             <circle
               cx="22"
               cy="22"
@@ -143,7 +142,6 @@ export function CustomCursor() {
               strokeDasharray="30 9.8"
               strokeLinecap="round"
             />
-            {/* Centre dot */}
             <circle cx="22" cy="22" r="3" fill="#00d4ff" opacity="0.95" />
           </svg>
         </div>

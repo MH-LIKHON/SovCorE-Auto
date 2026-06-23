@@ -21,6 +21,7 @@
 //
 // Consumed by:
 //   - app/(auth)/login/page.tsx
+// ============================================================
 
 import { LINES, PARTICLES } from '@/src/components/login/login-background-data'
 
@@ -31,7 +32,7 @@ import { LINES, PARTICLES } from '@/src/components/login/login-background-data'
 export function LoginBackground() {
   return (
     <>
-      {/* ── Gradient Orbs ─────────────────────────────────── */}
+      {/* ~~~~~~~~~ Gradient orbs ~~~~~~~~~ */}
 
       {/* Top-left purple orb */}
       <div
@@ -63,7 +64,7 @@ export function LoginBackground() {
         }}
       />
 
-      {/* ── Floating Particles ────────────────────────────── */}
+      {/* ~~~~~~~~~ Floating particles ~~~~~~~~~ */}
       {PARTICLES.map((p, i) => (
         <div
           key={i}
@@ -83,7 +84,7 @@ export function LoginBackground() {
         />
       ))}
 
-      {/* ── Fading Gradient Lines ─────────────────────────── */}
+      {/* ~~~~~~~~~ Fading gradient lines ~~~~~~~~~ */}
       {LINES.map((l, i) => (
         <div
           key={`line-${i}`}

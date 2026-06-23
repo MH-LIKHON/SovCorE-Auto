@@ -44,6 +44,7 @@
 //
 // Consumed by:
 //   - Next.js App Router (renders at /login)
+// ============================================================
 
 'use client'
 
@@ -362,7 +363,6 @@ export default function LoginPage() {
                 </button>
               </div>
 
-              {/* "or" divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 12px' }}>
                 <div style={{ flex: 1, height: '0.5px', background: 'rgba(255,255,255,0.06)' }} />
                 <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>or</span>
@@ -541,7 +541,6 @@ function EmailStage({
 
         <div ref={pulseRingRef} aria-hidden="true" style={{ position: 'absolute', bottom: -2, left: 12, right: 12, height: 2, borderRadius: 1, overflow: 'hidden' }} />
 
-        {/* Pulsing arrow */}
         <div
           onClick={isLoading ? undefined : onAdvance}
           role={emailValid ? 'button' : undefined}
@@ -672,7 +671,6 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Email pill */}
       <div style={{ display: 'flex', justifyContent: 'center' }}>
         <div style={{ padding: '6px 14px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: '#6c63ff', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 8, animation: 'pillIn 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
           <span>{email}</span>
@@ -691,12 +689,10 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
         </div>
       </div>
 
-      {/* Instruction */}
       <p style={{ fontSize: 13, color: 'var(--colour-text-muted)', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
         We sent a six-digit code to your email. Enter it below.
       </p>
 
-      {/* Six digit inputs */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
         {digits.map((digit, i) => (
           <input
@@ -714,19 +710,16 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
         ))}
       </div>
 
-      {/* Error */}
       {error && (
         <div role="alert" style={{ fontSize: 12, color: 'var(--colour-error, #ff6b6b)', textAlign: 'center', padding: '8px 12px', borderRadius: 8, background: 'rgba(255,107,107,0.08)' }}>
           {error}
         </div>
       )}
 
-      {/* Loading indicator */}
       {isLoading && (
         <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Verifying...</div>
       )}
 
-      {/* Resend */}
       <div style={{ textAlign: 'center' }}>
         <button
           type="button"

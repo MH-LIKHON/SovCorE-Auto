@@ -179,7 +179,7 @@ export function Card({
         ...style,
       }}
     >
-      {/* ---------- Tilt top glow line ---------- */}
+      {/* ~~~~~~~~~ Tilt top glow line ~~~~~~~~~ */}
       {effectiveHover === "tilt" && (
         <div
           ref={tiltGlowLineRef}
@@ -199,7 +199,7 @@ export function Card({
         />
       )}
 
-      {/* ---------- Glow top sweep (continuous while hovered) ---------- */}
+      {/* ~~~~~~~~~ Glow top sweep (continuous while hovered) ~~~~~~~~~ */}
       {effectiveHover === "glow" && (
         <div
           ref={sweepRef}
@@ -220,7 +220,7 @@ export function Card({
         />
       )}
 
-      {/* ---------- Glow back glow ---------- */}
+      {/* ~~~~~~~~~ Glow back glow ~~~~~~~~~ */}
       {effectiveHover === "glow" && (
         <div
           ref={backGlowRef}
@@ -238,7 +238,7 @@ export function Card({
         />
       )}
 
-      {/* ---------- Tilt cursor shimmer ---------- */}
+      {/* ~~~~~~~~~ Tilt cursor shimmer ~~~~~~~~~ */}
       {effectiveHover === "tilt" && (
         <div
           ref={shimmerRef}
@@ -254,12 +254,12 @@ export function Card({
         />
       )}
 
-      {/* ---------- Content ---------- */}
+      {/* ~~~~~~~~~ Content ~~~~~~~~~ */}
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", flex: 1 }}>
         {children}
       </div>
 
-      {/* ---------- Clickable centre-out gradient line ---------- */}
+      {/* ~~~~~~~~~ Clickable centre-out gradient line ~~~~~~~~~ */}
       {clickable && (
         <div
           ref={clickLineRef}

@@ -185,7 +185,7 @@ export default function VehicleProfilePage() {
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- Info patch ----
+  // ------------------------------ Info patch ---------------------------------
   const [infoForm, setInfoForm] = useState<Partial<VehicleDetail>>({});
   function startEditInfo() {
     setInfoForm({ ...vehicle });
@@ -231,7 +231,7 @@ export default function VehicleProfilePage() {
     setEditingInfo(false);
   }
 
-  // ---- Ownership patch ----
+  // ------------------------------ Ownership patch -----------------------------
   const [ownershipForm, setOwnershipForm] = useState<Partial<Ownership>>({});
   function startEditOwnership() {
     setOwnershipForm({ ...ownership });
@@ -257,7 +257,7 @@ export default function VehicleProfilePage() {
     setEditingOwnership(false);
   }
 
-  // ---- Renewals put ----
+  // ------------------------------ Renewals put --------------------------------
   const [renewalForm, setRenewalForm] = useState<Partial<Renewal>>({});
   function startEditRenewals() {
     setRenewalForm({ ...renewal });
@@ -283,7 +283,7 @@ export default function VehicleProfilePage() {
     setEditingRenewals(false);
   }
 
-  // ---- Lifecycle ----
+  // ------------------------------ Lifecycle -----------------------------------
   async function applyLifecycle() {
     if (!accountId || !vehicle || lifecycleState === vehicle.lifecycle_state) return;
     setSettingLifecycle(true);
@@ -298,7 +298,7 @@ export default function VehicleProfilePage() {
     }
   }
 
-  // ---- Delete ----
+  // ------------------------------ Delete -------------------------------------
   async function handleDelete() {
     if (!accountId || !vehicle) return;
     if (!window.confirm(`Delete ${vehicle.registration ?? "this vehicle"} and all its data? This cannot be undone.`)) return;
@@ -338,7 +338,7 @@ export default function VehicleProfilePage() {
 
   return (
     <div className="vd-shell">
-      {/* ---------- Header ---------- */}
+      {/* ~~~~~~~~~ Header ~~~~~~~~~ */}
       <header className="vd-head">
         <div className="vd-head__left">
           <Link href="/dashboard/vehicles" className="vd-back">← Vehicles</Link>
@@ -368,7 +368,7 @@ export default function VehicleProfilePage() {
         </div>
       </header>
 
-      {/* ---------- Tabs ---------- */}
+      {/* ~~~~~~~~~ Tabs ~~~~~~~~~ */}
       <nav className="vd-tabs" aria-label="Vehicle sections">
         {(["overview", "info", "ownership", "renewals"] as Tab[]).map((t) => (
           <button

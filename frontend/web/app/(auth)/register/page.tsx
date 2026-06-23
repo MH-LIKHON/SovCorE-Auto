@@ -16,6 +16,7 @@
 //
 // Consumed by:
 //   - Next.js App Router (renders at /register)
+// ============================================================
 
 'use client'
 

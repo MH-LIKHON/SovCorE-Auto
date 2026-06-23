@@ -43,13 +43,13 @@ export function Footer() {
   return (
     <footer className="sov-foot">
       <div className="sov-foot__inner">
-        {/* ---------- Top grid ---------- */}
+        {/* ~~~~~~~~~ Top grid ~~~~~~~~~ */}
         <div className="sov-foot__grid">
           {/* About column */}
           <div className="sov-foot__col">
             <h4 className="sov-foot__heading">SovCorE Auto</h4>
             <p className="sov-foot__body">
-              Self-hosted vehicle management for individuals, families and small fleets. Track
+              Vehicle management for individuals, families and small fleets. Track
               every service, MOT, expense, and document for every vehicle in one place.
             </p>
           </div>
@@ -99,7 +99,7 @@ export function Footer() {
           </div>
         </div>
 
-        {/* ---------- Bottom bar ---------- */}
+        {/* ~~~~~~~~~ Bottom bar ~~~~~~~~~ */}
         <div className="sov-foot__bottom">
           <Copyright />
           <p className="sov-foot__body sov-foot__body--small">

@@ -24,6 +24,7 @@
 //
 // Consumed by:
 //   - app/(auth)/login/page.tsx
+// ============================================================
 
 'use client'
 
@@ -147,7 +148,7 @@ export function LoginCard({ children, disabled = false }: LoginCardProps) {
           'opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1)',
       }}
     >
-      {/* ── Gradient Glow Line (top edge) ─────────────────── */}
+      {/* ~~~~~~~~~ Gradient glow line (top edge) ~~~~~~~~~ */}
       <div
         aria-hidden="true"
         style={{
@@ -164,7 +165,7 @@ export function LoginCard({ children, disabled = false }: LoginCardProps) {
         }}
       />
 
-      {/* ── Cursor Shimmer Overlay ────────────────────────── */}
+      {/* ~~~~~~~~~ Cursor shimmer overlay ~~~~~~~~~ */}
       <div
         ref={shimmerRef}
         aria-hidden="true"
@@ -178,10 +179,10 @@ export function LoginCard({ children, disabled = false }: LoginCardProps) {
         }}
       />
 
-      {/* ── Card Content ─────────────────────────────────── */}
+      {/* ~~~~~~~~~ Card content ~~~~~~~~~ */}
       <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
 
-      {/* ── Responsive breakpoints ───────────────────────── */}
+      {/* ~~~~~~~~~ Responsive breakpoints ~~~~~~~~~ */}
       <style>{`
         .login-card-root {
           width: 420px !important;

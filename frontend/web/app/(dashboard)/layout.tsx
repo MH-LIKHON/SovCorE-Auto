@@ -58,7 +58,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="dash-shell">
-      {/* ---------- Mobile top bar (hidden on desktop) ---------- */}
+      {/* ~~~~~~~~~ Mobile top bar (hidden on desktop) ~~~~~~~~~ */}
       <div className="dash-topbar">
         <button
           className="dash-hamburger"
@@ -67,7 +67,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           aria-expanded={sidebarOpen}
           aria-controls="dash-drawer"
         >
-          {/* Three horizontal bars */}
           <span className="dash-hamburger__line" aria-hidden="true" />
           <span className="dash-hamburger__line" aria-hidden="true" />
           <span className="dash-hamburger__line" aria-hidden="true" />
@@ -75,7 +74,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <span className="dash-topbar__name">SovCorE Auto</span>
       </div>
 
-      {/* ---------- Backdrop — closes the drawer when tapped ---------- */}
+      {/* ~~~~~~~~~ Backdrop — closes the drawer when tapped ~~~~~~~~~ */}
       {sidebarOpen && (
         <div
           className="dash-backdrop"
@@ -84,7 +83,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         />
       )}
 
-      {/* ---------- Sidebar / drawer ---------- */}
+      {/* ~~~~~~~~~ Sidebar / drawer ~~~~~~~~~ */}
       <Sidebar
         email={email}
         open={sidebarOpen}

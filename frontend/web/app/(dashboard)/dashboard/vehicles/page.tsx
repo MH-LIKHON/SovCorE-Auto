@@ -60,7 +60,7 @@ export default function VehiclesPage() {
 
   return (
     <div className="vp-shell">
-      {/* ---------- Header ---------- */}
+      {/* ~~~~~~~~~ Header ~~~~~~~~~ */}
       <header className="vp-head">
         <div className="vp-head__left">
           <h1 className="vp-title">Vehicles</h1>
@@ -86,7 +86,7 @@ export default function VehiclesPage() {
         </div>
       </header>
 
-      {/* ---------- Grid ---------- */}
+      {/* ~~~~~~~~~ Grid ~~~~~~~~~ */}
       {loading ? (
         <div className="vp-grid">
           {[0, 1, 2, 3].map((i) => (

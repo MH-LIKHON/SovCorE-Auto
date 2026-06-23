@@ -156,7 +156,7 @@ export default function NewVehiclePage() {
       </header>
 
       <form onSubmit={handleSubmit} noValidate>
-        {/* ---------- Basic information ---------- */}
+        {/* ~~~~~~~~~ Basic information ~~~~~~~~~ */}
         <Card>
           <h2 className="nv-section">Basic information</h2>
           <div className="nv-grid">
@@ -295,7 +295,7 @@ export default function NewVehiclePage() {
           </div>
         </Card>
 
-        {/* ---------- Actions ---------- */}
+        {/* ~~~~~~~~~ Actions ~~~~~~~~~ */}
         {error && <p className="nv-error">{error}</p>}
         <div className="nv-actions">
           <button type="submit" className="nv-btn nv-btn--primary" disabled={saving}>
