@@ -58,7 +58,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "type",
-            sa.Enum(
+            PG_ENUM(
                 "v5c", "insurance", "mot", "service", "finance",
                 "warranty", "invoice", "other",
                 name="documenttype",

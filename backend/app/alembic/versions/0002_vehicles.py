@@ -68,7 +68,7 @@ def upgrade() -> None:
         sa.Column("transmission", sa.String(50), nullable=True),
         sa.Column(
             "body_type",
-            sa.Enum(
+            PG_ENUM(
                 "hatchback", "saloon", "estate", "suv", "convertible", "van", "mpv",
                 name="bodytype",
                 create_type=False,
@@ -89,7 +89,7 @@ def upgrade() -> None:
         # Lifecycle state — default is active so a new vehicle is always visible
         sa.Column(
             "lifecycle_state",
-            sa.Enum("active", "sold", "scrapped", "archived", name="lifecyclestate", create_type=False),
+            PG_ENUM("active", "sold", "scrapped", "archived", name="lifecyclestate", create_type=False),
             nullable=False,
             server_default="active",
         ),

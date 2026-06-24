@@ -78,7 +78,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "type",
-            sa.Enum(
+            PG_ENUM(
                 "maintenance", "repair", "fuel", "mot", "tax", "insurance",
                 "parking", "pcn", "cleaning", "accessories", "warranty",
                 "diagnostics", "damage", "custom",
@@ -140,7 +140,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "kind",
-            sa.Enum("invoice", "photo", "document", "other", name="attachmentkind", create_type=False),
+            PG_ENUM("invoice", "photo", "document", "other", name="attachmentkind", create_type=False),
             nullable=False,
         ),
         sa.Column("r2_key", sa.String(500), nullable=False),
@@ -183,7 +183,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "category",
-            sa.Enum(
+            PG_ENUM(
                 "engine", "transmission", "brakes", "suspension", "steering",
                 "wheels", "cooling", "electrical", "hvac", "exhaust",
                 "miscellaneous",

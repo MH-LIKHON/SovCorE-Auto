@@ -56,7 +56,7 @@ def upgrade() -> None:
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column(
             "type",
-            sa.Enum("personal", "family", "business", "fleet", name="accounttype", create_type=False),
+            PG_ENUM("personal", "family", "business", "fleet", name="accounttype", create_type=False),
             nullable=False,
         ),
         sa.Column("name", sa.String(200), nullable=False),
@@ -81,19 +81,19 @@ def upgrade() -> None:
         ),
         sa.Column(
             "distance_unit",
-            sa.Enum("miles", "kilometres", name="distanceunit", create_type=False),
+            PG_ENUM("miles", "kilometres", name="distanceunit", create_type=False),
             nullable=False,
             server_default="miles",
         ),
         sa.Column(
             "volume_unit",
-            sa.Enum("litres", "gallons", name="volumeunit", create_type=False),
+            PG_ENUM("litres", "gallons", name="volumeunit", create_type=False),
             nullable=False,
             server_default="litres",
         ),
         sa.Column(
             "economy_unit",
-            sa.Enum("mpg", "l_per_100km", name="economyunit", create_type=False),
+            PG_ENUM("mpg", "l_per_100km", name="economyunit", create_type=False),
             nullable=False,
             server_default="mpg",
         ),
@@ -140,7 +140,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "role",
-            sa.Enum("owner", "admin", "editor", "viewer", name="role", create_type=False),
+            PG_ENUM("owner", "admin", "editor", "viewer", name="role", create_type=False),
             nullable=False,
         ),
         sa.Column(
@@ -177,7 +177,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "provider",
-            sa.Enum("microsoft", "google", "github", "apple", name="ssoprovider", create_type=False),
+            PG_ENUM("microsoft", "google", "github", "apple", name="ssoprovider", create_type=False),
             nullable=False,
         ),
         sa.Column("subject", sa.String(256), nullable=False),
