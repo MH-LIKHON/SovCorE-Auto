@@ -116,7 +116,7 @@ def upgrade() -> None:
             "intervals",
             ARRAY(sa.Integer),
             nullable=False,
-            server_default="'{90,60,30,14,7,1}'",
+            server_default=sa.text("ARRAY[90,60,30,14,7,1]"),
         ),
         # Tracks the last interval that was sent to avoid duplicate emails.
         sa.Column("last_sent_interval", sa.Integer, nullable=True),
