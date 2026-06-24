@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
+import { TextField } from "@/src/components/ui/input";
 import { apiFetch } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -234,28 +235,28 @@ export default function UsersPage() {
         <Card>
           <h2 className="set-section">Invite a member</h2>
           <div className="set-form">
-            <label className="set-label">
-              <span className="set-label__text">Email address</span>
-              <input
-                className="set-input"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="colleague@example.com"
-              />
-            </label>
-            <label className="set-label">
-              <span className="set-label__text">Role</span>
-              <select
-                className="set-input"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as Member["role"])}
-              >
-                {ASSIGNABLE_ROLES.map((r) => (
-                  <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-                ))}
-              </select>
-            </label>
+            <TextField
+              label="Email address"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="colleague@example.com"
+            />
+            <div className="sov-field">
+              <label htmlFor="usr-inv-role" className="sov-field__label">Role</label>
+              <div className="sov-input-wrap">
+                <select
+                  id="usr-inv-role"
+                  className="sov-field__control"
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as Member["role"])}
+                >
+                  {ASSIGNABLE_ROLES.map((r) => (
+                    <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
             {inviteError && <p className="set-error">{inviteError}</p>}
             {inviteSuccess && <p className="set-success">Invitation added. They can sign in with their email.</p>}
             <div className="set-form-actions">
@@ -282,21 +283,24 @@ export default function UsersPage() {
             Owner. This cannot be undone without the new owner&apos;s cooperation.
           </p>
           <div className="set-form" style={{ marginTop: "var(--space-4)" }}>
-            <label className="set-label">
-              <span className="set-label__text">New owner</span>
-              <select
-                className="set-input"
-                value={transferTarget}
-                onChange={(e) => setTransferTarget(e.target.value)}
-              >
-                <option value="">Select a member…</option>
-                {otherMembers.map((m) => (
-                  <option key={m.user_id} value={m.user_id}>
-                    {m.email}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="sov-field">
+              <label htmlFor="usr-transfer-sel" className="sov-field__label">New owner</label>
+              <div className="sov-input-wrap">
+                <select
+                  id="usr-transfer-sel"
+                  className="sov-field__control"
+                  value={transferTarget}
+                  onChange={(e) => setTransferTarget(e.target.value)}
+                >
+                  <option value="">Select a member…</option>
+                  {otherMembers.map((m) => (
+                    <option key={m.user_id} value={m.user_id}>
+                      {m.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             {transferError && <p className="set-error">{transferError}</p>}
             <div className="set-form-actions">
               <button
@@ -333,10 +337,7 @@ const SET_STYLES = `
   .set-danger-copy { color: var(--colour-text-muted); font-size: var(--text-sm); max-width: 560px; line-height: var(--leading-normal); }
 
   .set-form { display: flex; flex-direction: column; gap: var(--space-4); }
-  .set-label { display: flex; flex-direction: column; gap: 6px; }
-  .set-label__text { font-size: var(--text-sm); color: var(--colour-text-muted); }
-  .set-input { background: var(--colour-bg); border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: var(--text-sm); color: var(--colour-text); outline: none; transition: border-color 0.2s; max-width: 400px; }
-  .set-input:focus { border-color: var(--colour-accent); }
+  .set-form .sov-field { max-width: 400px; }
   .set-form-actions { display: flex; gap: var(--space-3); }
   .set-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; transition: background 0.2s, color 0.2s, opacity 0.2s; border: none; }
   .set-btn--primary { background: var(--colour-accent); color: #fff; }

@@ -197,14 +197,16 @@ function SearchInner() {
       {/* ---- Search form ---- */}
       <Card>
         <form className="srch-form" onSubmit={handleSubmit}>
-          <input
-            className="srch-input"
-            type="search"
-            placeholder="Search registration, make, model, supplier, tag…"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            autoFocus
-          />
+          <div className="sov-input-wrap" style={{ flex: 1 }}>
+            <input
+              className="srch-input"
+              type="search"
+              placeholder="Search registration, make, model, supplier, tag…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              autoFocus
+            />
+          </div>
           <button className="rec-btn rec-btn--primary" type="submit" disabled={loading}>
             {loading ? "Searching…" : "Search"}
           </button>
@@ -404,7 +406,7 @@ const SRCH_STYLES = `
     align-items: center;
   }
   .srch-input {
-    flex: 1;
+    width: 100%;
     background: var(--colour-bg);
     border: 1px solid var(--colour-border);
     border-radius: var(--radius-md);

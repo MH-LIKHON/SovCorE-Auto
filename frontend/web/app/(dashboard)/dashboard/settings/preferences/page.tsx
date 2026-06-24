@@ -92,14 +92,16 @@ export default function PreferencesPage() {
                 <span className="pref-desc">Used for mileage entries and trip records.</span>
               </div>
               <div className="pref-control">
-                <select
-                  className="pref-select"
-                  value={prefs.distance_unit}
-                  onChange={(e) => save("distance_unit", e.target.value)}
-                >
-                  <option value="miles">Miles</option>
-                  <option value="kilometres">Kilometres</option>
-                </select>
+                <div className="sov-input-wrap" style={{ flex: 1 }}>
+                  <select
+                    className="sov-field__control"
+                    value={prefs.distance_unit}
+                    onChange={(e) => save("distance_unit", e.target.value)}
+                  >
+                    <option value="miles">Miles</option>
+                    <option value="kilometres">Kilometres</option>
+                  </select>
+                </div>
                 {saved === "distance_unit" && <span className="pref-saved">Saved</span>}
               </div>
             </div>
@@ -110,14 +112,16 @@ export default function PreferencesPage() {
                 <span className="pref-desc">Used for fuel quantities.</span>
               </div>
               <div className="pref-control">
-                <select
-                  className="pref-select"
-                  value={prefs.volume_unit}
-                  onChange={(e) => save("volume_unit", e.target.value)}
-                >
-                  <option value="litres">Litres</option>
-                  <option value="gallons">Gallons</option>
-                </select>
+                <div className="sov-input-wrap" style={{ flex: 1 }}>
+                  <select
+                    className="sov-field__control"
+                    value={prefs.volume_unit}
+                    onChange={(e) => save("volume_unit", e.target.value)}
+                  >
+                    <option value="litres">Litres</option>
+                    <option value="gallons">Gallons</option>
+                  </select>
+                </div>
                 {saved === "volume_unit" && <span className="pref-saved">Saved</span>}
               </div>
             </div>
@@ -128,14 +132,16 @@ export default function PreferencesPage() {
                 <span className="pref-desc">Used in fuel analytics and cost-per-mile reports.</span>
               </div>
               <div className="pref-control">
-                <select
-                  className="pref-select"
-                  value={prefs.economy_unit}
-                  onChange={(e) => save("economy_unit", e.target.value)}
-                >
-                  <option value="mpg">MPG (miles per gallon)</option>
-                  <option value="l_per_100km">l/100 km</option>
-                </select>
+                <div className="sov-input-wrap" style={{ flex: 1 }}>
+                  <select
+                    className="sov-field__control"
+                    value={prefs.economy_unit}
+                    onChange={(e) => save("economy_unit", e.target.value)}
+                  >
+                    <option value="mpg">MPG (miles per gallon)</option>
+                    <option value="l_per_100km">l/100 km</option>
+                  </select>
+                </div>
                 {saved === "economy_unit" && <span className="pref-saved">Saved</span>}
               </div>
             </div>
@@ -146,11 +152,12 @@ export default function PreferencesPage() {
                 <span className="pref-desc">ISO 4217 code — used for expense and cost displays.</span>
               </div>
               <div className="pref-control">
-                <select
-                  className="pref-select"
-                  value={prefs.currency}
-                  onChange={(e) => save("currency", e.target.value)}
-                >
+                <div className="sov-input-wrap" style={{ flex: 1 }}>
+                  <select
+                    className="sov-field__control"
+                    value={prefs.currency}
+                    onChange={(e) => save("currency", e.target.value)}
+                  >
                   <option value="GBP">GBP — British Pound</option>
                   <option value="EUR">EUR — Euro</option>
                   <option value="USD">USD — US Dollar</option>
@@ -165,7 +172,8 @@ export default function PreferencesPage() {
                   <option value="CZK">CZK — Czech Koruna</option>
                   <option value="HUF">HUF — Hungarian Forint</option>
                   <option value="RON">RON — Romanian Leu</option>
-                </select>
+                  </select>
+                </div>
                 {saved === "currency" && <span className="pref-saved">Saved</span>}
               </div>
             </div>
@@ -208,19 +216,6 @@ const SET_STYLES = `
   .pref-label { font-size: var(--text-sm); color: var(--colour-text); font-weight: 500; }
   .pref-desc { font-size: var(--text-xs); color: var(--colour-text-muted); }
   .pref-control { display: flex; align-items: center; gap: var(--space-3); }
-  .pref-select {
-    flex: 1;
-    background: var(--colour-bg);
-    border: 1px solid var(--colour-border);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
-    font-size: var(--text-sm);
-    color: var(--colour-text);
-    outline: none;
-    cursor: none;
-    transition: border-color 0.2s;
-  }
-  .pref-select:focus { border-color: var(--colour-accent); }
   .pref-saved { font-size: var(--text-xs); color: var(--colour-accent2); white-space: nowrap; }
 
   @media (max-width: 640px) {

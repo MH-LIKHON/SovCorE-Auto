@@ -24,12 +24,18 @@
 //   - app/(public)/page.tsx (80px in hero)
 // ============================================================
 
+import { useId } from "react";
+
 interface LogoProps {
   size?: number;
   className?: string;
 }
 
 export function Logo({ size = 36, className }: LogoProps) {
+  // Each instance gets a unique prefix so SVG gradient/filter IDs
+  // don't collide when multiple Logo instances appear on the same page.
+  const uid = useId().replace(/:/g, "");
+
   // At small sizes, drop subtle effects that become invisible.
   const detailed = size >= 50;
 
@@ -48,38 +54,38 @@ export function Logo({ size = 36, className }: LogoProps) {
       role="img"
     >
       <defs>
-        <linearGradient id="logo-face-left" x1="0" y1="0" x2="0.4" y2="1">
+        <linearGradient id={`${uid}-logo-face-left`} x1="0" y1="0" x2="0.4" y2="1">
           <stop offset="0%" stopColor="#9b6cff" />
           <stop offset="25%" stopColor="#7b5cef" />
           <stop offset="55%" stopColor="#5a3cc8" />
           <stop offset="100%" stopColor="#2a1878" />
         </linearGradient>
 
-        <linearGradient id="logo-face-right" x1="0.6" y1="0" x2="1" y2="1">
+        <linearGradient id={`${uid}-logo-face-right`} x1="0.6" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#00c8f0" />
           <stop offset="25%" stopColor="#0098cc" />
           <stop offset="60%" stopColor="#0070a8" />
           <stop offset="100%" stopColor="#004068" />
         </linearGradient>
 
-        <linearGradient id="logo-face-top" x1="0" y1="0" x2="1" y2="0.5">
+        <linearGradient id={`${uid}-logo-face-top`} x1="0" y1="0" x2="1" y2="0.5">
           <stop offset="0%" stopColor="#8870ff" />
           <stop offset="30%" stopColor="#6060e8" />
           <stop offset="60%" stopColor="#3088cc" />
           <stop offset="100%" stopColor="#00b0e0" />
         </linearGradient>
 
-        <linearGradient id="logo-hl-left" x1="0.3" y1="0" x2="0" y2="0.6">
+        <linearGradient id={`${uid}-logo-hl-left`} x1="0.3" y1="0" x2="0" y2="0.6">
           <stop offset="0%" stopColor="rgba(180,160,255,0.3)" />
           <stop offset="100%" stopColor="rgba(180,160,255,0)" />
         </linearGradient>
 
-        <linearGradient id="logo-hl-right" x1="0.7" y1="0.2" x2="1" y2="0.8">
+        <linearGradient id={`${uid}-logo-hl-right`} x1="0.7" y1="0.2" x2="1" y2="0.8">
           <stop offset="0%" stopColor="rgba(100,220,255,0.25)" />
           <stop offset="100%" stopColor="rgba(100,220,255,0)" />
         </linearGradient>
 
-        <linearGradient id="logo-v-fill" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={`${uid}-logo-v-fill`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#ddd6f4" />
           <stop offset="20%" stopColor="#ccc4e8" />
           <stop offset="45%" stopColor="#d6d0f0" />
@@ -88,18 +94,18 @@ export function Logo({ size = 36, className }: LogoProps) {
           <stop offset="100%" stopColor="#daeef8" />
         </linearGradient>
 
-        <linearGradient id="logo-v-highlight" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={`${uid}-logo-v-highlight`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="rgba(255,255,255,0.45)" />
           <stop offset="50%" stopColor="rgba(255,255,255,0.12)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0.35)" />
         </linearGradient>
 
-        <linearGradient id="logo-v-shadow" x1="0" y1="0" x2="1" y2="1">
+        <linearGradient id={`${uid}-logo-v-shadow`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="rgba(50,30,100,0.15)" />
           <stop offset="100%" stopColor="rgba(0,40,70,0.1)" />
         </linearGradient>
 
-        <linearGradient id="logo-s-fill" x1="0.15" y1="0" x2="0.85" y2="1">
+        <linearGradient id={`${uid}-logo-s-fill`} x1="0.15" y1="0" x2="0.85" y2="1">
           <stop offset="0%" stopColor="#f6f2ff" />
           <stop offset="18%" stopColor="#e4def2" />
           <stop offset="36%" stopColor="#cec6e4" />
@@ -109,36 +115,36 @@ export function Logo({ size = 36, className }: LogoProps) {
           <stop offset="100%" stopColor="#f4f0ff" />
         </linearGradient>
 
-        <linearGradient id="logo-s-highlight" x1="0.3" y1="0" x2="0.7" y2="0.4">
+        <linearGradient id={`${uid}-logo-s-highlight`} x1="0.3" y1="0" x2="0.7" y2="0.4">
           <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
           <stop offset="100%" stopColor="rgba(255,255,255,0.08)" />
         </linearGradient>
 
         {detailed && (
-          <filter id="logo-shadow">
+          <filter id={`${uid}-logo-shadow`}>
             <feDropShadow dx="0" dy="3" stdDeviation="5" floodColor="rgba(0,0,0,0.3)" />
           </filter>
         )}
 
         {detailed && (
-          <filter id="logo-s-glow">
+          <filter id={`${uid}-logo-s-glow`}>
             <feGaussianBlur in="SourceGraphic" stdDeviation="1" />
           </filter>
         )}
 
         {detailed && (
-          <filter id="logo-s-glow2">
+          <filter id={`${uid}-logo-s-glow2`}>
             <feGaussianBlur in="SourceGraphic" stdDeviation="0.6" />
           </filter>
         )}
       </defs>
 
-      <g filter={detailed ? "url(#logo-shadow)" : undefined}>
-        <polygon points="15,50 80,80 80,155 15,120" fill="url(#logo-face-left)" />
-        <polygon points="15,50 80,80 80,155 15,120" fill="url(#logo-hl-left)" />
-        <polygon points="145,50 80,80 80,155 145,120" fill="url(#logo-face-right)" />
-        <polygon points="145,50 80,80 80,155 145,120" fill="url(#logo-hl-right)" />
-        <polygon points="80,15 15,50 80,80 145,50" fill="url(#logo-face-top)" />
+      <g filter={detailed ? `url(#${uid}-logo-shadow)` : undefined}>
+        <polygon points="15,50 80,80 80,155 15,120" fill={`url(#${uid}-logo-face-left)`} />
+        <polygon points="15,50 80,80 80,155 15,120" fill={`url(#${uid}-logo-hl-left)`} />
+        <polygon points="145,50 80,80 80,155 145,120" fill={`url(#${uid}-logo-face-right)`} />
+        <polygon points="145,50 80,80 80,155 145,120" fill={`url(#${uid}-logo-hl-right)`} />
+        <polygon points="80,15 15,50 80,80 145,50" fill={`url(#${uid}-logo-face-top)`} />
         <polygon points="80,15 15,50 80,80 145,50" fill="rgba(255,255,255,0.05)" />
       </g>
 
@@ -162,13 +168,13 @@ export function Logo({ size = 36, className }: LogoProps) {
 
       <polygon
         points="15,50 80,155 145,50 134,52.5 80,142 26,52.5"
-        fill={detailed ? "url(#logo-v-fill)" : "rgba(228,222,248,0.85)"}
+        fill={detailed ? `url(#${uid}-logo-v-fill)` : "rgba(228,222,248,0.85)"}
       />
 
       <path
         d="M15,50 L80,155 L145,50"
         fill="none"
-        stroke={detailed ? "url(#logo-v-highlight)" : "rgba(255,255,255,0.25)"}
+        stroke={detailed ? `url(#${uid}-logo-v-highlight)` : "rgba(255,255,255,0.25)"}
         strokeWidth={detailed ? 1 : 1.2}
         strokeLinejoin="miter"
       />
@@ -177,7 +183,7 @@ export function Logo({ size = 36, className }: LogoProps) {
         <path
           d="M26,52.5 L80,142 L134,52.5"
           fill="none"
-          stroke="url(#logo-v-shadow)"
+          stroke={`url(#${uid}-logo-v-shadow)`}
           strokeWidth="0.6"
         />
       )}
@@ -211,7 +217,7 @@ export function Logo({ size = 36, className }: LogoProps) {
           fontFamily="-apple-system,BlinkMacSystemFont,'Segoe UI'"
           fontSize={detailed ? 54 : 58}
           fontWeight="800"
-          fill={detailed ? "url(#logo-s-fill)" : "#fff"}
+          fill={detailed ? `url(#${uid}-logo-s-fill)` : "#fff"}
           textAnchor="middle"
         >
           S
@@ -228,7 +234,7 @@ export function Logo({ size = 36, className }: LogoProps) {
             textAnchor="middle"
             stroke="rgba(255,255,255,0.2)"
             strokeWidth="0.4"
-            filter="url(#logo-s-glow)"
+            filter={`url(#${uid}-logo-s-glow)`}
           >
             S
           </text>
@@ -243,9 +249,9 @@ export function Logo({ size = 36, className }: LogoProps) {
             fontWeight="800"
             fill="none"
             textAnchor="middle"
-            stroke="url(#logo-s-highlight)"
+            stroke={`url(#${uid}-logo-s-highlight)`}
             strokeWidth="0.6"
-            filter="url(#logo-s-glow2)"
+            filter={`url(#${uid}-logo-s-glow2)`}
           >
             S
           </text>

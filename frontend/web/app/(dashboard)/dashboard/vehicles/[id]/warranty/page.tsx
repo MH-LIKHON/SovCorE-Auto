@@ -30,6 +30,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { TextArea, TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -253,35 +254,66 @@ export default function WarrantyPage() {
           <div className="rec-form">
 
             <div className="rec-form-row">
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Component</span>
-                <input className="rec-input" type="text" placeholder="e.g. Clutch assembly" value={form.component} onChange={(e) => handleFormChange("component", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Supplier</span>
-                <input className="rec-input" type="text" placeholder="e.g. Halfords" value={form.supplier} onChange={(e) => handleFormChange("supplier", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Expiry date</span>
-                <input className="rec-input" type="date" value={form.expiry_date} onChange={(e) => handleFormChange("expiry_date", e.target.value)} disabled={saving} />
-              </label>
+              <TextField
+                className="rec-label rec-label--wide"
+                label="Component"
+                type="text"
+                placeholder="e.g. Clutch assembly"
+                value={form.component}
+                onChange={(e) => handleFormChange("component", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label rec-label--wide"
+                label="Supplier"
+                type="text"
+                placeholder="e.g. Halfords"
+                value={form.supplier}
+                onChange={(e) => handleFormChange("supplier", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label"
+                label="Expiry date"
+                type="date"
+                value={form.expiry_date}
+                onChange={(e) => handleFormChange("expiry_date", e.target.value)}
+                disabled={saving}
+              />
             </div>
 
             <div className="rec-form-row">
-              <label className="rec-label">
-                <span className="rec-label__text">Labour cost (£)</span>
-                <input className="rec-input" type="number" step="0.01" placeholder="Optional" value={form.labour_cost} onChange={(e) => handleFormChange("labour_cost", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Parts cost (£)</span>
-                <input className="rec-input" type="number" step="0.01" placeholder="Optional" value={form.parts_cost} onChange={(e) => handleFormChange("parts_cost", e.target.value)} disabled={saving} />
-              </label>
+              <TextField
+                className="rec-label"
+                label="Labour cost (£)"
+                type="number"
+                step="0.01"
+                placeholder="Optional"
+                value={form.labour_cost}
+                onChange={(e) => handleFormChange("labour_cost", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label"
+                label="Parts cost (£)"
+                type="number"
+                step="0.01"
+                placeholder="Optional"
+                value={form.parts_cost}
+                onChange={(e) => handleFormChange("parts_cost", e.target.value)}
+                disabled={saving}
+              />
             </div>
 
-            <label className="rec-label rec-label--full">
-              <span className="rec-label__text">Notes</span>
-              <textarea className="rec-textarea" rows={2} placeholder="Any additional notes…" value={form.notes} onChange={(e) => handleFormChange("notes", e.target.value)} disabled={saving} />
-            </label>
+            <TextArea
+              className="rec-label rec-label--full"
+              label="Notes"
+              rows={2}
+              placeholder="Any additional notes…"
+              value={form.notes}
+              onChange={(e) => handleFormChange("notes", e.target.value)}
+              disabled={saving}
+            />
 
             {saveError && <p className="rec-error">{saveError}</p>}
             <div className="rec-form-actions">

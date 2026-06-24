@@ -28,6 +28,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { TextArea, TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -245,42 +246,36 @@ export default function TasksPage() {
           <h2 className="rec-section-title">New task</h2>
           <div className="rec-form">
 
-            <label className="rec-label rec-label--full">
-              <span className="rec-label__text">Title</span>
-              <input
-                className="rec-input"
-                type="text"
-                placeholder="What needs to be done?"
-                value={form.title}
-                onChange={(e) => handleFormChange("title", e.target.value)}
-                disabled={saving}
-              />
-            </label>
+            <TextField
+              className="rec-label rec-label--full"
+              label="Title"
+              type="text"
+              placeholder="What needs to be done?"
+              value={form.title}
+              onChange={(e) => handleFormChange("title", e.target.value)}
+              disabled={saving}
+            />
 
             <div className="rec-form-row">
-              <label className="rec-label">
-                <span className="rec-label__text">Due date</span>
-                <input
-                  className="rec-input"
-                  type="date"
-                  value={form.due_date}
-                  onChange={(e) => handleFormChange("due_date", e.target.value)}
-                  disabled={saving}
-                />
-              </label>
-            </div>
-
-            <label className="rec-label rec-label--full">
-              <span className="rec-label__text">Notes</span>
-              <textarea
-                className="rec-textarea"
-                rows={2}
-                placeholder="Optional notes…"
-                value={form.notes}
-                onChange={(e) => handleFormChange("notes", e.target.value)}
+              <TextField
+                className="rec-label"
+                label="Due date"
+                type="date"
+                value={form.due_date}
+                onChange={(e) => handleFormChange("due_date", e.target.value)}
                 disabled={saving}
               />
-            </label>
+            </div>
+
+            <TextArea
+              className="rec-label rec-label--full"
+              label="Notes"
+              rows={2}
+              placeholder="Optional notes…"
+              value={form.notes}
+              onChange={(e) => handleFormChange("notes", e.target.value)}
+              disabled={saving}
+            />
 
             {saveError && <p className="rec-error">{saveError}</p>}
             <div className="rec-form-actions">

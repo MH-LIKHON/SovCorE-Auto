@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -161,136 +162,135 @@ export default function NewVehiclePage() {
           <h2 className="nv-section">Basic information</h2>
           <div className="nv-grid">
 
-            <label className="nv-label">
-              <span className="nv-label__text">Registration</span>
-              <input
-                className="nv-input"
-                value={form.registration}
-                onChange={(e) => set("registration", e.target.value)}
-                placeholder="e.g. AB12 CDE"
-                maxLength={8}
-                autoFocus
-              />
-            </label>
+            <TextField
+              label="Registration"
+              value={form.registration}
+              onChange={(e) => set("registration", e.target.value)}
+              placeholder="e.g. AB12 CDE"
+              maxLength={8}
+              autoFocus
+              disabled={saving}
+            />
 
-            <label className="nv-label">
-              <span className="nv-label__text">Make</span>
-              <input
-                className="nv-input"
-                value={form.make}
-                onChange={(e) => set("make", e.target.value)}
-                placeholder="e.g. Volkswagen"
-                maxLength={100}
-              />
-            </label>
+            <TextField
+              label="Make"
+              value={form.make}
+              onChange={(e) => set("make", e.target.value)}
+              placeholder="e.g. Volkswagen"
+              maxLength={100}
+              disabled={saving}
+            />
 
-            <label className="nv-label">
-              <span className="nv-label__text">Model</span>
-              <input
-                className="nv-input"
-                value={form.model}
-                onChange={(e) => set("model", e.target.value)}
-                placeholder="e.g. Golf"
-                maxLength={100}
-              />
-            </label>
+            <TextField
+              label="Model"
+              value={form.model}
+              onChange={(e) => set("model", e.target.value)}
+              placeholder="e.g. Golf"
+              maxLength={100}
+              disabled={saving}
+            />
 
-            <label className="nv-label">
-              <span className="nv-label__text">Variant / trim</span>
-              <input
-                className="nv-input"
-                value={form.variant}
-                onChange={(e) => set("variant", e.target.value)}
-                placeholder="e.g. GTI DSG"
-                maxLength={100}
-              />
-            </label>
+            <TextField
+              label="Variant / trim"
+              value={form.variant}
+              onChange={(e) => set("variant", e.target.value)}
+              placeholder="e.g. GTI DSG"
+              maxLength={100}
+              disabled={saving}
+            />
 
-            <label className="nv-label">
-              <span className="nv-label__text">Year</span>
-              <input
-                className="nv-input"
-                type="number"
-                value={form.year}
-                onChange={(e) => set("year", e.target.value)}
-                placeholder="e.g. 2021"
-                min="1900"
-                max={new Date().getFullYear() + 2}
-              />
-            </label>
+            <TextField
+              label="Year"
+              type="number"
+              value={form.year}
+              onChange={(e) => set("year", e.target.value)}
+              placeholder="e.g. 2021"
+              min="1900"
+              max={String(new Date().getFullYear() + 2)}
+              disabled={saving}
+            />
 
-            <label className="nv-label">
-              <span className="nv-label__text">Colour</span>
-              <input
-                className="nv-input"
-                value={form.colour}
-                onChange={(e) => set("colour", e.target.value)}
-                placeholder="e.g. Moonstone Grey"
-                maxLength={50}
-              />
-            </label>
+            <TextField
+              label="Colour"
+              value={form.colour}
+              onChange={(e) => set("colour", e.target.value)}
+              placeholder="e.g. Moonstone Grey"
+              maxLength={50}
+              disabled={saving}
+            />
 
-            <label className="nv-label">
-              <span className="nv-label__text">Body type</span>
-              <select
-                className="nv-input"
-                value={form.body_type}
-                onChange={(e) => set("body_type", e.target.value)}
-              >
-                {BODY_TYPES.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </label>
+            {/* ~~~~~~~~~ Body type select ~~~~~~~~~ */}
+            <div className="sov-field">
+              <label htmlFor="nv-body-type" className="sov-field__label">Body type</label>
+              <div className="sov-input-wrap">
+                <select
+                  id="nv-body-type"
+                  className="sov-field__control"
+                  value={form.body_type}
+                  onChange={(e) => set("body_type", e.target.value)}
+                  disabled={saving}
+                >
+                  {BODY_TYPES.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-            <label className="nv-label">
-              <span className="nv-label__text">Fuel type</span>
-              <select
-                className="nv-input"
-                value={form.fuel_type}
-                onChange={(e) => set("fuel_type", e.target.value)}
-              >
-                {FUEL_TYPES.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </label>
+            {/* ~~~~~~~~~ Fuel type select ~~~~~~~~~ */}
+            <div className="sov-field">
+              <label htmlFor="nv-fuel-type" className="sov-field__label">Fuel type</label>
+              <div className="sov-input-wrap">
+                <select
+                  id="nv-fuel-type"
+                  className="sov-field__control"
+                  value={form.fuel_type}
+                  onChange={(e) => set("fuel_type", e.target.value)}
+                  disabled={saving}
+                >
+                  {FUEL_TYPES.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-            <label className="nv-label">
-              <span className="nv-label__text">Transmission</span>
-              <select
-                className="nv-input"
-                value={form.transmission}
-                onChange={(e) => set("transmission", e.target.value)}
-              >
-                {TRANSMISSION_TYPES.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </label>
+            {/* ~~~~~~~~~ Transmission select ~~~~~~~~~ */}
+            <div className="sov-field">
+              <label htmlFor="nv-transmission" className="sov-field__label">Transmission</label>
+              <div className="sov-input-wrap">
+                <select
+                  id="nv-transmission"
+                  className="sov-field__control"
+                  value={form.transmission}
+                  onChange={(e) => set("transmission", e.target.value)}
+                  disabled={saving}
+                >
+                  {TRANSMISSION_TYPES.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-            <label className="nv-label">
-              <span className="nv-label__text">Engine</span>
-              <input
-                className="nv-input"
-                value={form.engine}
-                onChange={(e) => set("engine", e.target.value)}
-                placeholder="e.g. 2.0 TDI"
-                maxLength={50}
-              />
-            </label>
+            <TextField
+              label="Engine"
+              value={form.engine}
+              onChange={(e) => set("engine", e.target.value)}
+              placeholder="e.g. 2.0 TDI"
+              maxLength={50}
+              disabled={saving}
+            />
 
-            <label className="nv-label">
-              <span className="nv-label__text">Current mileage</span>
-              <input
-                className="nv-input"
-                type="number"
-                value={form.mileage}
-                onChange={(e) => set("mileage", e.target.value)}
-                placeholder="e.g. 34500"
-                min="0"
-              />
-            </label>
+            <TextField
+              label="Current mileage"
+              type="number"
+              value={form.mileage}
+              onChange={(e) => set("mileage", e.target.value)}
+              placeholder="e.g. 34500"
+              min="0"
+              disabled={saving}
+            />
 
           </div>
         </Card>
@@ -333,21 +333,6 @@ const NV_STYLES = `
     grid-template-columns: repeat(2, 1fr);
     gap: var(--space-4);
   }
-
-  .nv-label { display: flex; flex-direction: column; gap: 6px; }
-  .nv-label__text { font-size: var(--text-sm); color: var(--colour-text-muted); }
-  .nv-input {
-    background: var(--colour-bg);
-    border: 1px solid var(--colour-border);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
-    font-size: var(--text-sm);
-    color: var(--colour-text);
-    outline: none;
-    transition: border-color 0.2s;
-    width: 100%;
-  }
-  .nv-input:focus { border-color: var(--colour-accent); }
 
   .nv-error { font-size: var(--text-sm); color: var(--colour-error); }
 

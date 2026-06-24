@@ -32,6 +32,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { TextArea, TextField } from "@/src/components/ui/input";
 import { RecordTypeBadge } from "@/src/components/records/record-type-badge";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
@@ -456,73 +457,129 @@ export default function VehicleRecordsPage() {
 
             {/* Type + Date row */}
             <div className="rec-form-row">
-              <label className="rec-label">
-                <span className="rec-label__text">Type</span>
-                <select className="rec-select" value={form.type} onChange={(e) => handleFormChange("type", e.target.value as RecordTypeValue)} disabled={saving}>
-                  {RECORD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Date</span>
-                <input className="rec-input" type="date" value={form.date} onChange={(e) => handleFormChange("date", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Mileage</span>
-                <input className="rec-input" type="number" placeholder="e.g. 52000" value={form.mileage} onChange={(e) => handleFormChange("mileage", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Total cost (£)</span>
-                <input className="rec-input" type="number" step="0.01" placeholder="e.g. 149.99" value={form.cost} onChange={(e) => handleFormChange("cost", e.target.value)} disabled={saving} />
-              </label>
+              <div className="rec-label sov-field">
+                <label htmlFor="rec-type-sel" className="sov-field__label">Type</label>
+                <div className="sov-input-wrap">
+                  <select id="rec-type-sel" className="sov-field__control" value={form.type} onChange={(e) => handleFormChange("type", e.target.value as RecordTypeValue)} disabled={saving}>
+                    {RECORD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <TextField
+                className="rec-label"
+                label="Date"
+                type="date"
+                value={form.date}
+                onChange={(e) => handleFormChange("date", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label"
+                label="Mileage"
+                type="number"
+                placeholder="e.g. 52000"
+                value={form.mileage}
+                onChange={(e) => handleFormChange("mileage", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label"
+                label="Total cost (£)"
+                type="number"
+                step="0.01"
+                placeholder="e.g. 149.99"
+                value={form.cost}
+                onChange={(e) => handleFormChange("cost", e.target.value)}
+                disabled={saving}
+              />
             </div>
 
             {/* Location row */}
             <div className="rec-form-row">
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Garage</span>
-                <input className="rec-input" type="text" placeholder="e.g. Kwik Fit" value={form.garage} onChange={(e) => handleFormChange("garage", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Supplier</span>
-                <input className="rec-input" type="text" placeholder="e.g. Halfords" value={form.supplier} onChange={(e) => handleFormChange("supplier", e.target.value)} disabled={saving} />
-              </label>
+              <TextField
+                className="rec-label rec-label--wide"
+                label="Garage"
+                type="text"
+                placeholder="e.g. Kwik Fit"
+                value={form.garage}
+                onChange={(e) => handleFormChange("garage", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label rec-label--wide"
+                label="Supplier"
+                type="text"
+                placeholder="e.g. Halfords"
+                value={form.supplier}
+                onChange={(e) => handleFormChange("supplier", e.target.value)}
+                disabled={saving}
+              />
             </div>
 
             {/* Notes */}
-            <label className="rec-label rec-label--full">
-              <span className="rec-label__text">Notes</span>
-              <textarea className="rec-textarea" rows={2} placeholder="Any additional notes…" value={form.notes} onChange={(e) => handleFormChange("notes", e.target.value)} disabled={saving} />
-            </label>
+            <TextArea
+              className="rec-label rec-label--full"
+              label="Notes"
+              rows={2}
+              placeholder="Any additional notes…"
+              value={form.notes}
+              onChange={(e) => handleFormChange("notes", e.target.value)}
+              disabled={saving}
+            />
 
             {/* ---- Maintenance / repair detail fields ---- */}
             {isMaintForm && (
               <div className="rec-detail-block">
                 <p className="rec-detail-heading">Maintenance detail</p>
                 <div className="rec-form-row">
-                  <label className="rec-label">
-                    <span className="rec-label__text">Category</span>
-                    <select className="rec-select" value={form.maint_category} onChange={(e) => handleFormChange("maint_category", e.target.value)} disabled={saving}>
-                      {MAINTENANCE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                    </select>
-                  </label>
-                  <label className="rec-label rec-label--wide">
-                    <span className="rec-label__text">Item description</span>
-                    <input className="rec-input" type="text" placeholder="e.g. Front brake pads" value={form.maint_item} onChange={(e) => handleFormChange("maint_item", e.target.value)} disabled={saving} />
-                  </label>
-                  <label className="rec-label">
-                    <span className="rec-label__text">Part number</span>
-                    <input className="rec-input" type="text" placeholder="Optional" value={form.maint_part_number} onChange={(e) => handleFormChange("maint_part_number", e.target.value)} disabled={saving} />
-                  </label>
+                  <div className="rec-label sov-field">
+                    <label htmlFor="rec-maint-cat" className="sov-field__label">Category</label>
+                    <div className="sov-input-wrap">
+                      <select id="rec-maint-cat" className="sov-field__control" value={form.maint_category} onChange={(e) => handleFormChange("maint_category", e.target.value)} disabled={saving}>
+                        {MAINTENANCE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <TextField
+                    className="rec-label rec-label--wide"
+                    label="Item description"
+                    type="text"
+                    placeholder="e.g. Front brake pads"
+                    value={form.maint_item}
+                    onChange={(e) => handleFormChange("maint_item", e.target.value)}
+                    disabled={saving}
+                  />
+                  <TextField
+                    className="rec-label"
+                    label="Part number"
+                    type="text"
+                    placeholder="Optional"
+                    value={form.maint_part_number}
+                    onChange={(e) => handleFormChange("maint_part_number", e.target.value)}
+                    disabled={saving}
+                  />
                 </div>
                 <div className="rec-form-row">
-                  <label className="rec-label">
-                    <span className="rec-label__text">Labour cost (£)</span>
-                    <input className="rec-input" type="number" step="0.01" placeholder="e.g. 80.00" value={form.maint_labour_cost} onChange={(e) => handleFormChange("maint_labour_cost", e.target.value)} disabled={saving} />
-                  </label>
-                  <label className="rec-label">
-                    <span className="rec-label__text">Parts cost (£)</span>
-                    <input className="rec-input" type="number" step="0.01" placeholder="e.g. 45.00" value={form.maint_parts_cost} onChange={(e) => handleFormChange("maint_parts_cost", e.target.value)} disabled={saving} />
-                  </label>
+                  <TextField
+                    className="rec-label"
+                    label="Labour cost (£)"
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 80.00"
+                    value={form.maint_labour_cost}
+                    onChange={(e) => handleFormChange("maint_labour_cost", e.target.value)}
+                    disabled={saving}
+                  />
+                  <TextField
+                    className="rec-label"
+                    label="Parts cost (£)"
+                    type="number"
+                    step="0.01"
+                    placeholder="e.g. 45.00"
+                    value={form.maint_parts_cost}
+                    onChange={(e) => handleFormChange("maint_parts_cost", e.target.value)}
+                    disabled={saving}
+                  />
                 </div>
               </div>
             )}
@@ -532,18 +589,35 @@ export default function VehicleRecordsPage() {
               <div className="rec-detail-block">
                 <p className="rec-detail-heading">Fuel detail</p>
                 <div className="rec-form-row">
-                  <label className="rec-label">
-                    <span className="rec-label__text">Litres</span>
-                    <input className="rec-input" type="number" step="0.001" placeholder="e.g. 45.250" value={form.fuel_litres} onChange={(e) => handleFormChange("fuel_litres", e.target.value)} disabled={saving} />
-                  </label>
-                  <label className="rec-label">
-                    <span className="rec-label__text">Price per litre (p)</span>
-                    <input className="rec-input" type="number" step="0.1" placeholder="e.g. 147.9" value={form.fuel_price_per_litre} onChange={(e) => handleFormChange("fuel_price_per_litre", e.target.value)} disabled={saving} />
-                  </label>
-                  <label className="rec-label rec-label--wide">
-                    <span className="rec-label__text">Station</span>
-                    <input className="rec-input" type="text" placeholder="e.g. Shell Motorway Services" value={form.fuel_station} onChange={(e) => handleFormChange("fuel_station", e.target.value)} disabled={saving} />
-                  </label>
+                  <TextField
+                    className="rec-label"
+                    label="Litres"
+                    type="number"
+                    step="0.001"
+                    placeholder="e.g. 45.250"
+                    value={form.fuel_litres}
+                    onChange={(e) => handleFormChange("fuel_litres", e.target.value)}
+                    disabled={saving}
+                  />
+                  <TextField
+                    className="rec-label"
+                    label="Price per litre (p)"
+                    type="number"
+                    step="0.1"
+                    placeholder="e.g. 147.9"
+                    value={form.fuel_price_per_litre}
+                    onChange={(e) => handleFormChange("fuel_price_per_litre", e.target.value)}
+                    disabled={saving}
+                  />
+                  <TextField
+                    className="rec-label rec-label--wide"
+                    label="Station"
+                    type="text"
+                    placeholder="e.g. Shell Motorway Services"
+                    value={form.fuel_station}
+                    onChange={(e) => handleFormChange("fuel_station", e.target.value)}
+                    disabled={saving}
+                  />
                   <label className="rec-label rec-label--check">
                     <span className="rec-label__text">Full tank</span>
                     <input type="checkbox" checked={form.fuel_full_tank} onChange={(e) => handleFormChange("fuel_full_tank", e.target.checked)} disabled={saving} />
@@ -771,19 +845,6 @@ const REC_STYLES = `
   .rec-label--full { width: 100%; }
   .rec-label--check { min-width: auto; flex-direction: row; align-items: center; gap: var(--space-2); padding-bottom: 8px; }
   .rec-label__text { font-size: var(--text-sm); color: var(--colour-text-muted); }
-  .rec-input, .rec-select, .rec-textarea {
-    background: var(--colour-bg);
-    border: 1px solid var(--colour-border);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
-    font-size: var(--text-sm);
-    color: var(--colour-text);
-    outline: none;
-    transition: border-color 0.2s;
-    cursor: none;
-  }
-  .rec-input:focus, .rec-select:focus, .rec-textarea:focus { border-color: var(--colour-accent); }
-  .rec-textarea { resize: vertical; width: 100%; }
   .rec-detail-block { border: 0.5px solid var(--colour-border); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
   .rec-detail-heading { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--colour-text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 var(--space-2); }
   .rec-form-actions { display: flex; gap: var(--space-3); margin-top: var(--space-2); }

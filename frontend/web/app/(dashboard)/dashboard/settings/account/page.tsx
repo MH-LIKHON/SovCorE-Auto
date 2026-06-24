@@ -22,6 +22,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
+import { TextField } from "@/src/components/ui/input";
 import { apiFetch } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -130,29 +131,29 @@ export default function AccountSettingsPage() {
 
         {editing ? (
           <div className="set-form">
-            <label className="set-label">
-              <span className="set-label__text">Account name</span>
-              <input
-                className="set-input"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                maxLength={200}
-                autoFocus
-              />
-            </label>
-            <label className="set-label">
-              <span className="set-label__text">Account type</span>
-              <select
-                className="set-input"
-                value={typeInput}
-                onChange={(e) => setTypeInput(e.target.value)}
-              >
-                <option value="personal">Personal</option>
-                <option value="family">Family</option>
-                <option value="business">Business</option>
-                <option value="fleet">Fleet</option>
-              </select>
-            </label>
+            <TextField
+              label="Account name"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              maxLength={200}
+              autoFocus
+            />
+            <div className="sov-field">
+              <label htmlFor="set-acct-type" className="sov-field__label">Account type</label>
+              <div className="sov-input-wrap">
+                <select
+                  id="set-acct-type"
+                  className="sov-field__control"
+                  value={typeInput}
+                  onChange={(e) => setTypeInput(e.target.value)}
+                >
+                  <option value="personal">Personal</option>
+                  <option value="family">Family</option>
+                  <option value="business">Business</option>
+                  <option value="fleet">Fleet</option>
+                </select>
+              </div>
+            </div>
             {saveError && <p className="set-error">{saveError}</p>}
             <div className="set-form-actions">
               <button className="set-btn set-btn--primary" onClick={handleSave} disabled={saving}>
@@ -277,10 +278,7 @@ const SET_STYLES = `
   .set-edit-btn:hover { border-color: var(--colour-accent); color: var(--colour-text); }
 
   .set-form { display: flex; flex-direction: column; gap: var(--space-4); }
-  .set-label { display: flex; flex-direction: column; gap: 6px; }
-  .set-label__text { font-size: var(--text-sm); color: var(--colour-text-muted); }
-  .set-input { background: var(--colour-bg); border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: var(--text-sm); color: var(--colour-text); outline: none; transition: border-color 0.2s; max-width: 400px; }
-  .set-input:focus { border-color: var(--colour-accent); }
+  .set-form .sov-field { max-width: 400px; }
   .set-error { font-size: var(--text-sm); color: var(--colour-error); }
   .set-form-actions { display: flex; gap: var(--space-3); }
   .set-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; transition: background 0.2s, color 0.2s, opacity 0.2s; border: none; }

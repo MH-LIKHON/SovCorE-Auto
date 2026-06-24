@@ -33,6 +33,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
+import { TextField } from "@/src/components/ui/input";
 import { BodyTypeIcon } from "@/src/components/vehicles/body-type-icon";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
@@ -535,16 +536,19 @@ export default function VehicleProfilePage() {
           <Card>
             <h2 className="vd-card-title">Lifecycle</h2>
             <div className="vd-lifecycle">
-              <select
-                className="vd-select"
-                value={lifecycleState}
-                onChange={(e) => setLifecycleState(e.target.value)}
-              >
-                <option value="active">Active</option>
-                <option value="sold">Sold</option>
-                <option value="scrapped">Scrapped</option>
-                <option value="archived">Archived</option>
-              </select>
+              <div className="sov-input-wrap vd-lifecycle-select-wrap">
+                <select
+                  id="vd-lifecycle"
+                  className="sov-field__control"
+                  value={lifecycleState}
+                  onChange={(e) => setLifecycleState(e.target.value)}
+                >
+                  <option value="active">Active</option>
+                  <option value="sold">Sold</option>
+                  <option value="scrapped">Scrapped</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
               <button
                 className="vd-btn vd-btn--primary"
                 onClick={applyLifecycle}
@@ -608,14 +612,13 @@ export default function VehicleProfilePage() {
                 ["wheel_sizes", "Wheel sizes"],
                 ["vin", "VIN"],
               ] as [keyof VehicleDetail, string][]).map(([field, label]) => (
-                <label key={field} className="vd-label">
-                  <span className="vd-label__text">{label}</span>
-                  <input
-                    className="vd-input"
-                    value={(infoForm[field] as string | number | null) ?? ""}
-                    onChange={(e) => setInfoForm((f) => ({ ...f, [field]: e.target.value || null }))}
-                  />
-                </label>
+                <TextField
+                  key={field}
+                  label={label}
+                  value={(infoForm[field] as string | number | null) ?? ""}
+                  onChange={(e) => setInfoForm((f) => ({ ...f, [field]: e.target.value || null }))}
+                  disabled={saving}
+                />
               ))}
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">
@@ -677,14 +680,13 @@ export default function VehicleProfilePage() {
                 ["finance_status", "Finance status"],
                 ["notes", "Notes"],
               ] as [keyof Ownership, string][]).map(([field, label]) => (
-                <label key={field} className="vd-label">
-                  <span className="vd-label__text">{label}</span>
-                  <input
-                    className="vd-input"
-                    value={(ownershipForm[field] as string | number | null) ?? ""}
-                    onChange={(e) => setOwnershipForm((f) => ({ ...f, [field]: e.target.value || null }))}
-                  />
-                </label>
+                <TextField
+                  key={field}
+                  label={label}
+                  value={(ownershipForm[field] as string | number | null) ?? ""}
+                  onChange={(e) => setOwnershipForm((f) => ({ ...f, [field]: e.target.value || null }))}
+                  disabled={saving}
+                />
               ))}
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">
@@ -730,26 +732,23 @@ export default function VehicleProfilePage() {
                 ["insurance_expiry", "Insurance expiry"],
                 ["service_due_date", "Service due date"],
               ] as [keyof Renewal, string][]).map(([field, label]) => (
-                <label key={field} className="vd-label">
-                  <span className="vd-label__text">{label}</span>
-                  <input
-                    className="vd-input"
-                    type="date"
-                    value={(renewalForm[field] as string | null) ?? ""}
-                    onChange={(e) => setRenewalForm((f) => ({ ...f, [field]: e.target.value || null }))}
-                  />
-                </label>
-              ))}
-              <label className="vd-label">
-                <span className="vd-label__text">Service due mileage</span>
-                <input
-                  className="vd-input"
-                  type="number"
-                  value={renewalForm.service_due_mileage ?? ""}
-                  onChange={(e) => setRenewalForm((f) => ({ ...f, service_due_mileage: e.target.value ? parseInt(e.target.value, 10) : null }))}
-                  placeholder="e.g. 50000"
+                <TextField
+                  key={field}
+                  label={label}
+                  type="date"
+                  value={(renewalForm[field] as string | null) ?? ""}
+                  onChange={(e) => setRenewalForm((f) => ({ ...f, [field]: e.target.value || null }))}
+                  disabled={saving}
                 />
-              </label>
+              ))}
+              <TextField
+                label="Service due mileage"
+                type="number"
+                value={renewalForm.service_due_mileage ?? ""}
+                onChange={(e) => setRenewalForm((f) => ({ ...f, service_due_mileage: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                placeholder="e.g. 50000"
+                disabled={saving}
+              />
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">
                 <button className="vd-btn vd-btn--primary" onClick={saveRenewals} disabled={saving}>
@@ -878,7 +877,7 @@ const VD_STYLES = `
 
   /* ---- Lifecycle ---- */
   .vd-lifecycle { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
-  .vd-select { background: var(--colour-bg); border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: var(--text-sm); color: var(--colour-text); outline: none; cursor: none; }
+  .vd-lifecycle-select-wrap { max-width: 180px; }
   .vd-lifecycle-hint { font-size: var(--text-xs); color: var(--colour-text-muted); max-width: 440px; line-height: var(--leading-normal); }
   .vd-danger-copy { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; line-height: var(--leading-normal); margin-bottom: var(--space-4); }
 
@@ -889,10 +888,7 @@ const VD_STYLES = `
 
   /* ---- Form ---- */
   .vd-form { display: flex; flex-direction: column; gap: var(--space-4); }
-  .vd-label { display: flex; flex-direction: column; gap: 6px; max-width: 480px; }
-  .vd-label__text { font-size: var(--text-sm); color: var(--colour-text-muted); }
-  .vd-input { background: var(--colour-bg); border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 8px 12px; font-size: var(--text-sm); color: var(--colour-text); outline: none; transition: border-color 0.2s; }
-  .vd-input:focus { border-color: var(--colour-accent); }
+  .vd-form .sov-field { max-width: 480px; }
   .vd-error { font-size: var(--text-sm); color: var(--colour-error); }
   .vd-form-actions { display: flex; gap: var(--space-3); }
 

@@ -185,6 +185,54 @@ code {
   transform: scaleX(1);
 }
 
+/* ── sov-field base styles ───────────────────────────────── */
+/* Mirrors FIELD_STYLES from input.tsx so select elements on
+   pages without TextField (documents, preferences) still get
+   the same border and focus-ring animations. */
+
+.sov-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sov-field__label {
+  font-size: var(--text-sm);
+  color: var(--colour-text-muted);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-wide);
+}
+
+.sov-field__control {
+  width: 100%;
+  background: var(--colour-bg-2);
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  color: var(--colour-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  transition:
+    border-color var(--duration-normal) var(--ease-smooth),
+    box-shadow var(--duration-normal) var(--ease-smooth),
+    background var(--duration-normal) var(--ease-smooth);
+}
+
+.sov-field__control::placeholder {
+  color: var(--colour-text-faint);
+}
+
+.sov-field__control:hover {
+  border-color: var(--colour-border-hover);
+}
+
+.sov-field__control:focus {
+  outline: none;
+  border-color: var(--colour-border-active);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.18);
+}
+
 /* ── Focus styles ────────────────────────────────────────── */
 
 :focus {
@@ -292,6 +340,49 @@ svg {
     transparent
   );
   margin: 0 var(--space-10);
+}
+
+/* ── Vehicle sub-page shared structure ──────────────────── */
+/* rec-* classes used across records, damage, PCN, warranty,
+   task and reminder pages — defined once here so each page
+   works correctly regardless of navigation order. */
+
+.rec-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 960px; }
+.rec-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.rec-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; }
+.rec-back:hover { color: var(--colour-text); }
+.rec-head__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.rec-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
+.rec-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; margin: 4px 0 0; }
+.rec-section-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); }
+.rec-form { display: flex; flex-direction: column; gap: var(--space-4); }
+.rec-form-row { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; }
+.rec-label { display: flex; flex-direction: column; gap: 6px; min-width: 140px; }
+.rec-label--wide { flex: 1; min-width: 200px; }
+.rec-label--full { width: 100%; }
+.rec-label__text { font-size: var(--text-sm); color: var(--colour-text-muted); }
+.rec-form-actions { display: flex; gap: var(--space-3); margin-top: var(--space-2); }
+.rec-error { font-size: var(--text-sm); color: var(--colour-error); }
+.rec-list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
+.rec-count { font-size: var(--text-sm); color: var(--colour-text-muted); }
+.rec-rows { display: flex; flex-direction: column; }
+.rec-skeleton { height: 160px; background: rgba(255,255,255,0.04); border-radius: var(--radius-md); animation: shimmer 1.6s infinite; }
+@keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+.rec-empty { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-8) 0; }
+.rec-empty p { font-size: var(--text-sm); color: var(--colour-text-muted); }
+.rec-btn { padding: 8px 18px; border-radius: var(--radius-sm); font-size: var(--text-sm); border: none; transition: opacity 0.2s, background 0.2s, color 0.2s; }
+.rec-btn--primary { background: var(--colour-accent); color: #fff; }
+.rec-btn--primary:disabled { opacity: 0.55; }
+.rec-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
+.rec-btn--ghost:hover { color: var(--colour-text); }
+.rec-btn--danger-sm { background: none; border: 1px solid var(--colour-error); color: var(--colour-error); padding: 5px 14px; font-size: var(--text-xs); border-radius: var(--radius-sm); transition: background 0.2s; }
+.rec-btn--danger-sm:hover { background: rgba(239,68,68,0.1); }
+.rec-btn--danger-sm:disabled { opacity: 0.55; }
+
+@media (max-width: 767px) {
+  .rec-head__row { flex-direction: column; align-items: flex-start; }
+  .rec-form-row { flex-direction: column; }
+  .rec-label, .rec-label--wide { width: 100%; min-width: unset; }
 }
 
 /* ── Page shell ──────────────────────────────────────────── */

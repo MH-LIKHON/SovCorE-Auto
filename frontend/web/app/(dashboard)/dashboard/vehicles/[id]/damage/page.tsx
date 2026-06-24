@@ -31,6 +31,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { TextArea, TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -358,26 +359,43 @@ export default function DamagePage() {
           <div className="rec-form">
 
             <div className="rec-form-row">
-              <label className="rec-label">
-                <span className="rec-label__text">Kind</span>
-                <select className="rec-select" value={form.kind} onChange={(e) => handleFormChange("kind", e.target.value as DamageKind)} disabled={saving}>
-                  {DAMAGE_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
-                </select>
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Date</span>
-                <input className="rec-input" type="date" value={form.date} onChange={(e) => handleFormChange("date", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Repair cost (£)</span>
-                <input className="rec-input" type="number" step="0.01" placeholder="Optional" value={form.repair_cost} onChange={(e) => handleFormChange("repair_cost", e.target.value)} disabled={saving} />
-              </label>
+              <div className="rec-label sov-field">
+                <label htmlFor="dmg-kind-sel" className="sov-field__label">Kind</label>
+                <div className="sov-input-wrap">
+                  <select id="dmg-kind-sel" className="sov-field__control" value={form.kind} onChange={(e) => handleFormChange("kind", e.target.value as DamageKind)} disabled={saving}>
+                    {DAMAGE_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <TextField
+                className="rec-label"
+                label="Date"
+                type="date"
+                value={form.date}
+                onChange={(e) => handleFormChange("date", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label"
+                label="Repair cost (£)"
+                type="number"
+                step="0.01"
+                placeholder="Optional"
+                value={form.repair_cost}
+                onChange={(e) => handleFormChange("repair_cost", e.target.value)}
+                disabled={saving}
+              />
             </div>
 
-            <label className="rec-label rec-label--full">
-              <span className="rec-label__text">Description</span>
-              <textarea className="rec-textarea" rows={2} placeholder="Describe the damage…" value={form.description} onChange={(e) => handleFormChange("description", e.target.value)} disabled={saving} />
-            </label>
+            <TextArea
+              className="rec-label rec-label--full"
+              label="Description"
+              rows={2}
+              placeholder="Describe the damage…"
+              value={form.description}
+              onChange={(e) => handleFormChange("description", e.target.value)}
+              disabled={saving}
+            />
 
             <p className="rec-sub" style={{ marginTop: 0 }}>Save the entry first, then add before and after photos from the list below.</p>
 

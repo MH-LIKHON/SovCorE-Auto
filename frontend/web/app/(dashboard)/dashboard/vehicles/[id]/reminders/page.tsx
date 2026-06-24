@@ -31,6 +31,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { TextArea, TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -268,53 +269,50 @@ export default function RemindersPage() {
           <div className="rec-form">
 
             <div className="rec-form-row">
-              <label className="rec-label">
-                <span className="rec-label__text">Type</span>
-                <select
-                  className="rec-input rec-select"
-                  value={form.type}
-                  onChange={(e) => handleFormChange("type", e.target.value)}
-                  disabled={saving}
-                >
-                  {REMINDER_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Due date</span>
-                <input
-                  className="rec-input"
-                  type="date"
-                  value={form.due_date}
-                  onChange={(e) => handleFormChange("due_date", e.target.value)}
-                  disabled={saving}
-                />
-              </label>
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Notify at (days before)</span>
-                <input
-                  className="rec-input"
-                  type="text"
-                  placeholder="90,60,30,14,7,1"
-                  value={form.intervals}
-                  onChange={(e) => handleFormChange("intervals", e.target.value)}
-                  disabled={saving}
-                />
-              </label>
-            </div>
-
-            <label className="rec-label rec-label--full">
-              <span className="rec-label__text">Notes</span>
-              <textarea
-                className="rec-textarea"
-                rows={2}
-                placeholder="Optional notes…"
-                value={form.notes}
-                onChange={(e) => handleFormChange("notes", e.target.value)}
+              <div className="rec-label sov-field">
+                <label htmlFor="rem-type-sel" className="sov-field__label">Type</label>
+                <div className="sov-input-wrap">
+                  <select
+                    id="rem-type-sel"
+                    className="sov-field__control"
+                    value={form.type}
+                    onChange={(e) => handleFormChange("type", e.target.value)}
+                    disabled={saving}
+                  >
+                    {REMINDER_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <TextField
+                className="rec-label"
+                label="Due date"
+                type="date"
+                value={form.due_date}
+                onChange={(e) => handleFormChange("due_date", e.target.value)}
                 disabled={saving}
               />
-            </label>
+              <TextField
+                className="rec-label rec-label--wide"
+                label="Notify at (days before)"
+                type="text"
+                placeholder="90,60,30,14,7,1"
+                value={form.intervals}
+                onChange={(e) => handleFormChange("intervals", e.target.value)}
+                disabled={saving}
+              />
+            </div>
+
+            <TextArea
+              className="rec-label rec-label--full"
+              label="Notes"
+              rows={2}
+              placeholder="Optional notes…"
+              value={form.notes}
+              onChange={(e) => handleFormChange("notes", e.target.value)}
+              disabled={saving}
+            />
 
             {saveError && <p className="rec-error">{saveError}</p>}
             <div className="rec-form-actions">

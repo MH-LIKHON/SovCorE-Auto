@@ -188,19 +188,21 @@ export default function VehicleDocumentsPage() {
       <Card>
         <h2 className="docs-section-title">Upload a document</h2>
         <div className="docs-upload-row">
-          <label className="docs-label">
+          <div className="docs-label">
             <span className="docs-label__text">Document type</span>
-            <select
-              className="docs-select"
-              value={docType}
-              onChange={(e) => setDocType(e.target.value)}
-              disabled={uploading}
-            >
-              {DOC_TYPES.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </label>
+            <div className="sov-input-wrap">
+              <select
+                className="sov-field__control"
+                value={docType}
+                onChange={(e) => setDocType(e.target.value)}
+                disabled={uploading}
+              >
+                {DOC_TYPES.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <label className="docs-label docs-label--file">
             <span className="docs-label__text">File</span>
             <input
@@ -306,16 +308,6 @@ const DOCS_STYLES = `
   .docs-label { display: flex; flex-direction: column; gap: 6px; }
   .docs-label--file { flex: 1; min-width: 200px; }
   .docs-label__text { font-size: var(--text-sm); color: var(--colour-text-muted); }
-  .docs-select {
-    background: var(--colour-bg);
-    border: 1px solid var(--colour-border);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
-    font-size: var(--text-sm);
-    color: var(--colour-text);
-    outline: none;
-    cursor: none;
-  }
   .docs-file-input {
     background: var(--colour-bg);
     border: 1px solid var(--colour-border);

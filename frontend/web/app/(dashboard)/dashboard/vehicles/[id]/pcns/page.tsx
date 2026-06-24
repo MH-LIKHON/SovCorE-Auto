@@ -28,6 +28,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { TextArea, TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -255,37 +256,64 @@ export default function PCNsPage() {
           <div className="rec-form">
 
             <div className="rec-form-row">
-              <label className="rec-label">
-                <span className="rec-label__text">Date</span>
-                <input className="rec-input" type="date" value={form.date} onChange={(e) => handleFormChange("date", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Amount (£)</span>
-                <input className="rec-input" type="number" step="0.01" placeholder="e.g. 70.00" value={form.amount} onChange={(e) => handleFormChange("amount", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Status</span>
-                <select className="rec-select" value={form.status} onChange={(e) => handleFormChange("status", e.target.value as PCNStatus)} disabled={saving}>
-                  {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </label>
+              <TextField
+                className="rec-label"
+                label="Date"
+                type="date"
+                value={form.date}
+                onChange={(e) => handleFormChange("date", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label"
+                label="Amount (£)"
+                type="number"
+                step="0.01"
+                placeholder="e.g. 70.00"
+                value={form.amount}
+                onChange={(e) => handleFormChange("amount", e.target.value)}
+                disabled={saving}
+              />
+              <div className="rec-label sov-field">
+                <label htmlFor="pcn-status-sel" className="sov-field__label">Status</label>
+                <div className="sov-input-wrap">
+                  <select id="pcn-status-sel" className="sov-field__control" value={form.status} onChange={(e) => handleFormChange("status", e.target.value as PCNStatus)} disabled={saving}>
+                    {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div className="rec-form-row">
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Reference number</span>
-                <input className="rec-input" type="text" placeholder="e.g. PCN12345" value={form.reference} onChange={(e) => handleFormChange("reference", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Issuing authority</span>
-                <input className="rec-input" type="text" placeholder="e.g. Westminster City Council" value={form.authority} onChange={(e) => handleFormChange("authority", e.target.value)} disabled={saving} />
-              </label>
+              <TextField
+                className="rec-label rec-label--wide"
+                label="Reference number"
+                type="text"
+                placeholder="e.g. PCN12345"
+                value={form.reference}
+                onChange={(e) => handleFormChange("reference", e.target.value)}
+                disabled={saving}
+              />
+              <TextField
+                className="rec-label rec-label--wide"
+                label="Issuing authority"
+                type="text"
+                placeholder="e.g. Westminster City Council"
+                value={form.authority}
+                onChange={(e) => handleFormChange("authority", e.target.value)}
+                disabled={saving}
+              />
             </div>
 
-            <label className="rec-label rec-label--full">
-              <span className="rec-label__text">Notes</span>
-              <textarea className="rec-textarea" rows={2} placeholder="Any additional notes…" value={form.notes} onChange={(e) => handleFormChange("notes", e.target.value)} disabled={saving} />
-            </label>
+            <TextArea
+              className="rec-label rec-label--full"
+              label="Notes"
+              rows={2}
+              placeholder="Any additional notes…"
+              value={form.notes}
+              onChange={(e) => handleFormChange("notes", e.target.value)}
+              disabled={saving}
+            />
 
             {saveError && <p className="rec-error">{saveError}</p>}
             <div className="rec-form-actions">
