@@ -19,7 +19,7 @@
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ENUM as PG_ENUM
 
 # ==================================================
 # MIGRATION METADATA
@@ -37,10 +37,8 @@ depends_on = None
 
 def upgrade() -> None:
     # ------------------------------ Enums --------------------------------
-    op.execute(
-        "CREATE TYPE documenttype AS ENUM "
-        "('v5c', 'insurance', 'mot', 'service', 'finance', 'warranty', 'invoice', 'other')"
-    )
+    bind = op.get_bind()
+    PG_ENUM("v5c", "insurance", "mot", "service", "finance", "warranty", "invoice", "other", name="documenttype").create(bind, checkfirst=True)
 
     # ~~~~~~~~~ documents ~~~~~~~~~
     op.create_table(
@@ -64,6 +62,7 @@ def upgrade() -> None:
                 "v5c", "insurance", "mot", "service", "finance",
                 "warranty", "invoice", "other",
                 name="documenttype",
+                create_type=False,
             ),
             nullable=False,
         ),

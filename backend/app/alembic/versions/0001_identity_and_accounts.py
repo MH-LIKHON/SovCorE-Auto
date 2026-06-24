@@ -21,7 +21,7 @@
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ENUM as PG_ENUM
 
 # ==================================================
 # MIGRATION METADATA
@@ -41,36 +41,14 @@ def upgrade() -> None:
     # ------------------------------ Enums --------------------------------
     # Create enums first so column definitions below can reference them.
 
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE accounttype AS ENUM ('personal', 'family', 'business', 'fleet');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE distanceunit AS ENUM ('miles', 'kilometres');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE volumeunit AS ENUM ('litres', 'gallons');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE economyunit AS ENUM ('mpg', 'l_per_100km');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE role AS ENUM ('owner', 'admin', 'editor', 'viewer');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
-    op.execute("""
-        DO $$ BEGIN
-            CREATE TYPE ssoprovider AS ENUM ('microsoft', 'google', 'github', 'apple');
-        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-    """)
+    bind = op.get_bind()
+    # checkfirst=True queries pg_type — skips creation if the type already exists.
+    PG_ENUM("personal", "family", "business", "fleet", name="accounttype").create(bind, checkfirst=True)
+    PG_ENUM("miles", "kilometres", name="distanceunit").create(bind, checkfirst=True)
+    PG_ENUM("litres", "gallons", name="volumeunit").create(bind, checkfirst=True)
+    PG_ENUM("mpg", "l_per_100km", name="economyunit").create(bind, checkfirst=True)
+    PG_ENUM("owner", "admin", "editor", "viewer", name="role").create(bind, checkfirst=True)
+    PG_ENUM("microsoft", "google", "github", "apple", name="ssoprovider").create(bind, checkfirst=True)
 
     # ~~~~~~~~~ accounts ~~~~~~~~~
     op.create_table(

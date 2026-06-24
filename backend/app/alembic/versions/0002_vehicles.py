@@ -24,7 +24,7 @@
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ENUM as PG_ENUM
 
 # ==================================================
 # MIGRATION METADATA
@@ -42,14 +42,9 @@ depends_on = None
 
 def upgrade() -> None:
     # ------------------------------ Enums --------------------------------
-    op.execute(
-        "CREATE TYPE bodytype AS ENUM "
-        "('hatchback', 'saloon', 'estate', 'suv', 'convertible', 'van', 'mpv')"
-    )
-    op.execute(
-        "CREATE TYPE lifecyclestate AS ENUM "
-        "('active', 'sold', 'scrapped', 'archived')"
-    )
+    bind = op.get_bind()
+    PG_ENUM("hatchback", "saloon", "estate", "suv", "convertible", "van", "mpv", name="bodytype").create(bind, checkfirst=True)
+    PG_ENUM("active", "sold", "scrapped", "archived", name="lifecyclestate").create(bind, checkfirst=True)
 
     # ~~~~~~~~~ vehicles ~~~~~~~~~
     op.create_table(
@@ -76,6 +71,7 @@ def upgrade() -> None:
             sa.Enum(
                 "hatchback", "saloon", "estate", "suv", "convertible", "van", "mpv",
                 name="bodytype",
+                create_type=False,
             ),
             nullable=True,
         ),
@@ -93,7 +89,7 @@ def upgrade() -> None:
         # Lifecycle state — default is active so a new vehicle is always visible
         sa.Column(
             "lifecycle_state",
-            sa.Enum("active", "sold", "scrapped", "archived", name="lifecyclestate"),
+            sa.Enum("active", "sold", "scrapped", "archived", name="lifecyclestate", create_type=False),
             nullable=False,
             server_default="active",
         ),

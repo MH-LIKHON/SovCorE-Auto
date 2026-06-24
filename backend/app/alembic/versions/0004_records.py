@@ -28,7 +28,7 @@
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, ENUM as PG_ENUM
 
 # ==================================================
 # MIGRATION METADATA
@@ -46,21 +46,19 @@ depends_on = None
 
 def upgrade() -> None:
     # ------------------------------ Enums --------------------------------
-    op.execute(
-        "CREATE TYPE recordtype AS ENUM "
-        "('maintenance', 'repair', 'fuel', 'mot', 'tax', 'insurance', "
-        "'parking', 'pcn', 'cleaning', 'accessories', 'warranty', "
-        "'diagnostics', 'damage', 'custom')"
-    )
-    op.execute(
-        "CREATE TYPE attachmentkind AS ENUM "
-        "('invoice', 'photo', 'document', 'other')"
-    )
-    op.execute(
-        "CREATE TYPE maintenancecategory AS ENUM "
-        "('engine', 'transmission', 'brakes', 'suspension', 'steering', "
-        "'wheels', 'cooling', 'electrical', 'hvac', 'exhaust', 'miscellaneous')"
-    )
+    bind = op.get_bind()
+    PG_ENUM(
+        "maintenance", "repair", "fuel", "mot", "tax", "insurance",
+        "parking", "pcn", "cleaning", "accessories", "warranty",
+        "diagnostics", "damage", "custom",
+        name="recordtype",
+    ).create(bind, checkfirst=True)
+    PG_ENUM("invoice", "photo", "document", "other", name="attachmentkind").create(bind, checkfirst=True)
+    PG_ENUM(
+        "engine", "transmission", "brakes", "suspension", "steering",
+        "wheels", "cooling", "electrical", "hvac", "exhaust", "miscellaneous",
+        name="maintenancecategory",
+    ).create(bind, checkfirst=True)
 
     # ~~~~~~~~~ records ~~~~~~~~~
     op.create_table(
@@ -85,6 +83,7 @@ def upgrade() -> None:
                 "parking", "pcn", "cleaning", "accessories", "warranty",
                 "diagnostics", "damage", "custom",
                 name="recordtype",
+                create_type=False,
             ),
             nullable=False,
         ),
@@ -141,7 +140,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "kind",
-            sa.Enum("invoice", "photo", "document", "other", name="attachmentkind"),
+            sa.Enum("invoice", "photo", "document", "other", name="attachmentkind", create_type=False),
             nullable=False,
         ),
         sa.Column("r2_key", sa.String(500), nullable=False),
@@ -189,6 +188,7 @@ def upgrade() -> None:
                 "wheels", "cooling", "electrical", "hvac", "exhaust",
                 "miscellaneous",
                 name="maintenancecategory",
+                create_type=False,
             ),
             nullable=False,
         ),
