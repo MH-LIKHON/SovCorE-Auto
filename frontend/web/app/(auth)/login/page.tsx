@@ -608,6 +608,7 @@ interface CodeStageProps {
 
 function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStageProps) {
   const [digits, setDigits] = useState(['', '', '', '', '', ''])
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
   const inputRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null, null, null])
 
   useEffect(() => {
@@ -653,21 +654,26 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
     }
   }
 
-  const digitBoxStyle = (i: number): React.CSSProperties => ({
-    width: 44,
-    height: 54,
-    borderRadius: 10,
-    border: `0.5px solid ${digits[i] ? 'rgba(108,99,255,0.5)' : 'rgba(255,255,255,0.08)'}`,
-    background: digits[i] ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.03)',
-    color: 'var(--colour-text)',
-    fontSize: 22,
-    fontWeight: 500,
-    textAlign: 'center',
-    outline: 'none',
-    fontFamily: 'inherit',
-    transition: 'border-color 0.2s, background 0.2s',
-    caretColor: 'transparent',
-  })
+  const digitBoxStyle = (i: number): React.CSSProperties => {
+    const isFocused = focusedIndex === i
+    const hasFill = Boolean(digits[i])
+    return {
+      width: 44,
+      height: 54,
+      borderRadius: 10,
+      border: `1px solid ${isFocused ? 'rgba(108,99,255,0.9)' : hasFill ? 'rgba(108,99,255,0.5)' : 'rgba(255,255,255,0.1)'}`,
+      background: isFocused ? 'rgba(108,99,255,0.14)' : hasFill ? 'rgba(108,99,255,0.08)' : 'rgba(255,255,255,0.04)',
+      boxShadow: isFocused ? '0 0 0 3px rgba(108,99,255,0.18)' : 'none',
+      color: '#ffffff',
+      fontSize: 22,
+      fontWeight: 500,
+      textAlign: 'center',
+      outline: 'none',
+      fontFamily: 'inherit',
+      transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
+      caretColor: isFocused ? '#6c63ff' : 'transparent',
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -704,6 +710,8 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
             value={digit}
             onChange={(e) => handleDigitInput(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}
+            onFocus={() => setFocusedIndex(i)}
+            onBlur={() => setFocusedIndex(null)}
             disabled={isLoading}
             style={digitBoxStyle(i)}
           />
