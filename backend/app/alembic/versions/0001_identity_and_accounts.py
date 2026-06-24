@@ -41,12 +41,36 @@ def upgrade() -> None:
     # ------------------------------ Enums --------------------------------
     # Create enums first so column definitions below can reference them.
 
-    op.execute("CREATE TYPE IF NOT EXISTS accounttype AS ENUM ('personal', 'family', 'business', 'fleet')")
-    op.execute("CREATE TYPE IF NOT EXISTS distanceunit AS ENUM ('miles', 'kilometres')")
-    op.execute("CREATE TYPE IF NOT EXISTS volumeunit AS ENUM ('litres', 'gallons')")
-    op.execute("CREATE TYPE IF NOT EXISTS economyunit AS ENUM ('mpg', 'l_per_100km')")
-    op.execute("CREATE TYPE IF NOT EXISTS role AS ENUM ('owner', 'admin', 'editor', 'viewer')")
-    op.execute("CREATE TYPE IF NOT EXISTS ssoprovider AS ENUM ('microsoft', 'google', 'github', 'apple')")
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE accounttype AS ENUM ('personal', 'family', 'business', 'fleet');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE distanceunit AS ENUM ('miles', 'kilometres');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE volumeunit AS ENUM ('litres', 'gallons');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE economyunit AS ENUM ('mpg', 'l_per_100km');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE role AS ENUM ('owner', 'admin', 'editor', 'viewer');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TYPE ssoprovider AS ENUM ('microsoft', 'google', 'github', 'apple');
+        EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+    """)
 
     # ~~~~~~~~~ accounts ~~~~~~~~~
     op.create_table(
