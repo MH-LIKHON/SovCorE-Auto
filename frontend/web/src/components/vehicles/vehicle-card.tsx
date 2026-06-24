@@ -11,10 +11,10 @@
 //
 // Design:
 //   Card visuals mirror SovCorE QR exactly — glass background,
-//   18px radius, hairline border, pointer cursor with the tilt
-//   hover from card.tsx. Uses the Card primitive from ui/ in
-//   clickable mode so the glow sweep and tilt animation apply
-//   automatically.
+//   18px radius, hairline border, pointer cursor. Uses the Card
+//   primitive in glow + clickable mode: sweep animation at the
+//   top edge, pop-lift, back glow, and bottom gradient click line
+//   all appear on hover.
 //
 //   RAG indicators are four small circles (12px). Red maps to
 //   --colour-error, amber to --colour-amber, green to
@@ -165,7 +165,7 @@ export function VehicleCard({ vehicle, accountId }: VehicleCardProps) {
 
   return (
     <Link href={href} className="vc-link" aria-label={`Open ${title}`}>
-      <Card hoverEffect="tilt" className="vc-card">
+      <Card hoverEffect="glow" clickable className="vc-card">
         {/* ~~~~~~~~~ Image / icon panel ~~~~~~~~~ */}
         <div className="vc-media">
           {imageUrl ? (

@@ -68,12 +68,12 @@ export function Card({
   fillHeight = false,
 }: CardProps) {
   // ---- Resolve effective hover effect ----
-  // Explicit prop wins; clickable implies glow; default is none.
+  // Explicit prop wins; all cards get glow by default (none can be opted in explicitly).
   const effectiveHover: HoverEffect = hoverEffect
     ? hoverEffect
     : clickable
       ? "glow"
-      : "none";
+      : "glow";
 
   const cardRef = useRef<HTMLDivElement>(null);
   const shimmerRef = useRef<HTMLDivElement>(null);
