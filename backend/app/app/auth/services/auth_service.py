@@ -58,7 +58,7 @@ from app.core.security import (
     issue_refresh_token,
 )
 from app.core.settings import get_settings
-from app.integrations.resend_client import send_email
+from app.integrations.resend_client import build_email_html, build_otp_content, send_email
 
 logger = structlog.get_logger(__name__)
 _settings = get_settings()
@@ -215,19 +215,8 @@ async def _send_login_code(email: str, code: str) -> None:
             logger.warning("resend_not_configured_code_in_log", email=email, code=code)
         return
 
-    body_html = f"""
-    <div style="font-family:sans-serif;background:#08080f;color:#f0f0f8;padding:40px;border-radius:12px;">
-      <p style="font-size:15px;margin:0 0 16px;">Your SovCorE Auto login code is:</p>
-      <p style="font-family:monospace;font-size:36px;font-weight:bold;
-                letter-spacing:10px;color:#6c63ff;margin:0 0 24px;">{code}</p>
-      <p style="font-size:13px;color:#8888aa;margin:0;">
-        It expires in ten minutes. Do not share it with anyone.
-      </p>
-    </div>
-    """
-
     send_email(
         to=email,
-        subject=f"{code} is your SovCorE Auto login code",
-        html=body_html,
+        subject="Your SovCorE Auto login code",
+        html=build_email_html(build_otp_content(code)),
     )
