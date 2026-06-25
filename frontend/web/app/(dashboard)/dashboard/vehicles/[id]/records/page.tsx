@@ -264,7 +264,7 @@ export default function VehicleRecordsPage() {
 
   // Attachment on new record form
   const newAttachInputRef = useRef<HTMLInputElement | null>(null);
-  const [newAttachFile, setNewAttachFile] = useState<File | null>(null);
+  const [newAttachFiles, setNewAttachFiles] = useState<{ label: string; file: File }[]>([]);
   const [newAttachLabel, setNewAttachLabel] = useState("");
   const [newAttachError, setNewAttachError] = useState<string | null>(null);
 
@@ -441,11 +441,11 @@ export default function VehicleRecordsPage() {
         return;
       }
       const saved = await res.json();
-      if (newAttachFile && newAttachLabel.trim()) {
+      for (const a of newAttachFiles) {
         const fd = new FormData();
-        fd.append("file", newAttachFile);
-        fd.append("kind", newAttachLabel.trim());
-        fd.append("filename", newAttachFile.name);
+        fd.append("file", a.file);
+        fd.append("kind", a.label);
+        fd.append("filename", a.file.name);
         await apiUpload(
           `/api/v1/accounts/${accountId}/vehicles/${id}/records/${saved.id}/attachments/upload`,
           fd
@@ -453,7 +453,7 @@ export default function VehicleRecordsPage() {
       }
       setShowForm(false);
       setForm(EMPTY_FORM);
-      setNewAttachFile(null);
+      setNewAttachFiles([]);
       setNewAttachLabel("");
       await loadRecords();
     } catch {
@@ -733,54 +733,67 @@ export default function VehicleRecordsPage() {
               </div>
             )}
 
-            {/* Optional file attachment */}
-            <div className="rec-form-attach-row">
-              <span className="rec-label__text">Attach a file</span>
-              <div className="rec-form-attach-controls">
-                <input
-                  type="text"
-                  className="rec-attach-kind-input"
-                  placeholder="LABEL"
-                  value={newAttachLabel}
-                  onChange={(e) => { setNewAttachLabel(e.target.value.toUpperCase()); setNewAttachError(null); }}
-                  disabled={saving}
-                  maxLength={32}
-                />
-                <button
-                  type="button"
-                  className="rec-btn rec-btn--ghost rec-btn--sm"
-                  onClick={() => {
-                    if (!newAttachLabel.trim()) { setNewAttachError("Enter a label first."); return; }
-                    setNewAttachError(null);
-                    newAttachInputRef.current?.click();
-                  }}
-                  disabled={saving}
-                >
-                  {newAttachFile ? newAttachFile.name : "Choose file"}
-                </button>
-                {newAttachFile && (
+            {/* Optional file attachments — supports multiple */}
+            <div className="rec-form-attach-row" style={{ alignItems: "flex-start" }}>
+              <span className="rec-label__text" style={{ paddingTop: "5px", whiteSpace: "nowrap" }}>Attach files</span>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+                {newAttachFiles.length > 0 && (
+                  <div className="rec-attach-list">
+                    {newAttachFiles.map((a, i) => (
+                      <div key={i} className="rec-attach-row">
+                        <span className="rec-attach-kind">{a.label}</span>
+                        <span className="rec-attach-name">{a.file.name}</span>
+                        <button
+                          type="button"
+                          className="rec-btn rec-btn--danger-sm"
+                          onClick={() => setNewAttachFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                          disabled={saving}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="rec-form-attach-controls">
+                  <input
+                    type="text"
+                    className="rec-attach-kind-input"
+                    placeholder="LABEL"
+                    value={newAttachLabel}
+                    onChange={(e) => { setNewAttachLabel(e.target.value.toUpperCase()); setNewAttachError(null); }}
+                    disabled={saving}
+                    maxLength={32}
+                  />
                   <button
                     type="button"
-                    className="rec-attach-cancel"
-                    onClick={() => { setNewAttachFile(null); setNewAttachLabel(""); }}
+                    className="rec-btn rec-btn--ghost rec-btn--sm"
+                    onClick={() => {
+                      if (!newAttachLabel.trim()) { setNewAttachError("Enter a label first."); return; }
+                      setNewAttachError(null);
+                      newAttachInputRef.current?.click();
+                    }}
                     disabled={saving}
                   >
-                    Remove
+                    Choose file
                   </button>
-                )}
-                <input
-                  ref={newAttachInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/heic,.pdf"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) setNewAttachFile(f);
-                    e.target.value = "";
-                  }}
-                />
+                  <input
+                    ref={newAttachInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,.pdf"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setNewAttachFiles((prev) => [...prev, { label: newAttachLabel.trim(), file: f }]);
+                        setNewAttachLabel("");
+                      }
+                      e.target.value = "";
+                    }}
+                  />
+                </div>
+                {newAttachError && <p className="rec-error" style={{ marginTop: "2px" }}>{newAttachError}</p>}
               </div>
-              {newAttachError && <p className="rec-error" style={{ marginTop: "6px" }}>{newAttachError}</p>}
             </div>
 
             {/* Actions */}
@@ -789,7 +802,7 @@ export default function VehicleRecordsPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAddRecord} disabled={saving}>
                 {saving ? "Saving…" : "Save record"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setNewAttachFile(null); setNewAttachLabel(""); }} disabled={saving}>
+              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setNewAttachFiles([]); setNewAttachLabel(""); }} disabled={saving}>
                 Cancel
               </button>
             </div>
