@@ -1,4 +1,4 @@
-# SovCorE Auto ★
+# SovCorE Auto
 
 A vehicle management platform built to keep a complete, organised record of every vehicle from first ownership through to disposal.
 
