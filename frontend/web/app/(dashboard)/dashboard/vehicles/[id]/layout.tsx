@@ -231,6 +231,8 @@ const VL_STYLES = `
     padding-left:  var(--space-10);
     padding-right: var(--space-10);
     padding-top:   var(--space-6);
+    /* Prevent browser text-insertion caret on click */
+    user-select: none;
   }
 
   /* ── Identity row: 3-column grid ── */
@@ -306,7 +308,7 @@ const VL_STYLES = `
     text-decoration: none;
     display: block;
     transition: color 0.2s, border-color 0.2s;
-    cursor: pointer;
+    cursor: none;
   }
   .vl-tab:hover { color: var(--colour-text); }
   .vl-tab--active {
@@ -337,7 +339,7 @@ const VL_STYLES = `
     text-decoration: none;
     display: block;
     transition: color 0.2s, border-color 0.2s;
-    cursor: pointer;
+    cursor: none;
   }
   .vl-sub-tab:hover { color: var(--colour-text); }
   .vl-sub-tab--active {
