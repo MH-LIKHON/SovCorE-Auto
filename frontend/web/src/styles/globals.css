@@ -225,6 +225,13 @@ code {
   color: var(--colour-text-faint);
 }
 
+/* ── Global uppercase for all text inputs (numbers, email, password unaffected) ── */
+input[type="text"],
+input[type="search"],
+input[type="tel"] {
+  text-transform: uppercase;
+}
+
 .sov-field__control:hover {
   border-color: var(--colour-border-hover);
 }

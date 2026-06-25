@@ -228,9 +228,9 @@ function SearchInner() {
             <input
               className="sov-field__control srch-input"
               type="text"
-              placeholder="Search registration, make, model, supplier, tag…"
+              placeholder="SEARCH REGISTRATION, MAKE, MODEL, SUPPLIER, TAG..."
               value={input}
-              onChange={(e) => { firePulse(); setInput(e.target.value); }}
+              onChange={(e) => { firePulse(); setInput(e.target.value.toUpperCase()); }}
               autoFocus
             />
             <div ref={pulseRingRef} aria-hidden="true" style={PULSE_RING_STYLE} />

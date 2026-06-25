@@ -65,6 +65,7 @@ _COST_LABELS: dict[str, str] = {
     "warranty":     "Warranty",
     "diagnostics":  "Diagnostics",
     "damage":       "Damage",
+    "roadside":     "Roadside",
     "pcn":          "Penalty notices",
     "custom":       "Other",
 }

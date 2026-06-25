@@ -124,28 +124,36 @@ type AnyEvent =
 type RecordTypeValue =
   | "maintenance" | "repair" | "fuel" | "mot" | "tax" | "insurance"
   | "parking" | "pcn" | "cleaning" | "accessories" | "warranty"
-  | "diagnostics" | "damage" | "custom";
+  | "diagnostics" | "damage" | "roadside" | "custom";
 
 // ==================================================
 // CONSTANTS
 // ==================================================
 
 const RECORD_TYPES: { value: RecordTypeValue; label: string }[] = [
+  // Workshop
   { value: "maintenance",  label: "Maintenance" },
   { value: "repair",       label: "Repair" },
-  { value: "fuel",         label: "Fuel" },
+  { value: "damage",       label: "Damage" },
+  { value: "diagnostics",  label: "Diagnostics" },
+  // Coverage
+  { value: "insurance",    label: "Insurance" },
+  { value: "warranty",     label: "Warranty" },
+  { value: "roadside",     label: "Roadside" },
+  // Regulatory
   { value: "mot",          label: "MOT" },
   { value: "tax",          label: "Tax" },
-  { value: "insurance",    label: "Insurance" },
+  { value: "fuel",         label: "Fuel" },
+  // Other
   { value: "parking",      label: "Parking" },
   { value: "pcn",          label: "PCN" },
   { value: "cleaning",     label: "Cleaning" },
   { value: "accessories",  label: "Accessories" },
-  { value: "warranty",     label: "Warranty" },
-  { value: "diagnostics",  label: "Diagnostics" },
-  { value: "damage",       label: "Damage" },
   { value: "custom",       label: "Custom" },
 ];
+
+const SHOW_GARAGE   = new Set<RecordTypeValue>(["maintenance", "repair", "mot", "diagnostics", "custom"]);
+const SHOW_SUPPLIER = new Set<RecordTypeValue>(["maintenance", "repair", "insurance", "cleaning", "accessories", "warranty", "roadside", "custom"]);
 
 const MAINTENANCE_CATEGORIES = [
   { value: "engine",        label: "Engine" },
@@ -549,8 +557,9 @@ export default function VehicleRecordsPage() {
   // RENDER HELPERS
   // ==================================================
 
-  const isMaintForm = form.type === "maintenance" || form.type === "repair";
-  const isFuelForm  = form.type === "fuel";
+  const isMaintForm  = form.type === "maintenance" || form.type === "repair";
+  const isFuelForm   = form.type === "fuel";
+  const isDamageForm = form.type === "damage";
 
   // ==================================================
   // RENDER
@@ -583,7 +592,29 @@ export default function VehicleRecordsPage() {
               <label className="rec-label">
                 <span className="rec-label__text">Type</span>
                 <select className="rec-select" value={form.type} onChange={(e) => handleFormChange("type", e.target.value as RecordTypeValue)} disabled={saving}>
-                  {RECORD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  <optgroup label="Workshop">
+                    <option value="maintenance">Maintenance</option>
+                    <option value="repair">Repair</option>
+                    <option value="damage">Damage</option>
+                    <option value="diagnostics">Diagnostics</option>
+                  </optgroup>
+                  <optgroup label="Coverage">
+                    <option value="insurance">Insurance</option>
+                    <option value="warranty">Warranty</option>
+                    <option value="roadside">Roadside</option>
+                  </optgroup>
+                  <optgroup label="Regulatory">
+                    <option value="mot">MOT</option>
+                    <option value="tax">Tax</option>
+                    <option value="fuel">Fuel</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="parking">Parking</option>
+                    <option value="pcn">PCN</option>
+                    <option value="cleaning">Cleaning</option>
+                    <option value="accessories">Accessories</option>
+                    <option value="custom">Custom</option>
+                  </optgroup>
                 </select>
               </label>
               <label className="rec-label">
@@ -600,17 +631,25 @@ export default function VehicleRecordsPage() {
               </label>
             </div>
 
-            {/* Location row */}
-            <div className="rec-form-row">
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Garage</span>
-                <input className="rec-input" type="text" placeholder="e.g. Kwik Fit" value={form.garage} onChange={(e) => handleFormChange("garage", e.target.value)} disabled={saving} />
-              </label>
-              <label className="rec-label rec-label--wide">
-                <span className="rec-label__text">Supplier</span>
-                <input className="rec-input" type="text" placeholder="e.g. Halfords" value={form.supplier} onChange={(e) => handleFormChange("supplier", e.target.value)} disabled={saving} />
-              </label>
-            </div>
+            {/* Garage / Supplier — only shown for types where they are meaningful */}
+            {(SHOW_GARAGE.has(form.type) || SHOW_SUPPLIER.has(form.type)) && (
+              <div className="rec-form-row">
+                {SHOW_GARAGE.has(form.type) && (
+                  <label className="rec-label rec-label--wide">
+                    <span className="rec-label__text">Garage</span>
+                    <input className="rec-input" type="text" placeholder="KWIK FIT" value={form.garage} onChange={(e) => handleFormChange("garage", e.target.value.toUpperCase())} disabled={saving} />
+                  </label>
+                )}
+                {SHOW_SUPPLIER.has(form.type) && (
+                  <label className="rec-label rec-label--wide">
+                    <span className="rec-label__text">
+                      {form.type === "insurance" || form.type === "warranty" ? "Provider" : "Supplier"}
+                    </span>
+                    <input className="rec-input" type="text" placeholder="AMAZON" value={form.supplier} onChange={(e) => handleFormChange("supplier", e.target.value.toUpperCase())} disabled={saving} />
+                  </label>
+                )}
+              </div>
+            )}
 
             {/* Notes */}
             <label className="rec-label rec-label--full">
@@ -631,11 +670,11 @@ export default function VehicleRecordsPage() {
                   </label>
                   <label className="rec-label rec-label--wide">
                     <span className="rec-label__text">Item description</span>
-                    <input className="rec-input" type="text" placeholder="e.g. Front brake pads" value={form.maint_item} onChange={(e) => handleFormChange("maint_item", e.target.value)} disabled={saving} />
+                    <input className="rec-input" type="text" placeholder="FRONT BRAKE PADS" value={form.maint_item} onChange={(e) => handleFormChange("maint_item", e.target.value.toUpperCase())} disabled={saving} />
                   </label>
                   <label className="rec-label">
                     <span className="rec-label__text">Part number</span>
-                    <input className="rec-input" type="text" placeholder="Optional" value={form.maint_part_number} onChange={(e) => handleFormChange("maint_part_number", e.target.value)} disabled={saving} />
+                    <input className="rec-input" type="text" placeholder="PART NUMBER" value={form.maint_part_number} onChange={(e) => handleFormChange("maint_part_number", e.target.value.toUpperCase())} disabled={saving} />
                   </label>
                 </div>
                 <div className="rec-form-row">
@@ -666,11 +705,28 @@ export default function VehicleRecordsPage() {
                   </label>
                   <label className="rec-label rec-label--wide">
                     <span className="rec-label__text">Station</span>
-                    <input className="rec-input" type="text" placeholder="e.g. Shell Motorway Services" value={form.fuel_station} onChange={(e) => handleFormChange("fuel_station", e.target.value)} disabled={saving} />
+                    <input className="rec-input" type="text" placeholder="SHELL" value={form.fuel_station} onChange={(e) => handleFormChange("fuel_station", e.target.value.toUpperCase())} disabled={saving} />
                   </label>
                   <label className="rec-label rec-label--check">
                     <span className="rec-label__text">Full tank</span>
                     <input type="checkbox" checked={form.fuel_full_tank} onChange={(e) => handleFormChange("fuel_full_tank", e.target.checked)} disabled={saving} />
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* ---- Damage cost fields ---- */}
+            {isDamageForm && (
+              <div className="rec-detail-block">
+                <p className="rec-detail-heading">Damage costs</p>
+                <div className="rec-form-row">
+                  <label className="rec-label">
+                    <span className="rec-label__text">Labour cost (£)</span>
+                    <input className="rec-input" type="number" step="0.01" placeholder="e.g. 80.00" value={form.maint_labour_cost} onChange={(e) => handleFormChange("maint_labour_cost", e.target.value)} disabled={saving} />
+                  </label>
+                  <label className="rec-label">
+                    <span className="rec-label__text">Parts cost (£)</span>
+                    <input className="rec-input" type="number" step="0.01" placeholder="e.g. 45.00" value={form.maint_parts_cost} onChange={(e) => handleFormChange("maint_parts_cost", e.target.value)} disabled={saving} />
                   </label>
                 </div>
               </div>
@@ -683,9 +739,9 @@ export default function VehicleRecordsPage() {
                 <input
                   type="text"
                   className="rec-attach-kind-input"
-                  placeholder="Label (e.g. Receipt)"
+                  placeholder="LABEL"
                   value={newAttachLabel}
-                  onChange={(e) => setNewAttachLabel(e.target.value)}
+                  onChange={(e) => setNewAttachLabel(e.target.value.toUpperCase())}
                   disabled={saving}
                   maxLength={32}
                 />
