@@ -217,3 +217,11 @@ PRIVATE/
 !frontend/**/*.css
 !frontend/**/*.mjs
 !frontend/**/*.json
+
+# Re-ignore frontend build artefacts and generated files.
+# These must come AFTER the negations above — later rules win.
+frontend/web/.next/
+frontend/web/node_modules/
+frontend/web/package-lock.json
+frontend/web/tsconfig.tsbuildinfo
+frontend/web/next-env.d.ts
