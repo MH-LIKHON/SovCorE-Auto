@@ -745,7 +745,7 @@ export default function VehicleRecordsPage() {
                         <span className="rec-attach-name">{a.file.name}</span>
                         <button
                           type="button"
-                          className="rec-btn rec-btn--danger-sm"
+                          className="sov-action-btn sov-action-btn--delete"
                           onClick={() => setNewAttachFiles((prev) => prev.filter((_, idx) => idx !== i))}
                           disabled={saving}
                         >
