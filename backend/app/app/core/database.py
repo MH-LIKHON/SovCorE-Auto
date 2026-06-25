@@ -25,7 +25,9 @@
 #   - backend/app/alembic/env.py (metadata for autogenerate)
 # ============================================================
 
+import ssl
 from collections.abc import AsyncGenerator
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
@@ -38,12 +40,30 @@ from app.core.settings import get_settings
 
 settings = get_settings()
 
+# asyncpg raises "sslmode is specified both in the DSN and as connect argument"
+# if sslmode= appears in the URL AND ssl= is passed via connect_args.
+# Strip it here so we control SSL entirely via the explicit SSLContext below.
+# This also bypasses asyncpg's ~/.postgresql/root.crt lookup, which fails
+# under ProtectHome=true (the service user's home directory is inaccessible).
+_db_url = settings.database_url
+if "sslmode=" in _db_url:
+    _parsed = urlparse(_db_url)
+    _qs = parse_qs(_parsed.query, keep_blank_values=True)
+    _qs.pop("sslmode", None)
+    _qs.pop("sslrootcert", None)
+    _db_url = urlunparse(_parsed._replace(query=urlencode({k: v[0] for k, v in _qs.items()})))
+
+# ssl.create_default_context() reads the OS CA bundle (/etc/ssl/certs/ on Ubuntu),
+# which is readable by the service user and does not require ProtectHome access.
+_ssl_ctx = ssl.create_default_context()
+
 # echo=False in production; can be set to True temporarily via debug flag.
 engine = create_async_engine(
-    settings.database_url,
+    _db_url,
     echo=settings.app_debug,
     pool_size=10,
     max_overflow=20,
+    connect_args={"ssl": _ssl_ctx},
 )
 
 # ==================================================
