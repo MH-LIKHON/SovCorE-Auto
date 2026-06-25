@@ -40,7 +40,7 @@ import {
 // CONSTANTS
 // ==================================================
 
-const LERP_FACTOR = 0.13;
+const LERP_FACTOR = 0.18;
 
 const INTERACTIVE_SELECTORS = [
   "a",
@@ -81,6 +81,8 @@ export function useCursor(): UseCursorResult {
   const ringX = useRef(-100);
   const ringY = useRef(-100);
   const rafId = useRef<number>(0);
+  const vx = useRef(0);
+  const vy = useRef(0);
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isClicked, setIsClicked] = useState(false);
@@ -98,11 +100,24 @@ export function useCursor(): UseCursorResult {
   });
 
   const animate = useCallback(() => {
-    ringX.current += (mouseX.current - ringX.current) * LERP_FACTOR;
-    ringY.current += (mouseY.current - ringY.current) * LERP_FACTOR;
+    const dx = mouseX.current - ringX.current;
+    const dy = mouseY.current - ringY.current;
+
+    vx.current = dx * LERP_FACTOR;
+    vy.current = dy * LERP_FACTOR;
+
+    ringX.current += vx.current;
+    ringY.current += vy.current;
+
+    const speed   = Math.sqrt(vx.current * vx.current + vy.current * vy.current);
+    const angle   = speed > 0.5 ? Math.atan2(vy.current, vx.current) * (180 / Math.PI) : 0;
+    const stretch = 1 + Math.min(speed * 0.055, 0.32);
+    const squash  = 1 / Math.sqrt(stretch);
+
+    const deform = `translate(-50%, -50%) rotate(${angle.toFixed(1)}deg) scaleX(${stretch.toFixed(3)}) scaleY(${squash.toFixed(3)})`;
 
     setRingStyle({
-      transform: "translate(-50%, -50%)",
+      transform: deform,
       left: `${ringX.current}px`,
       top: `${ringY.current}px`,
     });
