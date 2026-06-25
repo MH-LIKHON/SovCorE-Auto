@@ -43,7 +43,7 @@ const SECTIONS: readonly LegalSection[] = [
       <p>
         By creating an account or using SovCorE Auto, you agree to these terms. If you do not
         accept the terms, do not use the service. These terms apply between you and VelVadY LTD
-        trading as SovCorE ("we", "us", "our"). The Effective Date of these terms is the date
+        trading as SovCorE (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;). The Effective Date of these terms is the date
         you first accept them.
       </p>
     ),
@@ -100,7 +100,7 @@ const SECTIONS: readonly LegalSection[] = [
         <p>You must not use SovCorE Auto to:</p>
         <ul>
           <li>store vehicle data for vehicles you do not own, operate, or manage on behalf of
-            a third party with that party's consent;</li>
+            a third party with that party&apos;s consent;</li>
           <li>upload documents you do not have the right to upload or store, including
             documents whose contents are subject to confidentiality obligations you cannot
             waive;</li>
@@ -110,7 +110,7 @@ const SECTIONS: readonly LegalSection[] = [
             or authentication measures;</li>
           <li>scrape, mirror, or systematically download the service or any part of its
             stored data by automated means;</li>
-          <li>interfere with another user's access to the service, or place an excessive
+          <li>interfere with another user&apos;s access to the service, or place an excessive
             load on the infrastructure by automated or other means.</li>
         </ul>
         <p>
@@ -182,7 +182,7 @@ const SECTIONS: readonly LegalSection[] = [
     heading: "Changes to these terms",
     body: (
       <p>
-        We may update these terms from time to time. We will give you at least fourteen days'
+        We may update these terms from time to time. We will give you at least fourteen days&apos;
         notice of material changes by email. Continued use of the service after the effective
         date of a change is acceptance of the updated terms. If you do not accept the updated
         terms, close your account before the effective date.

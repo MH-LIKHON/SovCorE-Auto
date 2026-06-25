@@ -96,7 +96,7 @@ const SECTIONS: readonly LegalSection[] = [
         Cloudflare may set cookies on its edge nodes for bot-detection purposes under its own
         cookie policy. These are strictly necessary for the delivery and protection of the
         service. The Microsoft sign-in flow operates on microsoft.com subdomains, which may
-        set their own cookies under Microsoft's cookie policy during the sign-in redirect.
+        set their own cookies under Microsoft&apos;s cookie policy during the sign-in redirect.
         We have no control over those cookies.
       </p>
     ),

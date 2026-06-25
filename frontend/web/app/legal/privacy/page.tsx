@@ -139,7 +139,7 @@ const SECTIONS: readonly LegalSection[] = [
             standard delivery log.
           </li>
           <li>
-            <strong>Microsoft Corporation.</strong> If you use the "Continue with Microsoft"
+            <strong>Microsoft Corporation.</strong> If you use the &quot;Continue with Microsoft&quot;
             sign-in option, your Microsoft-issued identity token is exchanged with the
             Microsoft identity platform. We receive your email address and display name from
             this exchange. If you do not use Microsoft sign-in, no data is passed to Microsoft.
@@ -200,7 +200,7 @@ const SECTIONS: readonly LegalSection[] = [
           .
         </p>
         <p>
-          You may also lodge a complaint with the Information Commissioner's Office, the UK
+          You may also lodge a complaint with the Information Commissioner&apos;s Office, the UK
           supervisory authority, at ico.org.uk.
         </p>
       </>
@@ -225,7 +225,7 @@ const SECTIONS: readonly LegalSection[] = [
     body: (
       <p>
         We update this policy when we ship features that change what we process. Each update
-        bumps the "last updated" date at the top of the page. We will notify registered users
+        bumps the &quot;last updated&quot; date at the top of the page. We will notify registered users
         of substantive changes by email before the change takes effect.
       </p>
     ),

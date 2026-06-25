@@ -203,7 +203,7 @@ export default function BackupsPage() {
         <h2 className="set-section">Automatic backups</h2>
         <p className="set-muted">
           Scheduled backups run automatically each night at 02:00 UTC and are kept in your
-          account's R2 bucket. Manual backups can be triggered at any time below.
+          account&apos;s R2 bucket. Manual backups can be triggered at any time below.
         </p>
       </Card>
 

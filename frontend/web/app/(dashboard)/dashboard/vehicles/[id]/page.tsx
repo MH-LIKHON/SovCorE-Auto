@@ -27,11 +27,9 @@
 
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
 import { TextField } from "@/src/components/ui/input";
 import { BodyTypeIcon } from "@/src/components/vehicles/body-type-icon";
@@ -125,20 +123,6 @@ function ragColour(dateStr: string | null): string {
   if (days <= 90) return "var(--colour-amber)";
   return "var(--colour-teal)";
 }
-
-const LIFECYCLE_LABELS: Record<string, string> = {
-  active: "Active",
-  sold: "Sold",
-  scrapped: "Scrapped",
-  archived: "Archived",
-};
-
-const LIFECYCLE_BADGE_TONE: Record<string, "success" | "muted" | "info"> = {
-  active: "success",
-  sold: "muted",
-  scrapped: "muted",
-  archived: "info",
-};
 
 // ==================================================
 // PAGE

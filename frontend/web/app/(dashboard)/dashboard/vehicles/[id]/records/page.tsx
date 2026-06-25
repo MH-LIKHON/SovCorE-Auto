@@ -240,7 +240,7 @@ export default function VehicleRecordsPage() {
   const accountId = getAccountId() ?? "";
 
   const [records, setRecords] = useState<RecordListItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const [_total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);

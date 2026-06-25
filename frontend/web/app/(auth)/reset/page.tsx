@@ -31,7 +31,7 @@ export default function ResetPage() {
     <AuthCard
       title="No password needed"
       subline="SovCorE Auto uses passwordless sign-in. Instead of a password, we send a six-digit code to your email each time you sign in."
-      foot={<Link href="/forgot">Can't get in?</Link>}
+      foot={<Link href="/forgot">Can&apos;t get in?</Link>}
     >
       <p style={{ fontSize: 'var(--text-sm)', color: 'var(--colour-text-muted)', lineHeight: 'var(--leading-normal)' }}>
         To sign in, enter your email on the sign-in page and we will send you a fresh code. The code is valid for 10 minutes.
