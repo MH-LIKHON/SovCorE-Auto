@@ -47,7 +47,7 @@ const csp = [
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self' data: blob:`,
   `font-src 'self' data:`,
-  `connect-src 'self' ${apiUrl} https://0d015e9069ac7a0b9d14088046d1f3ae.r2.cloudflarestorage.com`,
+  `connect-src 'self' ${apiUrl} ${apiUrl.replace("//localhost:", "//127.0.0.1:")} https://0d015e9069ac7a0b9d14088046d1f3ae.r2.cloudflarestorage.com`,
   `frame-src 'self' blob: https://login.microsoftonline.com`,
   `frame-ancestors 'none'`,
   `form-action 'self'`,

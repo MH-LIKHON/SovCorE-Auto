@@ -503,8 +503,9 @@ export default function VehicleRecordsPage() {
         return;
       }
       await loadDetail(expandedDetail.id);
-    } catch {
-      setAttachError("An unexpected error occurred.");
+    } catch (err) {
+      console.error("[attach-upload] exception:", err);
+      setAttachError(err instanceof Error ? `Upload error: ${err.message}` : "An unexpected error occurred.");
     } finally {
       setAttachUploading(false);
     }
