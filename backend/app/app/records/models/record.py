@@ -214,9 +214,7 @@ class RecordAttachment(Base):
     )
 
     # ------------------------------ File reference --------------------------
-    kind: Mapped[AttachmentKind] = mapped_column(
-        SAEnum(AttachmentKind, name="attachmentkind"), nullable=False
-    )
+    kind: Mapped[str] = mapped_column(String(100), nullable=False)
     r2_key: Mapped[str] = mapped_column(String(500), nullable=False)
     filename: Mapped[str] = mapped_column(String(500), nullable=False)
     content_type: Mapped[str] = mapped_column(String(200), nullable=False)

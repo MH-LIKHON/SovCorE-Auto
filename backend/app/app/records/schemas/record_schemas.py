@@ -35,7 +35,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.records.models.record import AttachmentKind, MaintenanceCategory, RecordType
+from app.records.models.record import MaintenanceCategory, RecordType
 
 # ==================================================
 # ATTACHMENT SCHEMAS
@@ -45,7 +45,7 @@ from app.records.models.record import AttachmentKind, MaintenanceCategory, Recor
 
 
 class AttachmentCreateIn(BaseModel):
-    kind: AttachmentKind
+    kind: str
     r2_key: str
     filename: str
     content_type: str
@@ -60,7 +60,7 @@ class AttachmentOut(BaseModel):
 
     id: uuid.UUID
     record_id: uuid.UUID
-    kind: AttachmentKind
+    kind: str
     r2_key: str
     filename: str
     content_type: str
@@ -75,7 +75,7 @@ class AttachmentOut(BaseModel):
 
 
 class AttachmentSignIn(BaseModel):
-    kind: AttachmentKind
+    kind: str
     # Original filename, used to derive the extension.
     filename: str
     content_type: str
