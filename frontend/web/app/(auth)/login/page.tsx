@@ -48,7 +48,7 @@
 
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -95,6 +95,14 @@ function MicrosoftIcon() {
 type Stage = 'email' | 'code' | 'totp'
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginPageInner />
+    </Suspense>
+  )
+}
+
+function LoginPageInner() {
   const router = useRouter()
   const params = useSearchParams()
   const next = safeNextPath(params.get('next'), '/dashboard')
