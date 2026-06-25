@@ -65,62 +65,81 @@ The backend follows a strict layer hierarchy. A router calls a service, a servic
 
 ## Feature set
 
-**Vehicles and ownership**
-Full technical specification per vehicle, plus an ownership and finance record that travels with it across transfers.
+| Feature | Description |
+| --- | --- |
+| Vehicles and ownership | Full technical specification per vehicle, with an ownership and finance record that follows it across transfers. |
+| Record system | Fifteen record types covering every stage of a vehicle's life: maintenance, repair, fuel, MOT, tax, insurance, parking, penalty charge notices, cleaning, accessories, warranty, diagnostics, damage, roadside assistance and custom entries. |
+| Maintenance history | Structured catalogue across engine, transmission, brakes, suspension, steering, wheels, cooling, electrical, climate control and exhaust. |
+| Fuel and running costs | Fuel logs with MPG tracking and cost-per-mile analytics, plus a categorised running-costs breakdown. |
+| Expenses | Separate expense tracking per vehicle, independent of fuel, with cost categorisation and history. |
+| Custom alerts | Flexible conditions per vehicle: a fixed date, every N months or years, a mileage threshold, or every N miles. Multiple conditions per alert with configurable day and mile notification windows. |
+| Attachments | Files attached to vehicles and their records. Structured support across penalty notices, damage reports and warranty records. |
+| Reminders and tasks | Staged email reminders for renewal dates at configurable intervals, with assignable follow-up tasks per vehicle. |
+| Email notifications | Branded transactional emails for login codes, renewal reminders and custom alerts. Each includes a registration plate block, RAG urgency colouring by days or miles remaining, and a legal footer. |
+| Vehicle health score | Red, amber or green standing per vehicle from its renewal dates and open alerts, visible at a glance on the dashboard. |
+| Timeline | A chronological view of every event on a vehicle, from records and documents to ownership changes and alerts. |
+| Photos and gallery | Cover photo per vehicle, plus a structured before and after gallery for damage records. |
+| Fleet search | Cross-fleet search across vehicles, records and documents from a single input. |
+| Audit log | A complete, tamper-evident log of every data change per vehicle, accessible from the vehicle detail view. |
+| Reports and export | Cost and fuel analytics, PDF service history and specification exports, and a full account data export. |
+| Collaboration | Owner, Admin, Editor and Viewer roles across personal and fleet accounts, with shared access and ownership transfer. |
+| UK GDPR erasure | Two-step erasure that permanently purges all database rows and associated stored files. |
+| Backups | Manual and nightly scheduled backups to object storage, with download and restore from the settings panel. |
 
-**Record system**
-Fifteen record types covering every stage of a vehicle's working life: maintenance, repair, fuel, MOT, tax, insurance, parking, penalty charge notices, cleaning, accessories, warranty, diagnostics, damage, roadside assistance and freeform custom entries.
+---
 
-**Maintenance history**
-A structured catalogue across engine, transmission, brakes, suspension, steering, wheels, cooling, electrical, climate control and exhaust systems.
+## Repository structure
 
-**Fuel and running costs**
-Fuel logs with MPG economy tracking and cost-per-mile analytics, alongside a full running-costs breakdown by category.
+```
+SovCorE-Auto/
+├── backend/
+│   └── app/
+│       ├── alembic/           database migrations (13 versioned migrations)
+│       └── app/
+│           ├── api/v1/        REST routers, one file per domain
+│           ├── accounts/      users, accounts, memberships, roles
+│           ├── auth/          passwordless flow, Microsoft SSO, JWT
+│           ├── vehicles/      vehicle CRUD, renewals, health scoring
+│           ├── records/       15-type record system with typed sub-models
+│           ├── tasks/         reminders, custom alerts, tasks
+│           ├── exports/       PDF generation, ZIP packaging
+│           ├── reports/       analytics and aggregation queries
+│           ├── scheduler/     background job runners
+│           └── integrations/  Resend email, Cloudflare R2 storage
+└── frontend/
+    └── web/
+        ├── app/               Next.js App Router pages
+        └── src/
+            ├── components/    shared UI components
+            ├── lib/api/       typed API client
+            └── styles/        global CSS and design tokens
+```
 
-**Custom alerts**
-Flexible alert conditions per vehicle: a specific date, every N months or years, a mileage threshold, or every N miles. Multiple conditions per alert with configurable notification windows by days or miles.
+---
 
-**Attachments**
-Certificates, invoices and agreements attached to vehicles and their records. Structured file support across penalty charge notices, damage reports and warranty records.
+## Background jobs
 
-**Reminders and tasks**
-Staged email reminders for renewal dates at configurable intervals, with assignable follow-up tasks per vehicle.
+Three scheduled jobs run server-side via APScheduler:
 
-**Branded email notifications**
-A complete transactional email system: passwordless login codes, renewal reminders and custom alert notifications, each with a vehicle registration plate block, RAG urgency colouring by days or miles remaining, and a full legal disclaimer footer.
-
-**Vehicle health score**
-A red, amber or green standing per vehicle, derived from its renewal dates and open alerts, visible at a glance on the fleet dashboard.
-
-**Reports and export**
-Cost and fuel analytics, PDF service history and vehicle specification exports, and a complete account data export in structured format.
-
-**Collaboration**
-Owner, Admin, Editor and Viewer roles across personal and fleet account types, with shared vehicle access and ownership transfer between users.
-
-**UK GDPR erasure**
-Two-step account and data erasure that purges all database rows and associated stored files permanently.
-
-**Backups**
-Manual and nightly scheduled backups to object storage, with download and restore from the settings panel.
+| Job | Schedule | Purpose |
+| --- | --- | --- |
+| Reminder dispatch | Daily, 09:00 UTC | Sends renewal reminder emails for MOT, Tax, Insurance and Service dates at each configured interval. |
+| Custom alert dispatch | Daily, 09:00 UTC | Evaluates all active custom alert conditions (date, recurring, mileage) and sends notifications where thresholds are met. |
+| Scheduled backups | Nightly, 02:00 UTC | Triggers an automated account backup to object storage for every active account. |
 
 ---
 
 ## Engineering practices
 
-**Layered architecture.** Dependencies point one way only. Each layer is independently testable and replaceable without changes to the layers above or below it.
-
-**Type safety end to end.** TypeScript on the frontend and Pydantic v2 schemas on the backend, with no untyped boundaries between layers. API contracts are enforced at runtime and at compile time.
-
-**Security by design.** Passwordless authentication, role-based access control on every protected endpoint, account isolation enforced at the query level, a full audit trail of data changes, rate limiting on authentication endpoints, and seven security response headers on every response.
-
-**ISO/IEC 27001:2022 control principles** applied throughout the design and access model. Not currently certified.
-
-**Commenting standard.** A documented standard applied consistently across every file, covering file-level purpose blocks and inline explanation of non-obvious decisions only.
-
-**Conventional commits** and a phased delivery plan, with each phase broken into small, independently reviewable steps.
-
-**British English** throughout all product copy, API responses, emails and documentation.
+| Practice | Detail |
+| --- | --- |
+| Layered architecture | Dependencies point one way only. Each layer is independently testable and replaceable without touching the layers above or below it. |
+| Type safety | TypeScript on the frontend and Pydantic v2 on the backend. API contracts are enforced at both runtime and compile time with no untyped boundaries. |
+| Security by design | Passwordless authentication, role-based access on every protected endpoint, account isolation at the query level, a full audit trail, rate limiting on auth, and seven security response headers on every response. |
+| ISO/IEC 27001:2022 | Control principles applied throughout the design and access model. Not currently certified. |
+| Commenting standard | A documented standard applied across every file: file-level purpose blocks and inline notes for non-obvious decisions only. |
+| Delivery process | Conventional commits and a phased plan, each phase broken into small, independently reviewable steps. |
+| Language | British English throughout all product copy, API responses, emails and documentation. |
 
 ---
 
