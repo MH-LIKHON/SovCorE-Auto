@@ -29,12 +29,10 @@
 //   - All pages under frontend/web/app/(dashboard)/dashboard/
 // ============================================================
 
-// Replace localhost with 127.0.0.1 — on Windows, localhost resolves to ::1 (IPv6) first
-// but uvicorn only binds to 127.0.0.1 (IPv4), causing "Failed to fetch" in the browser.
-const API = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(
-  "//localhost:",
-  "//127.0.0.1:",
-);
+// Empty string → all requests use relative paths (e.g. /api/v1/...).
+// In production nginx proxies /api/ to the backend. In dev the Next.js
+// rewrite in next.config.ts forwards /api/v1/* to 127.0.0.1:8000.
+const API = "";
 
 // ==================================================
 // HELPERS

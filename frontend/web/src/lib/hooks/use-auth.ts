@@ -39,7 +39,7 @@ export interface AuthState {
 // HOOK
 // ==================================================
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "";
 
 export function useRequireAuth(): AuthState {
   const router = useRouter();

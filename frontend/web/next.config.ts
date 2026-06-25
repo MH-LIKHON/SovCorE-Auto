@@ -14,14 +14,12 @@
 //   handlers set explicitly — route-level headers win on conflict.
 //
 //   CSP allows:
-//     - Scripts from self and data: (Next.js hydration needs inline scripts
-//       when nonces are not configured; 'unsafe-inline' is the pragmatic
-//       choice for Next.js App Router without a custom nonce implementation).
-//     - Styles from self and inline (Tailwind generates inline style blocks
-//       during rendering).
+//     - Scripts from self (Next.js needs unsafe-inline/eval without nonces).
+//     - Styles from self and inline.
 //     - Images from self, data: URIs (avatars) and blob: (canvas snapshots).
-//     - Connections to self and the backend API origin. The API origin is
-//       read from NEXT_PUBLIC_API_URL at build time.
+//     - Connections to self only — all API calls use relative paths so the
+//       backend is never a separate origin in the browser. R2 storage URL
+//       is the only external connect-src entry.
 //     - Fonts from self.
 //     - Microsoft login iframe for SSO.
 //     - Frames denied from any parent via frame-ancestors 'none'.
@@ -36,9 +34,9 @@ import type { NextConfig } from "next";
 // SECURITY HEADERS
 // ==================================================
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
 // ------------------------------ Content-Security-Policy --------------------
+// All API calls use relative paths (/api/v1/...) so connect-src only needs
+// 'self' for the API. R2 storage is the only external connection origin.
 // 'unsafe-inline' for scripts is required by Next.js App Router without a
 // nonce implementation. Adding nonces is a Phase 9 hardening item.
 const csp = [
@@ -47,7 +45,7 @@ const csp = [
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self' data: blob:`,
   `font-src 'self' data:`,
-  `connect-src 'self' ${apiUrl} ${apiUrl.replace("//localhost:", "//127.0.0.1:")} https://0d015e9069ac7a0b9d14088046d1f3ae.r2.cloudflarestorage.com`,
+  `connect-src 'self' https://0d015e9069ac7a0b9d14088046d1f3ae.r2.cloudflarestorage.com`,
   `frame-src 'self' blob: https://login.microsoftonline.com`,
   `frame-ancestors 'none'`,
   `form-action 'self'`,
@@ -94,9 +92,22 @@ const securityHeaders = [
 // ==================================================
 
 const nextConfig: NextConfig = {
-  // The backend API base URL is injected at build time via NEXT_PUBLIC_API_URL.
-  // No rewrites are needed because the frontend calls FastAPI directly over HTTP.
   output: "standalone",
+
+  // In development the Next.js server runs on :3000 and the backend on :8000.
+  // Rewrite /api/v1/* to the local backend so relative API calls work in dev
+  // the same way they do in production (where nginx handles the proxy).
+  async rewrites() {
+    if (process.env.NODE_ENV !== "production") {
+      return [
+        {
+          source: "/api/v1/:path*",
+          destination: "http://127.0.0.1:8000/api/v1/:path*",
+        },
+      ];
+    }
+    return [];
+  },
 
   async redirects() {
     return [

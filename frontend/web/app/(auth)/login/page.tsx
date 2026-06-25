@@ -63,7 +63,7 @@ import { safeNextPath } from '@/src/lib/safe-redirect'
 // CONSTANTS
 // ==================================================
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+const API = ""
 
 // ==================================================
 // EMAIL VALIDATION

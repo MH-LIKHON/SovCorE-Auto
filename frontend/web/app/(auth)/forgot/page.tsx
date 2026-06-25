@@ -32,7 +32,7 @@ import { LOGIN_KEYFRAMES } from '@/src/components/login/login-keyframes'
 // CONSTANTS
 // ==================================================
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+const API = ""
 const PULSE_COLOURS = ['#6c63ff', '#7b73ff', '#5548e0', '#00d4ff']
 
 // ==================================================
