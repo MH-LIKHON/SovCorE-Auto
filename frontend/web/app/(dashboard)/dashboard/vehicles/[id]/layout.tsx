@@ -128,7 +128,7 @@ export default function VehicleLayout({ children }: { children: ReactNode }) {
     apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setVehicle(d));
-  }, [accountId, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, id]);
 
   const base         = `/dashboard/vehicles/${id}`;
   const title        = vehicle

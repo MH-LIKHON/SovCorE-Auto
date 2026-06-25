@@ -98,7 +98,7 @@ export default function RepairsPage() {
       }
       setLoading(false);
     })();
-  }, [accountId, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, id]);
 
   const yearRecords  = useMemo(() => records.filter((r) => r.date.startsWith(`${year}-`)), [records, year]);
   const monthly      = useMemo(() => buildMonths(records, year), [records, year]);

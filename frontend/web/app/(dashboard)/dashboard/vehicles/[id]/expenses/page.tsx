@@ -110,7 +110,7 @@ export default function ExpensesPage() {
       }
       setLoading(false);
     })();
-  }, [accountId, id, year]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, id, year]);
 
   // ==================================================
   // DERIVED VALUES

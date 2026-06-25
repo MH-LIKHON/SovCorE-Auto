@@ -155,7 +155,7 @@ function HealthRing({ score }: { score: number }) {
 // VEHICLE CARD
 // ==================================================
 
-export function VehicleCard({ vehicle, accountId: _accountId }: VehicleCardProps) {
+export function VehicleCard({ vehicle }: VehicleCardProps) {
   const title = [vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Vehicle";
   const sub = [vehicle.variant, vehicle.year].filter(Boolean).join(" · ") || null;
   const href = `/dashboard/vehicles/${vehicle.id}`;

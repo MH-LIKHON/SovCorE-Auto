@@ -80,7 +80,6 @@ export function DocViewerModal({
         w.document.write(
           `<html><body style="margin:0;background:#000;display:flex;` +
           `align-items:center;justify-content:center;min-height:100vh">` +
-          // eslint-disable-next-line @next/next/no-img-element
           `<img src="${viewUrl}" style="max-width:100%;max-height:100vh;object-fit:contain"/>` +
           `</body></html>`
         );

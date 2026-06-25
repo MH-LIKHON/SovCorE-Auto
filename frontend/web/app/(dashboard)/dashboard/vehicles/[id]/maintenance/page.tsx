@@ -99,7 +99,7 @@ export default function MaintenancePage() {
       }
       setLoading(false);
     })();
-  }, [accountId, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, id]);
 
   const yearRecords  = useMemo(() => records.filter((r) => r.date.startsWith(`${year}-`)), [records, year]);
   const monthly      = useMemo(() => buildMonths(records, year), [records, year]);
@@ -107,7 +107,6 @@ export default function MaintenancePage() {
   const annualSpend  = useMemo(() => yearRecords.reduce((s, r) => s + (r.cost ?? 0), 0), [yearRecords]);
   const count        = yearRecords.length;
   const avgCost      = count > 0 ? Math.round(annualSpend / count) : 0;
-  const _monthlyAvg  = Math.round(annualSpend / (year === CURRENT_YEAR ? Math.max(new Date().getMonth() + 1, 1) : 12));
   const thisMonthKey = `${year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const thisMonth    = monthly.find((m) => m.month === thisMonthKey)?.total ?? 0;
   const maxMonthly   = Math.max(...monthly.map((m) => m.total), 1);

@@ -336,7 +336,7 @@ export default function ReportsPage() {
       if (res.ok) setMaint(await res.json());
       setMaintLoading(false);
     })();
-  }, [accountId, year]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, year]);
 
   // ==================================================
   // RENDER
