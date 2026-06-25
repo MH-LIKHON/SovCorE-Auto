@@ -9,10 +9,11 @@
 #   cached after first call so the .env file is parsed once.
 #
 # Design:
-#   pydantic-settings reads from .env automatically when
-#   `env_file` is set. Environment variables take precedence
-#   over the file values so Docker and CI can override without
-#   editing .env.
+#   In production, secrets are delivered via systemd LoadCredentialEncrypted
+#   and read by _load_credentials() into os.environ before pydantic-settings
+#   initialises. Non-secret config (APP_ENV, APP_DEBUG, etc.) stays in the
+#   plain EnvironmentFile (/etc/sovcore-auto.env). In development, all values
+#   come from backend/app/.env as before.
 #
 # Consumed by:
 #   - backend/app/main.py (CORS origins, debug flag)
@@ -23,9 +24,32 @@
 #   - backend/app/app/auth/services/sso_service.py (MS SSO config)
 # ============================================================
 
+import os
+import pathlib
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# ==================================================
+# CREDENTIAL LOADER
+# ==================================================
+
+def _load_credentials() -> None:
+    # In production the systemd unit sets CREDENTIALS_DIRECTORY to the path
+    # where LoadCredentialEncrypted= entries are decrypted at runtime (mode 0400,
+    # destroyed on service stop). Populate os.environ from those files so that
+    # pydantic-settings picks them up transparently alongside non-secret config
+    # that stays in the plain EnvironmentFile.
+    cred_dir = os.environ.get("CREDENTIALS_DIRECTORY")
+    if not cred_dir:
+        return
+    for cred_file in pathlib.Path(cred_dir).iterdir():
+        if cred_file.is_file():
+            key = cred_file.name.upper()
+            if key not in os.environ:
+                os.environ[key] = cred_file.read_text().strip()
+
+_load_credentials()
 
 # ==================================================
 # SETTINGS MODEL
