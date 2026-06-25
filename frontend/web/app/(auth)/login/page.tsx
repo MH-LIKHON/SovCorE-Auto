@@ -314,6 +314,8 @@ function LoginPageInner() {
                 textDecoration: 'none',
                 transition: 'color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1)',
                 transformOrigin: 'left center',
+                padding: '6px 8px',
+                margin: '-6px -8px',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = '#00d4ff'
@@ -450,6 +452,8 @@ function LoginPageInner() {
                   textDecoration: 'none',
                   display: 'inline-block',
                   transition: 'color 0.25s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1)',
+                  padding: '8px 12px',
+                  margin: '-8px -12px',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4ff'; e.currentTarget.style.transform = 'scale(1.08)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.transform = 'scale(1)' }}
@@ -613,9 +617,9 @@ function EmailStage({
 
       <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', lineHeight: 1.6, marginTop: 12, marginBottom: 0 }}>
         By signing in you agree to the{' '}
-        <a href="/legal/terms" style={{ color: 'rgba(108,99,255,0.7)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4ff' }} onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(108,99,255,0.7)' }}>Terms of Service</a>{' '}
+        <a href="/legal/terms" style={{ color: 'rgba(108,99,255,0.7)', textDecoration: 'none', transition: 'color 0.2s', display: 'inline-block', padding: '4px 3px', margin: '-4px -3px' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4ff' }} onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(108,99,255,0.7)' }}>Terms of Service</a>{' '}
         and acknowledge the{' '}
-        <a href="/legal/privacy" style={{ color: 'rgba(108,99,255,0.7)', textDecoration: 'none', transition: 'color 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4ff' }} onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(108,99,255,0.7)' }}>Privacy Policy</a>.
+        <a href="/legal/privacy" style={{ color: 'rgba(108,99,255,0.7)', textDecoration: 'none', transition: 'color 0.2s', display: 'inline-block', padding: '4px 3px', margin: '-4px -3px' }} onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4ff' }} onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(108,99,255,0.7)' }}>Privacy Policy</a>.
       </p>
     </div>
   )
