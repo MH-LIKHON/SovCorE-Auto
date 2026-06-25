@@ -266,6 +266,7 @@ export default function VehicleRecordsPage() {
   const newAttachInputRef = useRef<HTMLInputElement | null>(null);
   const [newAttachFile, setNewAttachFile] = useState<File | null>(null);
   const [newAttachLabel, setNewAttachLabel] = useState("");
+  const [newAttachError, setNewAttachError] = useState<string | null>(null);
 
   // Attachment viewer
   const [viewLoadingAttach, setViewLoadingAttach] = useState<string | null>(null);
@@ -741,15 +742,19 @@ export default function VehicleRecordsPage() {
                   className="rec-attach-kind-input"
                   placeholder="LABEL"
                   value={newAttachLabel}
-                  onChange={(e) => setNewAttachLabel(e.target.value.toUpperCase())}
+                  onChange={(e) => { setNewAttachLabel(e.target.value.toUpperCase()); setNewAttachError(null); }}
                   disabled={saving}
                   maxLength={32}
                 />
                 <button
                   type="button"
                   className="rec-btn rec-btn--ghost rec-btn--sm"
-                  onClick={() => newAttachInputRef.current?.click()}
-                  disabled={saving || !newAttachLabel.trim()}
+                  onClick={() => {
+                    if (!newAttachLabel.trim()) { setNewAttachError("Enter a label first."); return; }
+                    setNewAttachError(null);
+                    newAttachInputRef.current?.click();
+                  }}
+                  disabled={saving}
                 >
                   {newAttachFile ? newAttachFile.name : "Choose file"}
                 </button>
@@ -775,6 +780,7 @@ export default function VehicleRecordsPage() {
                   }}
                 />
               </div>
+              {newAttachError && <p className="rec-error" style={{ marginTop: "6px" }}>{newAttachError}</p>}
             </div>
 
             {/* Actions */}
