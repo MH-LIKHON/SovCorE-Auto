@@ -140,6 +140,8 @@ class VehicleCardOut(BaseModel):
     renewals: RenewalRag
     # Placeholder until Phase 5 defines the health-score algorithm.
     health_score: int
+    # Worst-case RAG across all active custom alerts for this vehicle.
+    custom_alert_status: RagStatus = RagStatus.unknown
 
     model_config = {"from_attributes": True}
 

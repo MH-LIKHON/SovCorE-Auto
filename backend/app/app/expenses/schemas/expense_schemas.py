@@ -49,3 +49,4 @@ class ExpenseAnalyticsOut(BaseModel):
     annual_spend_pence: int        # current calendar year
     by_category: list[CategoryTotal]
     monthly: list[MonthlyTotal]    # last 12 months, ascending
+    oldest_year: int               # earliest year with any expense record for this vehicle

@@ -32,6 +32,13 @@
 @import "./animations.css";
 @import "tailwindcss";
 
+/* Tailwind v4 declares --font-sans inside @layer theme. An
+   unlayered :root block placed after that import always wins
+   the cascade and keeps our system font stack in force. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
 /* ── Reset ───────────────────────────────────────────────── */
 
 *,
@@ -82,21 +89,15 @@ body {
   cursor: none !important;
 }
 
-/* On touch devices, return cursor: auto so the platform pointer
-   appears on the rare hybrid device that pretends to support
-   hover. CustomCursor itself hides via the (hover: none) rule
-   it owns inside its own styles. */
-@media (hover: none) {
-  body,
-  a,
-  button,
-  input,
-  select,
-  textarea,
-  label,
-  [role="button"],
-  [tabindex] {
-    cursor: auto;
+/* Restore native cursors on touch devices and on screens ≤1023 px.
+   Both conditions use !important to beat the universal rule above.
+   (hover: none)    — genuine touch devices (phones, tablets)
+   (max-width:1023) — hybrid tablets that still report hover:hover */
+@media (hover: none), (max-width: 1023px) {
+  *,
+  *::before,
+  *::after {
+    cursor: auto !important;
   }
 }
 
@@ -110,7 +111,6 @@ h5,
 h6 {
   font-weight: var(--weight-medium);
   line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tight);
   color: var(--colour-text);
 }
 
@@ -179,6 +179,8 @@ code {
   transform: scaleX(0);
   transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
+  /* Paint above the input element which may have an opaque background. */
+  z-index: 1;
 }
 
 .sov-input-wrap:focus-within::after {
@@ -347,14 +349,27 @@ svg {
    task and reminder pages — defined once here so each page
    works correctly regardless of navigation order. */
 
-.rec-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 960px; }
-.rec-head { display: flex; flex-direction: column; gap: var(--space-2); }
-.rec-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; }
-.rec-back:hover { color: var(--colour-text); }
-.rec-head__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
-.rec-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
-.rec-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; margin: 4px 0 0; }
-.rec-section-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); }
+.rec-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 960px; margin: 0 auto; width: 100%; }
+.rec-head { display: flex; flex-direction: column; gap: 0; }
+.rec-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; margin-bottom: var(--space-2); display: inline-block; transform-origin: left center; transition: color 0.2s, transform 0.2s; }
+.rec-back:hover { color: #00d4ff; transform: scale(1.08); }
+.rec-head__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
+.rec-head__row > div:first-child { flex: 1; min-width: 0; }
+.rec-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0 0 4px; }
+.rec-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; margin: 0; }
+/* Records header with action button — grid on all screen sizes */
+.rec-head--with-action {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "back back" "title btn" "sub sub";
+  column-gap: var(--space-4);
+  row-gap: 4px;
+}
+.rec-head--with-action .rec-back { grid-area: back; margin-bottom: 0; }
+.rec-head--with-action .rec-title { grid-area: title; margin: 0; align-self: center; }
+.rec-head--with-action .rec-sub { grid-area: sub; }
+.rec-head--with-action .rec-head__btn { grid-area: btn; align-self: center; }
+.rec-section-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); letter-spacing: normal; }
 .rec-form { display: flex; flex-direction: column; gap: var(--space-4); }
 .rec-form-row { display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; }
 .rec-label { display: flex; flex-direction: column; gap: 6px; min-width: 140px; }
@@ -370,17 +385,25 @@ svg {
 @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
 .rec-empty { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-8) 0; }
 .rec-empty p { font-size: var(--text-sm); color: var(--colour-text-muted); }
-.rec-btn { padding: 8px 18px; border-radius: var(--radius-sm); font-size: var(--text-sm); border: none; transition: opacity 0.2s, background 0.2s, color 0.2s; }
-.rec-btn--primary { background: var(--colour-accent); color: #fff; }
+.rec-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  padding: 8px 18px; border-radius: var(--radius-sm); font-size: var(--text-sm);
+  font-family: var(--font-sans); font-weight: var(--weight-medium);
+  border: 1px solid transparent; overflow: hidden; isolation: isolate; cursor: none;
+  transition: transform var(--duration-normal) var(--ease-smooth), box-shadow var(--duration-normal) var(--ease-smooth), background var(--duration-normal) var(--ease-smooth), border-color var(--duration-normal) var(--ease-smooth);
+}
+.rec-btn--primary { background: linear-gradient(135deg, var(--colour-accent) 0%, var(--colour-accent-dim) 100%); color: #fff; box-shadow: var(--glow-accent); }
+.rec-btn--primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--glow-accent-strong); }
+.rec-btn--primary::after { content: ""; position: absolute; top: 0; left: -120%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent); transform: skewX(-20deg); pointer-events: none; }
+.rec-btn--primary:hover::after { animation: shineSweep 0.9s var(--ease-smooth); }
 .rec-btn--primary:disabled { opacity: 0.55; }
-.rec-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
-.rec-btn--ghost:hover { color: var(--colour-text); }
+.rec-btn--ghost { background: var(--colour-bg-2); border-color: var(--colour-border); color: var(--colour-text-muted); }
+.rec-btn--ghost:hover:not(:disabled) { border-color: var(--colour-border-active); background: var(--colour-bg-3); transform: translateY(-1px); color: var(--colour-text); }
 .rec-btn--danger-sm { background: none; border: 1px solid var(--colour-error); color: var(--colour-error); padding: 5px 14px; font-size: var(--text-xs); border-radius: var(--radius-sm); transition: background 0.2s; }
 .rec-btn--danger-sm:hover { background: rgba(239,68,68,0.1); }
 .rec-btn--danger-sm:disabled { opacity: 0.55; }
 
 @media (max-width: 767px) {
-  .rec-head__row { flex-direction: column; align-items: flex-start; }
   .rec-form-row { flex-direction: column; }
   .rec-label, .rec-label--wide { width: 100%; min-width: unset; }
 }
@@ -410,3 +433,218 @@ svg {
     padding: var(--space-6) var(--space-5);
   }
 }
+
+/* ── Entity attachment panel (eat-*) ─────────────────────── */
+/* Shared panel used on damage, PCN and warranty pages.
+   Sits below each list row; toggled open per entry. */
+
+.eat-panel {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 0.5px solid var(--colour-border);
+}
+
+.eat-toggle {
+  background: none;
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  font-size: var(--text-xs);
+  color: var(--colour-text-muted);
+  cursor: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+.eat-toggle:hover { border-color: var(--colour-accent); color: var(--colour-text); }
+
+.eat-body { margin-top: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); }
+
+.eat-form { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+.eat-label-input { flex: 1; min-width: 160px; max-width: 260px; text-transform: uppercase; }
+.eat-file-input {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--colour-text);
+  background: var(--colour-bg);
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  cursor: none;
+}
+.eat-upload-btn { padding: 6px 14px !important; font-size: var(--text-xs) !important; }
+
+.eat-error  { font-size: var(--text-xs); color: var(--colour-error); }
+.eat-status { font-size: var(--text-xs); color: var(--colour-text-muted); }
+
+.eat-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.eat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 4px 0;
+  border-bottom: 0.5px solid rgba(255,255,255,0.06);
+  flex-wrap: wrap;
+}
+.eat-item:last-child { border-bottom: none; }
+.eat-item__name { font-size: var(--text-sm); color: var(--colour-text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eat-item__size { font-size: var(--text-xs); color: var(--colour-text-muted); white-space: nowrap; }
+.eat-item__view,
+.eat-item__delete {
+  background: none;
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+  color: var(--colour-text-muted);
+  cursor: none;
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.eat-item__view:hover   { border-color: var(--colour-accent); color: var(--colour-text); }
+.eat-item__view:disabled { opacity: 0.55; }
+.eat-item__delete:hover { border-color: var(--colour-error); color: var(--colour-error); }
+
+@media (max-width: 639px) {
+  .eat-form { flex-direction: column; align-items: stretch; }
+  .eat-label-input, .eat-file-input { max-width: none; }
+}
+
+/* ── Document viewer modal (dvm-*) ───────────────────────── */
+/* Full-screen overlay that previews PDFs and images.
+   viewUrl must be a same-origin (blob:) URL so iframe print
+   and the <a download> attribute work without CORS issues. */
+
+.dvm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.dvm-modal {
+  background: var(--colour-bg-2);
+  border: 0.5px solid var(--colour-border);
+  border-radius: var(--radius-lg);
+  width: min(95vw, 1100px);
+  height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.dvm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 0.5px solid var(--colour-border);
+  flex-shrink: 0;
+  background: var(--colour-bg-2);
+}
+
+.dvm-filename {
+  font-size: var(--text-sm);
+  color: var(--colour-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.dvm-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.dvm-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-family: var(--font-sans);
+  border: 1px solid var(--colour-border);
+  background: var(--colour-bg);
+  color: var(--colour-text-muted);
+  cursor: none;
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.dvm-btn:hover { border-color: var(--colour-accent); color: var(--colour-text); }
+.dvm-btn--close { padding: 5px 10px; }
+.dvm-btn--close:hover { border-color: var(--colour-error); color: var(--colour-error); }
+
+.dvm-body {
+  flex: 1;
+  overflow: hidden;
+  background: var(--colour-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dvm-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.dvm-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.dvm-unsupported {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-10);
+  text-align: center;
+}
+.dvm-unsupported__msg { font-size: var(--text-sm); color: var(--colour-text-muted); }
+.dvm-dl-btn {
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--colour-accent) 0%, var(--colour-accent-dim) 100%);
+  color: #fff;
+  font-size: var(--text-sm);
+  text-decoration: none;
+  cursor: none;
+  transition: opacity 0.2s;
+}
+.dvm-dl-btn:hover { opacity: 0.88; }
+
+/* --------------------------------------------------
+   Shared row-action buttons
+   Neutral border at rest; colour reveals on hover.
+   Used in: documents table, record attachment rows.
+-------------------------------------------------- */
+.sov-action-btn {
+  background: none;
+  border: 1px solid var(--colour-border);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  font-size: var(--text-xs);
+  color: var(--colour-text-muted);
+  cursor: none;
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+.sov-action-btn:disabled { opacity: 0.55; }
+.sov-action-btn--view:hover   { border-color: var(--colour-accent); color: var(--colour-text); }
+.sov-action-btn--delete:hover { border-color: var(--colour-error);  color: var(--colour-error); }

@@ -12,9 +12,8 @@
 #   - backend/app/app/api/v1/operational.py
 # ============================================================
 
-from __future__ import annotations
-
-from datetime import date, datetime
+import uuid
+from datetime import date as _Date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -29,7 +28,7 @@ from app.operational.models.damage import DamageKind
 class DamageCreateIn(BaseModel):
     kind: DamageKind
     description: str | None = None
-    date: date
+    date: _Date
     repair_cost: int | None = None     # pence
     before_key: str | None = None
     after_key: str | None = None
@@ -43,7 +42,7 @@ class DamageCreateIn(BaseModel):
 class DamagePatchIn(BaseModel):
     kind: DamageKind | None = None
     description: str | None = None
-    date: date | None = None
+    date: _Date | None = None
     repair_cost: int | None = None     # pence
     before_key: str | None = None
     after_key: str | None = None
@@ -55,12 +54,12 @@ class DamagePatchIn(BaseModel):
 
 
 class DamageOut(BaseModel):
-    id: str
-    account_id: str
-    vehicle_id: str
+    id: uuid.UUID
+    account_id: uuid.UUID
+    vehicle_id: uuid.UUID
     kind: DamageKind
     description: str | None
-    date: date
+    date: _Date
     repair_cost: int | None
     before_key: str | None
     after_key: str | None

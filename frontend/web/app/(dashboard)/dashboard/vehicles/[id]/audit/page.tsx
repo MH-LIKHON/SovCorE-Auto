@@ -207,13 +207,13 @@ export default function VehicleAuditPage() {
 // ==================================================
 
 const AUD_STYLES = `
-  .aud-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 960px; }
+  .aud-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 960px; margin: 0 auto; width: 100%; }
 
-  .aud-head { display: flex; flex-direction: column; gap: var(--space-2); }
-  .aud-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; }
-  .aud-back:hover { color: var(--colour-text); }
-  .aud-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
-  .aud-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; line-height: var(--leading-normal); }
+  .aud-head { display: flex; flex-direction: column; gap: 0; }
+  .aud-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; margin-bottom: var(--space-2); }
+  .aud-back:hover { color: #00d4ff; }
+  .aud-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0 0 4px; }
+  .aud-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; line-height: var(--leading-normal); margin: 0; }
 
   .aud-count { font-size: var(--text-sm); color: var(--colour-text-muted); margin: 0 0 var(--space-4); }
 

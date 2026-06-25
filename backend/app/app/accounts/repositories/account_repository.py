@@ -148,6 +148,7 @@ class AccountRepository:
         All queries run against already-indexed account_id columns.
         """
         from app.records.models.record import Record
+        from app.tasks.models.custom_alert import CustomAlert
         from app.tasks.models.reminder import Reminder
         from app.tasks.models.task import Task
         from app.vehicles.models.vehicle import Vehicle
@@ -189,6 +190,16 @@ class AccountRepository:
         )
         due_soon_reminder_count: int = rem_res.scalar_one() or 0
 
+        # ~~~~~~~~~ Custom alerts that fired in the last 30 days ~~~~~~~~~
+        alert_cutoff = today - timedelta(days=30)
+        alert_res = await self._session.execute(
+            select(func.count(CustomAlert.id))
+            .where(CustomAlert.account_id == account_id)
+            .where(CustomAlert.active.is_(True))
+            .where(CustomAlert.last_notified_at >= alert_cutoff)
+        )
+        custom_alert_count: int = alert_res.scalar_one() or 0
+
         # ~~~~~~~~~ Monthly spend in pence (current calendar month) ~~~~~~~~~
         spend_res = await self._session.execute(
             select(func.coalesce(func.sum(Record.cost), 0))
@@ -202,5 +213,6 @@ class AccountRepository:
             "member_count": member_count,
             "open_task_count": open_task_count,
             "due_soon_reminder_count": due_soon_reminder_count,
+            "custom_alert_count": custom_alert_count,
             "monthly_spend_pence": monthly_spend_pence,
         }

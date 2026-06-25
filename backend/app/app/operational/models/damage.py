@@ -69,7 +69,7 @@ class DamageEntry(Base):
 
     # ------------------------------ Damage fields ---------------------------
     kind: Mapped[DamageKind] = mapped_column(
-        SAEnum(DamageKind, name="damagekind"), nullable=False
+        SAEnum(DamageKind, name="damagekind", native_enum=False), nullable=False
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)

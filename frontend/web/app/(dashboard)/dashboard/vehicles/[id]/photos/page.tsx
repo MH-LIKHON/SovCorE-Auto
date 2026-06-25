@@ -419,18 +419,18 @@ export default function VehiclePhotosPage() {
 // ==================================================
 
 const PH_STYLES = `
-  .ph-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 900px; }
+  .ph-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 900px; margin: 0 auto; width: 100%; }
 
   /* Header */
-  .ph-head { display: flex; flex-direction: column; gap: var(--space-1); }
-  .ph-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; }
-  .ph-back:hover { color: var(--colour-text); }
-  .ph-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
-  .ph-sub { font-size: var(--text-sm); color: var(--colour-text-muted); margin: 4px 0 0; }
+  .ph-head { display: flex; flex-direction: column; gap: 0; }
+  .ph-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; margin-bottom: var(--space-2); }
+  .ph-back:hover { color: #00d4ff; }
+  .ph-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0 0 4px; }
+  .ph-sub { font-size: var(--text-sm); color: var(--colour-text-muted); margin: 0; }
 
   /* Section */
   .ph-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
-  .ph-section-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); }
+  .ph-section-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); letter-spacing: normal; }
   .ph-section-head .ph-section-title { margin-bottom: 0; }
   .ph-section-link { font-size: var(--text-sm); color: var(--colour-accent); text-decoration: none; }
   .ph-section-link:hover { text-decoration: underline; }

@@ -241,7 +241,7 @@ const HOME_STYLES = `
   /* ---------- Trust strip ---------- */
   .trust { padding-top: var(--space-16); padding-bottom: var(--space-16); }
   .trust__grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
-  .trust__title { font-size: var(--text-md); margin-bottom: var(--space-3); }
+  .trust__title { font-size: var(--text-md); margin-bottom: var(--space-3); letter-spacing: normal; }
   .trust__body { color: var(--colour-text-muted); font-size: var(--text-sm); line-height: var(--leading-normal); }
 
   /* ---------- Final CTA ---------- */

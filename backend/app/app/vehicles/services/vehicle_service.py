@@ -35,6 +35,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.health.services.health_service import score_for_card
+from app.tasks.repositories.custom_alert_repository import CustomAlertRepository
+from app.tasks.repositories.reminder_repository import ReminderRepository
 from app.vehicles.models.vehicle import Vehicle, VehicleRenewal
 from app.vehicles.repositories.vehicle_repository import VehicleRepository
 from app.vehicles.schemas.vehicle_schemas import (
@@ -76,6 +78,8 @@ class VehicleService:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
         self._repo = VehicleRepository(db)
+        self._reminder_repo = ReminderRepository(db)
+        self._alert_repo = CustomAlertRepository(db)
 
     # ==================================================
     # VEHICLE CRUD
@@ -97,7 +101,9 @@ class VehicleService:
         vehicles = await self._repo.list_by_account(
             account_id, include_inactive=include_inactive
         )
-        return [self._to_card(v) for v in vehicles]
+        vehicle_ids = [v.id for v in vehicles]
+        alert_rag = await self._alert_repo.worst_rag_for_vehicles(vehicle_ids)
+        return [self._to_card(v, alert_rag.get(v.id, RagStatus.unknown)) for v in vehicles]
 
     # ------------------------------ Get ------------------------------------
 
@@ -195,7 +201,34 @@ class VehicleService:
                 detail="Renewal record not found.",
             )
         updated = await self._repo.put_renewal(renewal, data)
+        await self._sync_renewal_reminders(vehicle_id, account_id, data)
         return VehicleRenewalOut.model_validate(updated)
+
+    # ==================================================
+    # RENEWAL AUTO-LINK
+    # ==================================================
+
+    async def _sync_renewal_reminders(
+        self,
+        vehicle_id: uuid.UUID,
+        account_id: uuid.UUID,
+        data: VehicleRenewalPutIn,
+    ) -> None:
+        # ~~~~~~~~~ Upsert date-based reminders for the four renewal fields ~~~~~~~~~
+        mapping = {
+            "mot": data.mot_expiry,
+            "tax": data.tax_due_date,
+            "insurance": data.insurance_expiry,
+            "service": data.service_due_date,
+        }
+        for reminder_type, due_date in mapping.items():
+            await self._reminder_repo.upsert_by_type(
+                vehicle_id, account_id, reminder_type, due_date
+            )
+        # ~~~~~~~~~ Upsert mileage-based custom alert for service_due_mileage ~~~~~~~~~
+        await self._alert_repo.upsert_service_mileage(
+            vehicle_id, account_id, data.service_due_mileage
+        )
 
     # ==================================================
     # OWNERSHIP
@@ -237,7 +270,11 @@ class VehicleService:
 
     # ------------------------------ Card projection -------------------------
 
-    def _to_card(self, vehicle: Vehicle) -> VehicleCardOut:
+    def _to_card(
+        self,
+        vehicle: Vehicle,
+        custom_alert_status: RagStatus = RagStatus.unknown,
+    ) -> VehicleCardOut:
         return VehicleCardOut(
             id=vehicle.id,
             registration=vehicle.registration,
@@ -251,6 +288,7 @@ class VehicleService:
             image_key=vehicle.image_key,
             renewals=self._compute_rag(vehicle.renewal),
             health_score=self._compute_card_health(vehicle),
+            custom_alert_status=custom_alert_status,
         )
 
     # ------------------------------ Card health score -----------------------

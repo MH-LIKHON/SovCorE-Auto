@@ -50,6 +50,7 @@ interface DashboardSummary {
   member_count: number;
   open_task_count: number;
   due_soon_reminder_count: number;
+  custom_alert_count: number;
   monthly_spend_pence: number;
 }
 
@@ -134,15 +135,15 @@ export default function DashboardPage() {
 
       {/* ~~~~~~~~~ Stats row ~~~~~~~~~ */}
       <div className="db-stats">
-        <div className="db-stat">
+        <Card padding="var(--space-5)" hoverEffect="glow">
           <span className="db-stat__value">{loading ? "—" : (summary?.active_vehicle_count ?? activeVehicles.length)}</span>
           <span className="db-stat__label">Vehicles</span>
-        </div>
-        <div className="db-stat">
+        </Card>
+        <Card padding="var(--space-5)" hoverEffect="glow">
           <span className="db-stat__value">{loading ? "—" : (summary?.member_count ?? 0)}</span>
           <span className="db-stat__label">Members</span>
-        </div>
-        <div className="db-stat">
+        </Card>
+        <Card padding="var(--space-5)" hoverEffect="glow">
           <span
             className="db-stat__value"
             style={{ color: redCount > 0 ? "var(--colour-error)" : undefined }}
@@ -150,8 +151,8 @@ export default function DashboardPage() {
             {loading ? "—" : redCount}
           </span>
           <span className="db-stat__label">Alerts</span>
-        </div>
-        <div className="db-stat">
+        </Card>
+        <Card padding="var(--space-5)" hoverEffect="glow">
           <span
             className="db-stat__value"
             style={{ color: amberCount > 0 ? "var(--colour-amber)" : undefined }}
@@ -159,8 +160,8 @@ export default function DashboardPage() {
             {loading ? "—" : amberCount}
           </span>
           <span className="db-stat__label">Due soon</span>
-        </div>
-        <div className="db-stat">
+        </Card>
+        <Card padding="var(--space-5)" hoverEffect="glow">
           <span
             className="db-stat__value"
             style={{ color: (summary?.open_task_count ?? 0) > 0 ? "var(--colour-accent2)" : undefined }}
@@ -168,13 +169,24 @@ export default function DashboardPage() {
             {loading ? "—" : (summary?.open_task_count ?? "—")}
           </span>
           <span className="db-stat__label">Open tasks</span>
-        </div>
-        <div className="db-stat">
+        </Card>
+        <Card padding="var(--space-5)" hoverEffect="glow">
+          <span
+            className="db-stat__value"
+            style={{
+              color: (summary?.custom_alert_count ?? 0) > 0 ? "var(--colour-error)" : undefined,
+            }}
+          >
+            {loading ? "—" : (summary?.custom_alert_count ?? 0)}
+          </span>
+          <span className="db-stat__label">Custom alerts</span>
+        </Card>
+        <Card padding="var(--space-5)" hoverEffect="glow">
           <span className="db-stat__value" style={{ fontSize: "var(--text-xl)" }}>
             {loading ? "—" : formatCurrency(summary?.monthly_spend_pence ?? 0)}
           </span>
           <span className="db-stat__label">This month</span>
-        </div>
+        </Card>
       </div>
 
       {/* ~~~~~~~~~ Fleet health bar ~~~~~~~~~ */}
@@ -324,6 +336,17 @@ export default function DashboardPage() {
                     {redCount}
                   </span>
                 </div>
+                <div className="db-attn-row">
+                  <span className="db-attn-row__label">Custom alerts fired (30 days)</span>
+                  <span
+                    className="db-attn-row__val"
+                    style={{
+                      color: (summary.custom_alert_count ?? 0) > 0 ? "var(--colour-error)" : undefined,
+                    }}
+                  >
+                    {summary.custom_alert_count ?? 0}
+                  </span>
+                </div>
               </div>
               <div className="db-panel__foot">
                 <Link href="/dashboard/vehicles" className="db-more-link">
@@ -350,23 +373,14 @@ const DB_STYLES = `
   .db-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin-bottom: 6px; }
   .db-sub { color: var(--colour-text-muted); }
 
-  /* ---- Stats row (6 cols) ---- */
+  /* ---- Stats row: 7 cols at XL, responsive below ---- */
   .db-stats {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: var(--space-4);
   }
-  .db-stat {
-    background: var(--colour-card);
-    border: 0.5px solid var(--colour-border);
-    border-radius: var(--radius-lg);
-    padding: var(--space-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
   .db-stat__value { font-size: var(--text-3xl); font-weight: var(--weight-semibold); color: var(--colour-text); line-height: 1; }
-  .db-stat__label { font-size: var(--text-sm); color: var(--colour-text-muted); }
+  .db-stat__label { font-size: var(--text-sm); color: var(--colour-text-muted); margin-top: var(--space-2); }
 
   /* ---- Fleet health bar ---- */
   .db-health-head {
@@ -424,7 +438,7 @@ const DB_STYLES = `
   }
   .db-panel--wide { grid-column: 1; }
   .db-panel__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
-  .db-panel__title { font-size: var(--text-md); font-weight: var(--weight-medium); margin: 0 0 var(--space-4); }
+  .db-panel__title { font-size: var(--text-md); font-weight: var(--weight-medium); margin: 0 0 var(--space-4); letter-spacing: normal; }
   .db-panel__foot { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 0.5px solid var(--colour-border); text-align: center; }
 
   /* Vehicle card grid inside the panel */
@@ -501,17 +515,35 @@ const DB_STYLES = `
   .db-attn-row__label { color: var(--colour-text-muted); }
   .db-attn-row__val { font-weight: var(--weight-semibold); color: var(--colour-text); }
 
-  /* ---- Tablet ---- */
+  /* ---- LG: 4 cols → 4+3 (no orphan) ---- */
+  @media (max-width: 1199px) {
+    .db-stats { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  /* ---- Tablet: collapse content grid ---- */
   @media (max-width: 1023px) {
     .db-grid { grid-template-columns: 1fr; }
     .db-side-col { flex-direction: row; flex-wrap: wrap; }
     .db-side-col > * { flex: 1; min-width: 240px; }
-    .db-stats { grid-template-columns: repeat(3, 1fr); }
   }
 
-  /* ---- Phone ---- */
+  /* ---- MD: 2 cols, spend card spans full width → 2+2+2+full ---- */
+  @media (max-width: 639px) {
+    .db-stats { grid-template-columns: repeat(2, 1fr); }
+    .db-stats > *:nth-child(7) { grid-column: span 2; }
+  }
+
+  /* ---- SM: single column stack ---- */
+  @media (max-width: 399px) {
+    .db-stats { grid-template-columns: 1fr; }
+    .db-stats > *:nth-child(7) { grid-column: unset; }
+    .db-card-grid { grid-template-columns: 1fr; }
+    .db-skeleton-row { flex-direction: column; }
+    .db-side-col { flex-direction: column; }
+  }
+
+  /* ---- Phone extras (non-stats) ---- */
   @media (max-width: 479px) {
-    .db-stats { grid-template-columns: 1fr 1fr; }
     .db-card-grid { grid-template-columns: 1fr; }
     .db-skeleton-row { flex-direction: column; }
     .db-side-col { flex-direction: column; }

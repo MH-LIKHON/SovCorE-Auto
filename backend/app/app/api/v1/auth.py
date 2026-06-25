@@ -35,6 +35,7 @@ from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
+from app.accounts.repositories.account_repository import AccountRepository
 from app.auth.schemas.auth_schemas import (
     RequestCodeIn,
     RequestCodeOut,
@@ -194,11 +195,14 @@ async def verify_code(
 async def refresh_token(
     request: Request,
     response: Response,
+    db: AsyncSession = Depends(get_db),
     sva_refresh: str | None = Cookie(default=None),
 ) -> TokenPairOut:
     """
     Read the HTTP-only refresh cookie and issue a new access token.
     Returns 401 if the cookie is missing or the token is invalid.
+    Includes account_id so SSO users who land via redirect get it
+    stored in sessionStorage without an extra roundtrip.
     """
     if not sva_refresh:
         raise HTTPException(
@@ -226,9 +230,14 @@ async def refresh_token(
     access = issue_access_token(user_id)
     settings = get_settings()
 
+    account_repo = AccountRepository(db)
+    accounts = await account_repo.get_user_accounts(user_id)
+    account_id = str(accounts[0].id) if accounts else None
+
     return TokenPairOut(
         access_token=access,
         expires_in=settings.jwt_access_token_expire_minutes * 60,
+        account_id=account_id,
     )
 
 
@@ -417,42 +426,72 @@ async def sso_microsoft_start(response: Response) -> RedirectResponse:
 
 @router.get(
     "/sso/microsoft/callback",
-    response_model=TokenPairOut,
-    summary="Complete the Microsoft OpenID Connect flow and issue tokens",
+    summary="Complete the Microsoft OpenID Connect flow",
 )
 async def sso_microsoft_callback(
-    code: str,
-    state: str,
-    response: Response,
     db: AsyncSession = Depends(get_db),
     sva_oauth_state: str | None = Cookie(default=None),
-) -> TokenPairOut:
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,  # accepted to avoid 422; not used in logic
+) -> RedirectResponse:
     """
-    Receive the authorization code from Microsoft, verify the CSRF state,
-    exchange the code for an id_token, resolve or create the user, and
-    issue a full access + refresh token pair.
+    Receive the callback from Microsoft. Any error from Microsoft
+    (consent denied, app not consented) redirects to /login with a
+    query param so the frontend can show a friendly message instead
+    of a raw 422 or JSON blob.
+    On success, sets the refresh cookie and redirects to the dashboard.
     """
-    # ~~~~~~~~~ CSRF check ~~~~~~~~~
-    if not sva_oauth_state or sva_oauth_state != state:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="State mismatch. Please start the sign-in process again.",
+    settings = get_settings()
+    frontend = settings.cors_origins_list[0] if settings.cors_origins_list else "http://localhost:3000"
+
+    if error:
+        return RedirectResponse(
+            url=f"{frontend}/login?sso_error={error}",
+            status_code=status.HTTP_302_FOUND,
         )
 
-    # Clear the one-time state cookie.
-    response.delete_cookie(key=_STATE_COOKIE_NAME, samesite="lax")
+    if not code or not state:
+        return RedirectResponse(
+            url=f"{frontend}/login?sso_error=missing_code",
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    if not sva_oauth_state or sva_oauth_state != state:
+        return RedirectResponse(
+            url=f"{frontend}/login?sso_error=state_mismatch",
+            status_code=status.HTTP_302_FOUND,
+        )
 
     service = MicrosoftSSOService(db)
     try:
         result = await service.login(code)
-    except SSOError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        # Log the real error so it appears in server logs, then redirect
+        # gracefully rather than serving a raw 500 to the browser.
+        import structlog as _sl
+        _sl.get_logger(__name__).error("sso_callback_error", error=str(exc), exc_info=True)
+        return RedirectResponse(
+            url=f"{frontend}/login?sso_error=sso_failed",
+            status_code=status.HTTP_302_FOUND,
+        )
 
-    _set_refresh_cookie(response, result.refresh_token)
-    return result.token_pair
+    redirect = RedirectResponse(
+        url=f"{frontend}/dashboard",
+        status_code=status.HTTP_302_FOUND,
+    )
+    redirect.delete_cookie(key=_STATE_COOKIE_NAME, samesite="lax")
+    redirect.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=result.refresh_token,
+        httponly=True,
+        secure=settings.app_env == "production",
+        samesite="lax",
+        path=REFRESH_COOKIE_PATH,
+        max_age=REFRESH_COOKIE_MAX_AGE,
+    )
+    return redirect
 
 
 # ==================================================

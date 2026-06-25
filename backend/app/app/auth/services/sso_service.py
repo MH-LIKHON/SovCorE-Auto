@@ -139,14 +139,21 @@ class MicrosoftSSOService:
             )
             raise SSOError("Microsoft returned an error. Please try signing in again.")
 
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception as exc:
+            raise SSOError("Microsoft response was not valid JSON.") from exc
+
         id_token = data.get("id_token")
         if not id_token:
             raise SSOError("No identity token in Microsoft response.")
 
         # Decode without signature verification — token came directly from
         # Microsoft's HTTPS endpoint so we trust it implicitly.
-        claims = jose_jwt.get_unverified_claims(id_token)
+        try:
+            claims = jose_jwt.get_unverified_claims(id_token)
+        except Exception as exc:
+            raise SSOError("Could not decode Microsoft identity token.") from exc
         return claims
 
     # ------------------------------ Login resolution --------------------------

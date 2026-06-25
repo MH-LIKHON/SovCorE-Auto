@@ -28,7 +28,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
@@ -54,6 +54,7 @@ interface ExpenseAnalytics {
   annual_spend_pence: number;
   by_category: CategoryTotal[];
   monthly: MonthlyTotal[];
+  oldest_year: number;
 }
 
 // ==================================================
@@ -70,6 +71,12 @@ function formatMonth(ym: string): string {
 }
 
 // ==================================================
+// YEAR CONSTANTS
+// ==================================================
+
+const CURRENT_YEAR = new Date().getFullYear();
+
+// ==================================================
 // PAGE
 // ==================================================
 
@@ -79,6 +86,12 @@ export default function ExpensesPage() {
 
   const [analytics, setAnalytics] = useState<ExpenseAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [year, setYear] = useState(CURRENT_YEAR);
+
+  const yearOptions = useMemo(() => {
+    const oldest = analytics?.oldest_year ?? CURRENT_YEAR;
+    return Array.from({ length: CURRENT_YEAR - oldest + 1 }, (_, i) => CURRENT_YEAR - i);
+  }, [analytics]);
 
   // ==================================================
   // DATA LOADING
@@ -89,7 +102,7 @@ export default function ExpensesPage() {
     (async () => {
       setLoading(true);
       const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${id}/expenses`
+        `/api/v1/accounts/${accountId}/vehicles/${id}/expenses?year=${year}`
       );
       if (res.ok) {
         const data: ExpenseAnalytics = await res.json();
@@ -97,7 +110,7 @@ export default function ExpensesPage() {
       }
       setLoading(false);
     })();
-  }, [accountId, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, id, year]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ==================================================
   // DERIVED VALUES
@@ -120,7 +133,18 @@ export default function ExpensesPage() {
         <Link href={`/dashboard/vehicles/${id}`} className="rec-back">← Vehicle</Link>
         <div className="rec-head__row">
           <div>
-            <h1 className="rec-title">Expenses</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              <h1 className="rec-title">Expenses</h1>
+              <select
+                className="rpt-year-select"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
             <p className="rec-sub">Running costs by category for this vehicle. Fuel is tracked separately.</p>
           </div>
           <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--ghost">
@@ -145,23 +169,23 @@ export default function ExpensesPage() {
       {!loading && hasExpenses && analytics && (
         <>
           {/* ---- Summary totals ---- */}
-          <Card>
+          <Card style={{ overflow: "visible" }}>
             <h2 className="rec-section-title">Summary</h2>
             <div className="fuel-stats">
-              <div className="fuel-stat">
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
                 <span className="fuel-stat__value">{formatGBP(analytics.total_spend_pence)}</span>
                 <span className="fuel-stat__label">Total spend</span>
-              </div>
-              <div className="fuel-stat">
+              </Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
                 <span className="fuel-stat__value">{formatGBP(analytics.annual_spend_pence)}</span>
-                <span className="fuel-stat__label">This year</span>
-              </div>
-              <div className="fuel-stat">
+                <span className="fuel-stat__label">{year}</span>
+              </Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
                 <span className="fuel-stat__value">
                   {analytics.by_category.reduce((s, c) => s + c.count, 0)}
                 </span>
                 <span className="fuel-stat__label">Total records</span>
-              </div>
+              </Card>
             </div>
           </Card>
 
@@ -183,7 +207,7 @@ export default function ExpensesPage() {
 
           {/* ---- Monthly bar chart ---- */}
           <Card>
-            <h2 className="rec-section-title">Monthly spend — last 12 months</h2>
+            <h2 className="rec-section-title">Monthly spend, {year}</h2>
             <div className="fuel-chart">
               {analytics.monthly.map((m) => (
                 <div key={m.month} className="fuel-bar-col">
@@ -243,10 +267,7 @@ const EXP_STYLES = `
   .fuel-stat {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: var(--space-4);
-    border: 0.5px solid var(--colour-border);
-    border-radius: var(--radius-md);
+    min-width: 0;
   }
   .fuel-stat__value {
     font-size: var(--text-xl);
@@ -258,6 +279,7 @@ const EXP_STYLES = `
     color: var(--colour-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    margin-top: 4px;
   }
   .fuel-chart {
     display: flex;
@@ -282,7 +304,9 @@ const EXP_STYLES = `
     text-overflow: ellipsis;
     max-width: 100%;
     text-align: center;
+    transition: transform 0.2s ease;
   }
+  .fuel-bar-col:hover .fuel-bar-amount { transform: translateY(-6px); }
   .fuel-bar-track {
     width: 100%;
     flex: 1;
@@ -291,12 +315,18 @@ const EXP_STYLES = `
     background: rgba(255,255,255,0.03);
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   }
+  .fuel-bar-col { cursor: default; }
   .fuel-bar-fill {
     width: 100%;
     background: rgba(108,99,255,0.5);
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     min-height: 4px;
-    transition: height 0.3s ease;
+    transition: height 0.3s ease, transform 0.2s ease, background 0.2s;
+    transform-origin: bottom center;
+  }
+  .fuel-bar-col:hover .fuel-bar-fill {
+    transform: scaleY(1.12);
+    background: rgba(0,212,255,0.7);
   }
   .fuel-bar-label {
     font-size: 9px;
@@ -304,6 +334,25 @@ const EXP_STYLES = `
     text-align: center;
     white-space: nowrap;
   }
+
+  /* ---- Year select (shared style) ---- */
+  .rpt-year-select {
+    appearance: none;
+    background: var(--colour-surface);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    color: var(--colour-text);
+    font-size: var(--text-sm);
+    font-family: inherit;
+    padding: 4px 28px 4px 10px;
+    cursor: none;
+    transition: border-color 0.2s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+  }
+  .rpt-year-select:hover { border-color: var(--colour-accent); }
+  .rpt-year-select:focus { outline: none; border-color: var(--colour-accent); }
 
   @media (max-width: 767px) {
     .fuel-stats { grid-template-columns: repeat(2, 1fr); }

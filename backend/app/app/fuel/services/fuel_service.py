@@ -68,9 +68,10 @@ class FuelService:
     # ==================================================
 
     async def get_analytics(
-        self, vehicle_id: uuid.UUID, account_id: uuid.UUID
+        self, vehicle_id: uuid.UUID, account_id: uuid.UUID, year: int | None = None
     ) -> FuelAnalyticsOut:
         rows = await self._repo.fetch_fills(vehicle_id, account_id)
+        selected_year = year or date.today().year
 
         # ~~~~~~~~~ Build FuelFillOut list ~~~~~~~~~
         fills: list[FuelFillOut] = [
@@ -93,14 +94,16 @@ class FuelService:
         total_litres = sum((f.litres for f in fills), Decimal("0"))
         total_spend_pence = sum(f.cost_pence or 0 for f in fills)
 
-        # ~~~~~~~~~ Annual spend (current calendar year) ~~~~~~~~~
-        current_year = date.today().year
+        # ~~~~~~~~~ Annual spend (selected year) ~~~~~~~~~
         annual_spend_pence = sum(
-            f.cost_pence or 0 for f in fills if f.date.year == current_year
+            f.cost_pence or 0 for f in fills if f.date.year == selected_year
         )
 
-        # ~~~~~~~~~ Monthly breakdown (last 12 months) ~~~~~~~~~
-        monthly_spend = self._monthly_breakdown(fills)
+        # ~~~~~~~~~ Oldest year with any fill (for year dropdown range) ~~~~~~~~~
+        oldest_year = min((f.date.year for f in fills), default=selected_year)
+
+        # ~~~~~~~~~ Monthly breakdown (Jan-Dec for selected year) ~~~~~~~~~
+        monthly_spend = self._monthly_breakdown(fills, selected_year)
 
         # ~~~~~~~~~ MPG and cost per mile ~~~~~~~~~
         avg_mpg, cost_per_mile_pence = self._compute_efficiency(fills)
@@ -115,6 +118,7 @@ class FuelService:
             avg_mpg=avg_mpg,
             cost_per_mile_pence=cost_per_mile_pence,
             fills=list(reversed(fills)),  # reverse to show newest fill first on the page
+            oldest_year=oldest_year,
         )
 
     # ==================================================
@@ -124,29 +128,14 @@ class FuelService:
     # ------------------------------ Monthly breakdown -----------------------
 
     @staticmethod
-    def _monthly_breakdown(fills: list[FuelFillOut]) -> list[MonthlySpend]:
-        """
-        Return spend totals for the last 12 calendar months, ascending.
-        Months with no fills are included with total_pence = 0 so the
-        frontend bar chart has a consistent 12-column grid.
-        """
-        today = date.today()
-        # Build an ordered list of 12 YYYY-MM labels.
-        months: list[str] = []
-        for offset in range(11, -1, -1):
-            y = today.year
-            m = today.month - offset
-            while m <= 0:
-                m += 12
-                y -= 1
-            months.append(f"{y:04d}-{m:02d}")
-
+    def _monthly_breakdown(fills: list[FuelFillOut], year: int) -> list[MonthlySpend]:
+        """Return spend totals for Jan-Dec of the given year."""
+        months = [f"{year:04d}-{m:02d}" for m in range(1, 13)]
         bucket: dict[str, int] = {m: 0 for m in months}
         for fill in fills:
             label = f"{fill.date.year:04d}-{fill.date.month:02d}"
             if label in bucket:
                 bucket[label] += fill.cost_pence or 0
-
         return [MonthlySpend(month=m, total_pence=bucket[m]) for m in months]
 
     # ------------------------------ MPG computation -------------------------

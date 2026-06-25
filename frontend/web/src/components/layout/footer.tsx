@@ -59,7 +59,7 @@ export function Footer() {
             <h4 className="sov-foot__heading">Product</h4>
             <ul className="sov-foot__list">
               <li>
-                <Link href="/vehicles" className="sov-foot__link sov-link">
+                <Link href="/dashboard/vehicles" className="sov-foot__link sov-link">
                   My vehicles
                 </Link>
               </li>

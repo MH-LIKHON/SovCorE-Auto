@@ -131,16 +131,22 @@ const VP_STYLES = `
   .vp-toggle__label { font-size: var(--text-sm); color: var(--colour-text-muted); }
 
   .vp-add-btn {
+    position: relative;
+    overflow: hidden;
     padding: 8px 18px;
-    background: var(--colour-accent);
+    background: linear-gradient(135deg, var(--colour-accent) 0%, var(--colour-accent-dim) 100%);
     color: #fff;
     border-radius: var(--radius-sm);
     font-size: var(--text-sm);
+    font-weight: 500;
     text-decoration: none;
-    transition: opacity 0.2s;
+    box-shadow: var(--glow-accent);
+    transition: transform 0.2s, box-shadow 0.2s;
     white-space: nowrap;
   }
-  .vp-add-btn:hover { opacity: 0.85; }
+  .vp-add-btn:hover { transform: translateY(-1px); box-shadow: var(--glow-accent-strong); }
+  .vp-add-btn::after { content: ""; position: absolute; top: 0; left: -120%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent); transform: skewX(-20deg); pointer-events: none; }
+  .vp-add-btn:hover::after { animation: shineSweep 0.9s var(--ease-smooth); }
 
   /* ---- Card grid — three columns on desktop ---- */
   .vp-grid {
@@ -162,16 +168,22 @@ const VP_STYLES = `
   .vp-empty { text-align: center; padding: var(--space-14) 0; }
   .vp-empty__text { color: var(--colour-text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4); }
   .vp-empty__link {
+    position: relative;
+    overflow: hidden;
     display: inline-block;
     padding: 9px 22px;
-    background: var(--colour-accent);
+    background: linear-gradient(135deg, var(--colour-accent) 0%, var(--colour-accent-dim) 100%);
     color: #fff;
     border-radius: var(--radius-sm);
     font-size: var(--text-sm);
+    font-weight: 500;
     text-decoration: none;
-    transition: opacity 0.2s;
+    box-shadow: var(--glow-accent);
+    transition: transform 0.2s, box-shadow 0.2s;
   }
-  .vp-empty__link:hover { opacity: 0.85; }
+  .vp-empty__link:hover { transform: translateY(-1px); box-shadow: var(--glow-accent-strong); }
+  .vp-empty__link::after { content: ""; position: absolute; top: 0; left: -120%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent); transform: skewX(-20deg); pointer-events: none; }
+  .vp-empty__link:hover::after { animation: shineSweep 0.9s var(--ease-smooth); }
 
   /* ---- Tablet: two columns ---- */
   @media (max-width: 1023px) {

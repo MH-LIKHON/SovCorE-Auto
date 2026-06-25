@@ -470,6 +470,9 @@ export default function VehicleProfilePage() {
         <Link href={`/dashboard/vehicles/${vehicle.id}/reminders`} className="vd-tab">
           Reminders
         </Link>
+        <Link href={`/dashboard/vehicles/${vehicle.id}/alerts`} className="vd-tab">
+          Alerts
+        </Link>
         <Link href={`/dashboard/vehicles/${vehicle.id}/timeline`} className="vd-tab">
           Timeline
         </Link>
@@ -601,7 +604,6 @@ export default function VehicleProfilePage() {
                 ["fuel_type", "Fuel type"],
                 ["transmission", "Transmission"],
                 ["engine", "Engine"],
-                ["mileage", "Mileage"],
                 ["doors", "Doors"],
                 ["seats", "Seats"],
                 ["horsepower", "Horsepower (bhp)"],
@@ -616,10 +618,19 @@ export default function VehicleProfilePage() {
                   key={field}
                   label={label}
                   value={(infoForm[field] as string | number | null) ?? ""}
-                  onChange={(e) => setInfoForm((f) => ({ ...f, [field]: e.target.value || null }))}
+                  onChange={(e) => setInfoForm((f) => ({ ...f, [field]: e.target.value.toUpperCase() || null }))}
                   disabled={saving}
                 />
               ))}
+              <TextField
+                label="Mileage"
+                type="number"
+                min={0}
+                placeholder="e.g. 52000"
+                value={infoForm.mileage ?? ""}
+                onChange={(e) => setInfoForm((f) => ({ ...f, mileage: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                disabled={saving}
+              />
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">
                 <button className="vd-btn vd-btn--primary" onClick={saveInfo} disabled={saving}>
@@ -684,7 +695,7 @@ export default function VehicleProfilePage() {
                   key={field}
                   label={label}
                   value={(ownershipForm[field] as string | number | null) ?? ""}
-                  onChange={(e) => setOwnershipForm((f) => ({ ...f, [field]: e.target.value || null }))}
+                  onChange={(e) => setOwnershipForm((f) => ({ ...f, [field]: field === "notes" ? e.target.value || null : e.target.value.toUpperCase() || null }))}
                   disabled={saving}
                 />
               ))}
@@ -779,13 +790,13 @@ export default function VehicleProfilePage() {
 // ==================================================
 
 const VD_STYLES = `
-  .vd-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 900px; }
+  .vd-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 900px; margin: 0 auto; width: 100%; }
 
   /* ---- Header ---- */
   .vd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
   .vd-head__left { display: flex; flex-direction: column; gap: var(--space-2); }
-  .vd-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; }
-  .vd-back:hover { color: var(--colour-text); }
+  .vd-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; display: inline-block; transform-origin: left center; transition: color 0.2s, transform 0.2s; }
+  .vd-back:hover { color: #00d4ff; transform: scale(1.08); }
   .vd-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
   .vd-head__meta { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 
@@ -859,7 +870,7 @@ const VD_STYLES = `
   /* ---- Content ---- */
   .vd-content { display: flex; flex-direction: column; gap: var(--space-5); }
 
-  .vd-card-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); }
+  .vd-card-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); letter-spacing: normal; }
 
   /* ---- Renewal RAG grid ---- */
   .vd-rag-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
@@ -905,6 +916,9 @@ const VD_STYLES = `
   @media (max-width: 767px) {
     .vd-rag-grid { grid-template-columns: 1fr; }
     .vd-dl > div { grid-template-columns: 1fr; gap: 3px; }
-    .vd-head { flex-direction: column-reverse; }
+    .vd-head { flex-direction: column-reverse; align-items: center; }
+    .vd-head__left { align-items: center; text-align: center; }
+    .vd-head__meta { justify-content: center; }
+    .vd-photo-wrap { align-items: center; }
   }
 `;

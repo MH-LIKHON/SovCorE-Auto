@@ -21,8 +21,14 @@
 #   - app/backups/services/backup_service.py (Phase 7)
 # ============================================================
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import boto3
-from mypy_boto3_s3 import S3Client
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3 import S3Client
 
 from app.core.settings import get_settings
 
@@ -33,9 +39,11 @@ from app.core.settings import get_settings
 
 def get_r2_client() -> S3Client:
     settings = get_settings()
+    # sovcore-auto is an EU-jurisdiction bucket; EU buckets must use the
+    # jurisdiction-specific endpoint or R2 returns AccessDenied on writes.
     return boto3.client(  # type: ignore[return-value]
         "s3",
-        endpoint_url=f"https://{settings.r2_account_id}.r2.cloudflarestorage.com",
+        endpoint_url=f"https://{settings.r2_account_id}.eu.r2.cloudflarestorage.com",
         aws_access_key_id=settings.r2_access_key_id,
         aws_secret_access_key=settings.r2_secret_access_key,
         region_name="auto",

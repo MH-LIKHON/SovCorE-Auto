@@ -27,7 +27,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
-import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
+import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
 // TYPES
@@ -96,6 +97,10 @@ export default function VehicleDocumentsPage() {
   const [uploadProgress, setUploadProgress] = useState<"idle" | "signing" | "uploading" | "saving" | "done">("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Viewer state
+  const [viewLoading, setViewLoading] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<{ url: string; filename: string; contentType: string } | null>(null);
+
   async function loadDocs() {
     if (!accountId || !id) return;
     setLoading(true);
@@ -111,54 +116,53 @@ export default function VehicleDocumentsPage() {
     if (!file || !accountId || !id) return;
     setUploading(true);
     setUploadError(null);
+    setUploadProgress("uploading");
 
     try {
-      // Step 1 — get presigned PUT URL
-      setUploadProgress("signing");
-      const signRes = await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/documents/sign-upload`, {
-        method: "POST",
-        body: JSON.stringify({
-          filename: file.name,
-          content_type: file.type || "application/octet-stream",
-          document_type: docType,
-        }),
-      });
-      if (!signRes.ok) throw new Error("Could not get upload URL.");
-      const { upload_url, r2_key } = await signRes.json();
-
-      // Step 2 — PUT directly to R2
-      setUploadProgress("uploading");
-      const putRes = await fetch(upload_url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-      });
-      if (!putRes.ok) throw new Error("Upload to storage failed.");
-
-      // Step 3 — persist document row
-      setUploadProgress("saving");
-      const saveRes = await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/documents`, {
-        method: "POST",
-        body: JSON.stringify({
-          r2_key,
-          filename: file.name,
-          document_type: docType,
-          mime_type: file.type || null,
-          file_size: file.size,
-        }),
-      });
-      if (!saveRes.ok) throw new Error("Could not save document record.");
-
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("doc_type", docType);
+      fd.append("filename", file.name);
+      const res = await apiUpload(
+        `/api/v1/accounts/${accountId}/vehicles/${id}/documents/upload`,
+        fd
+      );
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        console.error("[doc-upload] non-ok", res.status, detail);
+        throw new Error(`Upload failed (${res.status}). Check the file type — PDF, JPG, PNG and WEBP are accepted.`);
+      }
       setUploadProgress("done");
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       await loadDocs();
     } catch (e) {
+      console.error("[doc-upload] threw:", e);
       setUploadError(e instanceof Error ? e.message : "Upload failed.");
     } finally {
       setUploading(false);
       setTimeout(() => setUploadProgress("idle"), 2000);
     }
+  }
+
+  async function handleView(doc: Document) {
+    setViewLoading(doc.id);
+    try {
+      const res = await apiFetch(`/api/v1/accounts/${accountId}/documents/${doc.id}/download`);
+      if (!res.ok) { console.error("[doc-view] non-ok", res.status); return; }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setViewing({ url: objectUrl, filename: doc.filename, contentType: blob.type || "application/octet-stream" });
+    } catch (err) {
+      console.error("[doc-view] threw:", err);
+    } finally {
+      setViewLoading(null);
+    }
+  }
+
+  function handleViewClose() {
+    if (viewing) URL.revokeObjectURL(viewing.url);
+    setViewing(null);
   }
 
   async function handleDelete(doc: Document) {
@@ -168,9 +172,7 @@ export default function VehicleDocumentsPage() {
   }
 
   const progressLabel =
-    uploadProgress === "signing"   ? "Getting upload URL…" :
-    uploadProgress === "uploading" ? "Uploading file…" :
-    uploadProgress === "saving"    ? "Saving record…" :
+    uploadProgress === "uploading" ? "Uploading…" :
     uploadProgress === "done"      ? "Uploaded." : null;
 
   return (
@@ -209,6 +211,7 @@ export default function VehicleDocumentsPage() {
               ref={fileInputRef}
               className="docs-file-input"
               type="file"
+              accept="image/*,.pdf,.heic"
               disabled={uploading}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
@@ -216,7 +219,7 @@ export default function VehicleDocumentsPage() {
           <div className="docs-upload-action">
             <span className="docs-label__text">&nbsp;</span>
             <button
-              className="docs-btn docs-btn--primary"
+              className="rec-btn rec-btn--primary"
               onClick={handleUpload}
               disabled={uploading || !file}
             >
@@ -266,9 +269,17 @@ export default function VehicleDocumentsPage() {
                     <td className="docs-td--size">{formatBytes(doc.file_size)}</td>
                     <td className="docs-td--date">{formatDateTime(doc.created_at)}</td>
                     <td className="docs-td--by">{doc.uploaded_by_email ?? "—"}</td>
-                    <td>
+                    <td className="docs-td--actions">
                       <button
-                        className="docs-delete-btn"
+                        className="sov-action-btn sov-action-btn--view"
+                        onClick={() => handleView(doc)}
+                        disabled={viewLoading === doc.id}
+                        aria-label={`View ${doc.filename}`}
+                      >
+                        {viewLoading === doc.id ? "…" : "View"}
+                      </button>
+                      <button
+                        className="sov-action-btn sov-action-btn--delete"
                         onClick={() => handleDelete(doc)}
                         aria-label={`Delete ${doc.filename}`}
                       >
@@ -284,6 +295,15 @@ export default function VehicleDocumentsPage() {
       </Card>
 
       <style>{DOCS_STYLES}</style>
+
+      {viewing && (
+        <DocViewerModal
+          viewUrl={viewing.url}
+          filename={viewing.filename}
+          contentType={viewing.contentType}
+          onClose={handleViewClose}
+        />
+      )}
     </div>
   );
 }
@@ -293,15 +313,15 @@ export default function VehicleDocumentsPage() {
 // ==================================================
 
 const DOCS_STYLES = `
-  .docs-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 900px; }
+  .docs-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 900px; margin: 0 auto; width: 100%; }
 
-  .docs-head { display: flex; flex-direction: column; gap: var(--space-2); }
-  .docs-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; }
-  .docs-back:hover { color: var(--colour-text); }
-  .docs-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
-  .docs-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; line-height: var(--leading-normal); }
+  .docs-head { display: flex; flex-direction: column; gap: 0; }
+  .docs-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; margin-bottom: var(--space-2); }
+  .docs-back:hover { color: #00d4ff; }
+  .docs-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0 0 4px; }
+  .docs-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; line-height: var(--leading-normal); margin: 0; }
 
-  .docs-section-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); }
+  .docs-section-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); letter-spacing: normal; }
 
   /* Upload row */
   .docs-upload-row { display: flex; align-items: flex-end; gap: var(--space-4); flex-wrap: wrap; }
@@ -355,18 +375,7 @@ const DOCS_STYLES = `
   .docs-td--date { color: var(--colour-text-muted); white-space: nowrap; }
   .docs-td--by { color: var(--colour-text-muted); white-space: nowrap; }
 
-  .docs-delete-btn {
-    background: none;
-    border: 1px solid var(--colour-border);
-    border-radius: var(--radius-sm);
-    padding: 3px 10px;
-    font-size: var(--text-xs);
-    color: var(--colour-text-muted);
-    cursor: none;
-    transition: border-color 0.2s, color 0.2s;
-    white-space: nowrap;
-  }
-  .docs-delete-btn:hover { border-color: var(--colour-error); color: var(--colour-error); }
+  .docs-td--actions { white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 
   /* Skeleton */
   .docs-skeleton {

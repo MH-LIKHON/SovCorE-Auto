@@ -149,7 +149,7 @@ export default function PreferencesPage() {
             <div className="pref-row">
               <div className="pref-meta">
                 <span className="pref-label">Currency</span>
-                <span className="pref-desc">ISO 4217 code — used for expense and cost displays.</span>
+                <span className="pref-desc">ISO 4217 code used for expense and cost displays.</span>
               </div>
               <div className="pref-control">
                 <div className="sov-input-wrap" style={{ flex: 1 }}>
@@ -158,20 +158,20 @@ export default function PreferencesPage() {
                     value={prefs.currency}
                     onChange={(e) => save("currency", e.target.value)}
                   >
-                  <option value="GBP">GBP — British Pound</option>
-                  <option value="EUR">EUR — Euro</option>
-                  <option value="USD">USD — US Dollar</option>
-                  <option value="CAD">CAD — Canadian Dollar</option>
-                  <option value="AUD">AUD — Australian Dollar</option>
-                  <option value="NZD">NZD — New Zealand Dollar</option>
-                  <option value="CHF">CHF — Swiss Franc</option>
-                  <option value="SEK">SEK — Swedish Krona</option>
-                  <option value="NOK">NOK — Norwegian Krone</option>
-                  <option value="DKK">DKK — Danish Krone</option>
-                  <option value="PLN">PLN — Polish Zloty</option>
-                  <option value="CZK">CZK — Czech Koruna</option>
-                  <option value="HUF">HUF — Hungarian Forint</option>
-                  <option value="RON">RON — Romanian Leu</option>
+                  <option value="GBP">GBP - British Pound</option>
+                  <option value="EUR">EUR - Euro</option>
+                  <option value="USD">USD - US Dollar</option>
+                  <option value="CAD">CAD - Canadian Dollar</option>
+                  <option value="AUD">AUD - Australian Dollar</option>
+                  <option value="NZD">NZD - New Zealand Dollar</option>
+                  <option value="CHF">CHF - Swiss Franc</option>
+                  <option value="SEK">SEK - Swedish Krona</option>
+                  <option value="NOK">NOK - Norwegian Krone</option>
+                  <option value="DKK">DKK - Danish Krone</option>
+                  <option value="PLN">PLN - Polish Zloty</option>
+                  <option value="CZK">CZK - Czech Koruna</option>
+                  <option value="HUF">HUF - Hungarian Forint</option>
+                  <option value="RON">RON - Romanian Leu</option>
                   </select>
                 </div>
                 {saved === "currency" && <span className="pref-saved">Saved</span>}
@@ -194,11 +194,11 @@ export default function PreferencesPage() {
 // ==================================================
 
 const SET_STYLES = `
-  .set-shell { display: flex; flex-direction: column; gap: var(--space-5); }
+  .set-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 860px; margin: 0 auto; width: 100%; }
   .set-head { margin-bottom: var(--space-3); }
   .set-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin-bottom: 6px; }
   .set-sub { color: var(--colour-text-muted); }
-  .set-section { font-size: var(--text-md); margin-bottom: var(--space-5); }
+  .set-section { font-size: var(--text-md); margin-bottom: var(--space-5); letter-spacing: normal; }
   .set-muted { color: var(--colour-text-muted); font-size: var(--text-sm); }
   .set-error { font-size: var(--text-sm); color: var(--colour-error); }
 

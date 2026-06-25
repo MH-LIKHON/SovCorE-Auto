@@ -47,8 +47,8 @@ const csp = [
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self' data: blob:`,
   `font-src 'self' data:`,
-  `connect-src 'self' ${apiUrl}`,
-  `frame-src 'self' https://login.microsoftonline.com`,
+  `connect-src 'self' ${apiUrl} https://0d015e9069ac7a0b9d14088046d1f3ae.r2.cloudflarestorage.com`,
+  `frame-src 'self' blob: https://login.microsoftonline.com`,
   `frame-ancestors 'none'`,
   `form-action 'self'`,
   `base-uri 'self'`,
@@ -97,6 +97,13 @@ const nextConfig: NextConfig = {
   // The backend API base URL is injected at build time via NEXT_PUBLIC_API_URL.
   // No rewrites are needed because the frontend calls FastAPI directly over HTTP.
   output: "standalone",
+
+  async redirects() {
+    return [
+      // /vehicles has no page; redirect to the dashboard vehicles list.
+      { source: "/vehicles", destination: "/dashboard/vehicles", permanent: false },
+    ];
+  },
 
   async headers() {
     return [

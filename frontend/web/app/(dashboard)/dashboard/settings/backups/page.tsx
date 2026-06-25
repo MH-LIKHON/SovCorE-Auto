@@ -334,6 +334,13 @@ export default function BackupsPage() {
 // ==================================================
 
 const BKP_STYLES = `
+  .set-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 860px; margin: 0 auto; width: 100%; }
+
+  /* ---- Page headings ---- */
+  .set-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin-bottom: 6px; }
+  .set-sub { color: var(--colour-text-muted); }
+  .set-section { font-size: var(--text-md); margin-bottom: var(--space-4); letter-spacing: normal; }
+
   /* ---- Restore summary grid ---- */
   .bkp-restore-grid {
     display: grid;

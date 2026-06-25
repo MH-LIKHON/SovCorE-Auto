@@ -38,6 +38,7 @@ _ALLOWED_MIME_TYPES: frozenset[str] = frozenset({
     "image/jpeg",
     "image/png",
     "image/webp",
+    "image/heic",
 })
 
 # 50 MB hard cap enforced on both the schema and the presigned URL

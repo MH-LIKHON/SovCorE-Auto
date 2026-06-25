@@ -29,6 +29,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
+import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -267,11 +268,14 @@ export default function PCNsPage() {
               <TextField
                 className="rec-label"
                 label="Amount (£)"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="e.g. 70.00"
                 value={form.amount}
-                onChange={(e) => handleFormChange("amount", e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                  handleFormChange("amount", v);
+                }}
                 disabled={saving}
               />
               <div className="rec-label sov-field">
@@ -291,7 +295,7 @@ export default function PCNsPage() {
                 type="text"
                 placeholder="e.g. PCN12345"
                 value={form.reference}
-                onChange={(e) => handleFormChange("reference", e.target.value)}
+                onChange={(e) => handleFormChange("reference", e.target.value.toUpperCase())}
                 disabled={saving}
               />
               <TextField
@@ -300,7 +304,7 @@ export default function PCNsPage() {
                 type="text"
                 placeholder="e.g. Westminster City Council"
                 value={form.authority}
-                onChange={(e) => handleFormChange("authority", e.target.value)}
+                onChange={(e) => handleFormChange("authority", e.target.value.toUpperCase())}
                 disabled={saving}
               />
             </div>
@@ -344,33 +348,40 @@ export default function PCNsPage() {
         ) : (
           <div className="rec-rows">
             {pcns.map((pcn) => (
-              <div key={pcn.id} className="pcn-row">
-                <div className="pcn-row__left">
-                  <span className={statusBadgeClass(pcn.status)}>{statusLabel(pcn.status)}</span>
-                  <span className="pcn-row__date">{formatDate(pcn.date)}</span>
-                  {pcn.authority && <span className="pcn-row__authority">{pcn.authority}</span>}
-                  {pcn.reference && <span className="pcn-row__ref">{pcn.reference}</span>}
+              <div key={pcn.id} className="pcn-entry">
+                <div className="pcn-row">
+                  <div className="pcn-row__left">
+                    <span className={statusBadgeClass(pcn.status)}>{statusLabel(pcn.status)}</span>
+                    <span className="pcn-row__date">{formatDate(pcn.date)}</span>
+                    {pcn.authority && <span className="pcn-row__authority">{pcn.authority}</span>}
+                    {pcn.reference && <span className="pcn-row__ref">{pcn.reference}</span>}
+                  </div>
+                  <div className="pcn-row__right">
+                    <span className="pcn-row__amount">{formatGBP(pcn.amount)}</span>
+                    {/* Inline status change */}
+                    <select
+                      className="pcn-status-select"
+                      value={pcn.status}
+                      onChange={(e) => handleStatusChange(pcn, e.target.value as PCNStatus)}
+                      disabled={updatingId === pcn.id}
+                      aria-label="Update status"
+                    >
+                      {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                    <button
+                      className="rec-btn rec-btn--danger-sm"
+                      onClick={() => handleDelete(pcn.id)}
+                      disabled={deletingId === pcn.id}
+                    >
+                      {deletingId === pcn.id ? "…" : "Delete"}
+                    </button>
+                  </div>
                 </div>
-                <div className="pcn-row__right">
-                  <span className="pcn-row__amount">{formatGBP(pcn.amount)}</span>
-                  {/* Inline status change */}
-                  <select
-                    className="pcn-status-select"
-                    value={pcn.status}
-                    onChange={(e) => handleStatusChange(pcn, e.target.value as PCNStatus)}
-                    disabled={updatingId === pcn.id}
-                    aria-label="Update status"
-                  >
-                    {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                  <button
-                    className="rec-btn rec-btn--danger-sm"
-                    onClick={() => handleDelete(pcn.id)}
-                    disabled={deletingId === pcn.id}
-                  >
-                    {deletingId === pcn.id ? "…" : "Delete"}
-                  </button>
-                </div>
+                <EntityAttachmentPanel
+                  entityType="pcn"
+                  entityId={pcn.id}
+                  accountId={accountId}
+                />
               </div>
             ))}
           </div>
@@ -387,6 +398,10 @@ export default function PCNsPage() {
 // ==================================================
 
 const PCN_STYLES = `
+  /* ---- PCN entry wrapper (row + attachment panel) ---- */
+  .pcn-entry { border-bottom: 0.5px solid var(--colour-border); }
+  .pcn-entry:last-child { border-bottom: none; }
+
   /* ---- PCN rows ---- */
   .pcn-row {
     display: flex;
@@ -394,10 +409,8 @@ const PCN_STYLES = `
     justify-content: space-between;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
-    border-bottom: 0.5px solid var(--colour-border);
     flex-wrap: wrap;
   }
-  .pcn-row:last-child { border-bottom: none; }
   .pcn-row__left { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
   .pcn-row__right { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
   .pcn-row__date { font-size: var(--text-sm); color: var(--colour-text-muted); white-space: nowrap; }

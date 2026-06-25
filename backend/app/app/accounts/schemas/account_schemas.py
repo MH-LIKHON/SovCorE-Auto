@@ -153,6 +153,8 @@ class DashboardSummaryOut(BaseModel):
     open_task_count: int
     # Reminders with due_date within the next 30 days and active=True.
     due_soon_reminder_count: int
+    # Custom alerts that fired in the last 30 days.
+    custom_alert_count: int
     # Sum of record costs for the current calendar month, in pence.
     monthly_spend_pence: int
 

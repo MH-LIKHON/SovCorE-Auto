@@ -134,7 +134,7 @@ export default function AccountSettingsPage() {
             <TextField
               label="Account name"
               value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
+              onChange={(e) => setNameInput(e.target.value.toUpperCase())}
               maxLength={200}
               autoFocus
             />
@@ -261,13 +261,13 @@ export default function AccountSettingsPage() {
 // ==================================================
 
 const SET_STYLES = `
-  .set-shell { display: flex; flex-direction: column; gap: var(--space-5); }
+  .set-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 860px; margin: 0 auto; width: 100%; }
   .set-head { margin-bottom: var(--space-3); }
   .set-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin-bottom: 6px; }
   .set-sub { color: var(--colour-text-muted); }
 
   .set-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
-  .set-section { font-size: var(--text-md); margin-bottom: var(--space-4); }
+  .set-section { font-size: var(--text-md); margin-bottom: var(--space-4); letter-spacing: normal; }
 
   .set-list { display: flex; flex-direction: column; gap: var(--space-3); }
   .set-list > div { display: grid; grid-template-columns: 200px 1fr; gap: var(--space-4); align-items: center; }

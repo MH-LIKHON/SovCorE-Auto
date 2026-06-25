@@ -58,8 +58,6 @@ const TRANSMISSION_TYPES = [
   { value: "", label: "Select transmission…" },
   { value: "manual", label: "Manual" },
   { value: "automatic", label: "Automatic" },
-  { value: "semi_automatic", label: "Semi-automatic" },
-  { value: "cvt", label: "CVT" },
 ];
 
 // ==================================================
@@ -105,7 +103,10 @@ export default function NewVehiclePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const accountId = getAccountId();
-    if (!accountId) return;
+    if (!accountId) {
+      setError("Session expired. Please sign out and sign back in.");
+      return;
+    }
 
     if (!form.registration.trim() && !(form.make.trim() && form.model.trim())) {
       setError("Enter a registration number, or at least the make and model.");
@@ -129,21 +130,25 @@ export default function NewVehiclePage() {
       engine: form.engine.trim() || null,
     };
 
-    const res = await apiFetch(`/api/v1/accounts/${accountId}/vehicles`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
+    try {
+      const res = await apiFetch(`/api/v1/accounts/${accountId}/vehicles`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
-    setSaving(false);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.detail ?? "Failed to add vehicle. Please try again.");
+        return;
+      }
 
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.detail ?? "Failed to add vehicle. Please try again.");
-      return;
+      const created = await res.json();
+      router.push(`/dashboard/vehicles/${created.id}`);
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-
-    const created = await res.json();
-    router.push(`/dashboard/vehicles/${created.id}`);
   }
 
   return (
@@ -165,7 +170,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Registration"
               value={form.registration}
-              onChange={(e) => set("registration", e.target.value)}
+              onChange={(e) => set("registration", e.target.value.toUpperCase())}
               placeholder="e.g. AB12 CDE"
               maxLength={8}
               autoFocus
@@ -175,7 +180,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Make"
               value={form.make}
-              onChange={(e) => set("make", e.target.value)}
+              onChange={(e) => set("make", e.target.value.toUpperCase())}
               placeholder="e.g. Volkswagen"
               maxLength={100}
               disabled={saving}
@@ -184,7 +189,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Model"
               value={form.model}
-              onChange={(e) => set("model", e.target.value)}
+              onChange={(e) => set("model", e.target.value.toUpperCase())}
               placeholder="e.g. Golf"
               maxLength={100}
               disabled={saving}
@@ -193,7 +198,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Variant / trim"
               value={form.variant}
-              onChange={(e) => set("variant", e.target.value)}
+              onChange={(e) => set("variant", e.target.value.toUpperCase())}
               placeholder="e.g. GTI DSG"
               maxLength={100}
               disabled={saving}
@@ -213,7 +218,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Colour"
               value={form.colour}
-              onChange={(e) => set("colour", e.target.value)}
+              onChange={(e) => set("colour", e.target.value.toUpperCase())}
               placeholder="e.g. Moonstone Grey"
               maxLength={50}
               disabled={saving}
@@ -276,7 +281,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Engine"
               value={form.engine}
-              onChange={(e) => set("engine", e.target.value)}
+              onChange={(e) => set("engine", e.target.value.toUpperCase())}
               placeholder="e.g. 2.0 TDI"
               maxLength={50}
               disabled={saving}
@@ -321,12 +326,12 @@ export default function NewVehiclePage() {
 // ==================================================
 
 const NV_STYLES = `
-  .nv-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 860px; }
+  .nv-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 860px; margin: 0 auto; width: 100%; }
   .nv-head { margin-bottom: var(--space-2); }
   .nv-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin-bottom: 6px; }
   .nv-sub { color: var(--colour-text-muted); font-size: var(--text-sm); max-width: 560px; line-height: var(--leading-normal); }
 
-  .nv-section { font-size: var(--text-md); margin-bottom: var(--space-5); }
+  .nv-section { font-size: var(--text-md); margin-bottom: var(--space-5); letter-spacing: normal; }
 
   .nv-grid {
     display: grid;
@@ -336,12 +341,21 @@ const NV_STYLES = `
 
   .nv-error { font-size: var(--text-sm); color: var(--colour-error); }
 
-  .nv-actions { display: flex; gap: var(--space-3); }
-  .nv-btn { padding: 9px 22px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; border: none; transition: opacity 0.2s, background 0.2s; }
-  .nv-btn--primary { background: var(--colour-accent); color: #fff; }
+  .nv-actions { display: flex; gap: var(--space-3); margin-top: var(--space-6); }
+  .nv-btn {
+    position: relative; display: inline-flex; align-items: center; justify-content: center;
+    padding: 9px 22px; border-radius: var(--radius-sm); font-size: var(--text-sm);
+    font-family: var(--font-sans); font-weight: var(--weight-medium);
+    border: 1px solid transparent; overflow: hidden; isolation: isolate; cursor: none;
+    transition: transform var(--duration-normal) var(--ease-smooth), box-shadow var(--duration-normal) var(--ease-smooth), background var(--duration-normal) var(--ease-smooth), border-color var(--duration-normal) var(--ease-smooth);
+  }
+  .nv-btn--primary { background: linear-gradient(135deg, var(--colour-accent) 0%, var(--colour-accent-dim) 100%); color: #fff; box-shadow: var(--glow-accent); }
+  .nv-btn--primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--glow-accent-strong); }
+  .nv-btn--primary::after { content: ""; position: absolute; top: 0; left: -120%; width: 60%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent); transform: skewX(-20deg); pointer-events: none; }
+  .nv-btn--primary:hover::after { animation: shineSweep 0.9s var(--ease-smooth); }
   .nv-btn--primary:disabled { opacity: 0.55; }
-  .nv-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
-  .nv-btn--ghost:hover { color: var(--colour-text); border-color: var(--colour-text-muted); }
+  .nv-btn--ghost { background: var(--colour-bg-2); border-color: var(--colour-border); color: var(--colour-text-muted); }
+  .nv-btn--ghost:hover:not(:disabled) { border-color: var(--colour-border-active); background: var(--colour-bg-3); transform: translateY(-1px); color: var(--colour-text); }
 
   @media (max-width: 639px) {
     .nv-grid { grid-template-columns: 1fr; }

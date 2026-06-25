@@ -34,6 +34,8 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { useCursor } from "@/src/hooks/use-cursor";
 
 // ==================================================
@@ -42,6 +44,23 @@ import { useCursor } from "@/src/hooks/use-cursor";
 
 export function CustomCursor() {
   const { dotRef, ringRef, dotStyle, ringStyle, isExpanded, isClicked } = useCursor();
+
+  // Only render on pointer-capable desktop screens (>1023 px, hover supported).
+  // Checked client-side because window is not available on the server.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      setIsDesktop(
+        window.innerWidth > 1023 &&
+          window.matchMedia("(hover: hover)").matches,
+      );
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  if (!isDesktop) return null;
 
   return (
     <>

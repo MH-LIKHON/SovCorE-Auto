@@ -34,7 +34,8 @@ pyotp==2.9.0              # TOTP generation and verification for 2FA
 boto3==1.35.72
 
 # Email
-resend==2.5.0
+resend==2.5.1
+email-validator==2.2.0
 
 # HTTP client (for internal service calls)
 httpx==0.28.1
@@ -51,4 +52,5 @@ limits==3.13.0
 
 # Utilities
 python-dotenv==1.0.1
+python-dateutil==2.9.0  # safe month/year arithmetic for recurring alert conditions
 structlog==24.4.0

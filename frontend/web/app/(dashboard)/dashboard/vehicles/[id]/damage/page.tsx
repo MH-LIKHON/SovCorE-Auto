@@ -32,6 +32,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
+import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -378,11 +379,14 @@ export default function DamagePage() {
               <TextField
                 className="rec-label"
                 label="Repair cost (£)"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="Optional"
                 value={form.repair_cost}
-                onChange={(e) => handleFormChange("repair_cost", e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                  handleFormChange("repair_cost", v);
+                }}
                 disabled={saving}
               />
             </div>
@@ -468,6 +472,12 @@ export default function DamagePage() {
                     onUpdated={handleEntryUpdated}
                   />
                 </div>
+                {/* ~~~~~~~~~ Attachments ~~~~~~~~~ */}
+                <EntityAttachmentPanel
+                  entityType="damage"
+                  entityId={entry.id}
+                  accountId={accountId}
+                />
               </div>
             ))}
           </div>

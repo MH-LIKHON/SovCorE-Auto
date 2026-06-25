@@ -35,7 +35,7 @@
 
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
@@ -134,6 +134,22 @@ function capitalize(s: string): string {
 }
 
 // ==================================================
+// KEYSTROKE PULSE
+// ==================================================
+
+const PULSE_COLOURS = ["#6c63ff", "#7b73ff", "#5548e0", "#00d4ff"];
+
+const PULSE_RING_STYLE: React.CSSProperties = {
+  position: "absolute",
+  bottom: -2,
+  left: 12,
+  right: 12,
+  height: 2,
+  borderRadius: 1,
+  overflow: "hidden",
+};
+
+// ==================================================
 // SEARCH INNER PAGE (requires Suspense for useSearchParams)
 // ==================================================
 
@@ -147,6 +163,17 @@ function SearchInner() {
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+
+  const pulseRingRef = useRef<HTMLDivElement>(null);
+  function firePulse() {
+    const ring = pulseRingRef.current;
+    if (!ring) return;
+    const dot = document.createElement("div");
+    const colour = PULSE_COLOURS[Math.floor(Math.random() * PULSE_COLOURS.length)] ?? "#6c63ff";
+    dot.style.cssText = `position:absolute;height:100%;width:20px;border-radius:1px;background:${colour};left:${Math.random() * 80 + 10}%;animation:keystrokePulse 0.5s ease-out forwards`;
+    ring.appendChild(dot);
+    setTimeout(() => dot.remove(), 500);
+  }
 
   // ==================================================
   // RUN SEARCH
@@ -199,13 +226,14 @@ function SearchInner() {
         <form className="srch-form" onSubmit={handleSubmit}>
           <div className="sov-input-wrap" style={{ flex: 1 }}>
             <input
-              className="srch-input"
-              type="search"
+              className="sov-field__control srch-input"
+              type="text"
               placeholder="Search registration, make, model, supplier, tag…"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { firePulse(); setInput(e.target.value); }}
               autoFocus
             />
+            <div ref={pulseRingRef} aria-hidden="true" style={PULSE_RING_STYLE} />
           </div>
           <button className="rec-btn rec-btn--primary" type="submit" disabled={loading}>
             {loading ? "Searching…" : "Search"}
@@ -405,20 +433,7 @@ const SRCH_STYLES = `
     gap: var(--space-3);
     align-items: center;
   }
-  .srch-input {
-    width: 100%;
-    background: var(--colour-bg);
-    border: 1px solid var(--colour-border);
-    border-radius: var(--radius-md);
-    padding: 10px 14px;
-    font-size: var(--text-sm);
-    color: var(--colour-text);
-    outline: none;
-    transition: border-color 0.2s;
-    cursor: none;
-  }
-  .srch-input:focus { border-color: var(--colour-accent); }
-  .srch-input::placeholder { color: var(--colour-text-muted); }
+  .srch-input { font-size: var(--text-sm); }
 
   /* ---- Summary line ---- */
   .srch-summary {

@@ -11,9 +11,8 @@
 #   - backend/app/app/api/v1/operational.py
 # ============================================================
 
-from __future__ import annotations
-
-from datetime import date, datetime
+import uuid
+from datetime import date as _Date, datetime
 
 from pydantic import BaseModel
 
@@ -27,7 +26,7 @@ from app.operational.models.pcn import PCNStatus
 class PCNCreateIn(BaseModel):
     reference: str | None = None
     authority: str | None = None
-    date: date
+    date: _Date
     amount: int                         # pence
     status: PCNStatus = PCNStatus.open
     notes: str | None = None
@@ -41,7 +40,7 @@ class PCNCreateIn(BaseModel):
 class PCNPatchIn(BaseModel):
     reference: str | None = None
     authority: str | None = None
-    date: date | None = None
+    date: _Date | None = None
     amount: int | None = None           # pence
     status: PCNStatus | None = None
     notes: str | None = None
@@ -53,12 +52,12 @@ class PCNPatchIn(BaseModel):
 
 
 class PCNOut(BaseModel):
-    id: str
-    account_id: str
-    vehicle_id: str
+    id: uuid.UUID
+    account_id: uuid.UUID
+    vehicle_id: uuid.UUID
     reference: str | None
     authority: str | None
-    date: date
+    date: _Date
     amount: int
     status: PCNStatus
     notes: str | None

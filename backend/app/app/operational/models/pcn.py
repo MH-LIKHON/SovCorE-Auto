@@ -76,7 +76,7 @@ class PCN(Base):
     date: Mapped[date] = mapped_column(Date, nullable=False)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)  # pence
     status: Mapped[PCNStatus] = mapped_column(
-        SAEnum(PCNStatus, name="pcnstatus"),
+        SAEnum(PCNStatus, name="pcnstatus", native_enum=False),
         nullable=False,
         default=PCNStatus.open,
         server_default="open",

@@ -49,6 +49,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { LoginBackground } from '@/src/components/login/login-background'
@@ -128,6 +129,19 @@ export default function LoginPage() {
     return () => { document.body.style.overflow = prev }
   }, [])
 
+  // ------------------------------ SSO error from redirect -------------------
+  useEffect(() => {
+    const ssoError = params.get('sso_error')
+    if (!ssoError) return
+    const messages: Record<string, string> = {
+      access_denied:   'Microsoft sign-in was cancelled or access was denied.',
+      state_mismatch:  'Sign-in session expired. Please start again.',
+      missing_code:    'Microsoft did not return an authorisation code. Please try again.',
+      sso_failed:      'Could not complete Microsoft sign-in. Contact support if this keeps happening.',
+    }
+    setError(messages[ssoError] ?? 'Microsoft sign-in failed. Please try again.')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ------------------------------ Stage 1: Request Code ----------------------
 
   async function requestCode() {
@@ -160,7 +174,7 @@ export default function LoginPage() {
 
   // ------------------------------ Stage 2: Verify Code -----------------------
 
-  async function verifyCode(code: string) {
+  const verifyCode = useCallback(async function verifyCode(code: string) {
     setIsLoading(true)
     setError(null)
     try {
@@ -172,6 +186,7 @@ export default function LoginPage() {
       })
       const data = await res.json().catch(() => ({})) as {
         access_token?: string
+        account_id?: string
         requires_2fa?: boolean
         detail?: string
       }
@@ -188,9 +203,9 @@ export default function LoginPage() {
         return
       }
 
-      // Store access token in sessionStorage (cleared on tab close).
       if (data.access_token) {
         sessionStorage.setItem('sva_access', data.access_token)
+        if (data.account_id) sessionStorage.setItem('sva_account_id', data.account_id)
       }
       setSuccess(true)
       setTimeout(() => router.push(next), SUCCESS_ANIMATION_MS)
@@ -199,11 +214,11 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [email, next, router])
 
   // ------------------------------ Stage 3: TOTP Verify ----------------------
 
-  async function verifyTotp(totpCode: string) {
+  const verifyTotp = useCallback(async function verifyTotp(totpCode: string) {
     const partial = partialTokenRef.current
     if (!partial) {
       setError('Session expired. Please sign in again.')
@@ -224,6 +239,7 @@ export default function LoginPage() {
       })
       const data = await res.json().catch(() => ({})) as {
         access_token?: string
+        account_id?: string
         detail?: string
       }
 
@@ -234,6 +250,7 @@ export default function LoginPage() {
 
       if (data.access_token) {
         sessionStorage.setItem('sva_access', data.access_token)
+        if (data.account_id) sessionStorage.setItem('sva_account_id', data.account_id)
       }
       setSuccess(true)
       setTimeout(() => router.push(next), SUCCESS_ANIMATION_MS)
@@ -242,7 +259,7 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [next, router])
 
   // ------------------------------ Microsoft SSO ------------------------------
 
@@ -278,7 +295,7 @@ export default function LoginPage() {
         <div style={{ opacity: success ? 0 : 1, transition: 'opacity 0.3s' }}>
           {/* ~~~~~~~~~ Back to home ~~~~~~~~~ */}
           <div style={{ marginBottom: 20 }}>
-            <a
+            <Link
               href="/"
               style={{
                 display: 'inline-flex',
@@ -303,7 +320,7 @@ export default function LoginPage() {
                 <path d="M8 6H4M4 6L6.5 3.5M4 6L6.5 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               Home
-            </a>
+            </Link>
           </div>
 
           {/* ~~~~~~~~~ Logo + Branding ~~~~~~~~~ */}
@@ -340,6 +357,7 @@ export default function LoginPage() {
                     fontFamily: 'inherit',
                     display: 'flex',
                     alignItems: 'center',
+                    justifyContent: 'center',
                     gap: 10,
                     cursor: ssoLoading ? 'default' : 'pointer',
                     opacity: ssoLoading ? 0.6 : 1,
@@ -359,7 +377,7 @@ export default function LoginPage() {
                   }}
                 >
                   <MicrosoftIcon />
-                  <span>{ssoLoading ? 'Redirecting...' : 'Continue with Microsoft'}</span>
+                  <span>{ssoLoading ? 'Redirecting...' : 'Sign in with Microsoft'}</span>
                 </button>
               </div>
 
@@ -496,6 +514,7 @@ function EmailStage({
           fontSize: 11,
           letterSpacing: '0.5px',
           textTransform: 'uppercase' as const,
+          textAlign: 'center',
           color: focused ? '#6c63ff' : 'var(--colour-text-muted)',
           marginBottom: 8,
           transition: 'color 0.3s',

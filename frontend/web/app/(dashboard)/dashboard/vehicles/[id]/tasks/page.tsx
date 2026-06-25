@@ -252,7 +252,7 @@ export default function TasksPage() {
               type="text"
               placeholder="What needs to be done?"
               value={form.title}
-              onChange={(e) => handleFormChange("title", e.target.value)}
+              onChange={(e) => handleFormChange("title", e.target.value.toUpperCase())}
               disabled={saving}
             />
 

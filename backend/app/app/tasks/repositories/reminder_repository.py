@@ -167,3 +167,59 @@ class ReminderRepository:
         reminder.last_sent_interval = interval
         self._db.add(reminder)
         await self._db.flush()
+
+    # ==================================================
+    # AUTO-LINK UPSERT
+    # ==================================================
+
+    async def upsert_by_type(
+        self,
+        vehicle_id: uuid.UUID,
+        account_id: uuid.UUID,
+        reminder_type: str,
+        due_date: date | None,
+    ) -> None:
+        # ~~~~~~~~~ Find any existing reminder for this vehicle + type ~~~~~~~~~
+        # LIMIT 1 guards against accidental duplicates — the table has no
+        # unique constraint on (vehicle_id, type) because users can create
+        # multiple manual reminders of the same type. The auto-linked one is
+        # the oldest (lowest created_at).
+        result = await self._db.execute(
+            select(Reminder)
+            .where(
+                Reminder.vehicle_id == vehicle_id,
+                Reminder.account_id == account_id,
+                Reminder.type == reminder_type,
+            )
+            .order_by(Reminder.created_at.asc())
+            .limit(1)
+        )
+        existing: Reminder | None = result.scalar_one_or_none()
+
+        if due_date is None:
+            if existing is not None:
+                existing.active = False
+                self._db.add(existing)
+                await self._db.flush()
+            return
+
+        if existing is not None:
+            if existing.due_date != due_date:
+                existing.due_date = due_date
+                # New due date starts a fresh notification cycle.
+                existing.last_sent_interval = None
+            existing.active = True
+            self._db.add(existing)
+        else:
+            from datetime import datetime, timezone
+            reminder = Reminder(
+                vehicle_id=vehicle_id,
+                account_id=account_id,
+                type=reminder_type,
+                due_date=due_date,
+                intervals=[90, 60, 30, 14, 7, 1],
+                active=True,
+            )
+            self._db.add(reminder)
+
+        await self._db.flush()

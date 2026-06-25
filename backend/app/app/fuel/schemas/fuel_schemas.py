@@ -77,3 +77,6 @@ class FuelAnalyticsOut(BaseModel):
 
     # ------------------------------ Fill log --------------------------------
     fills: list[FuelFillOut]
+
+    # ------------------------------ Year range ------------------------------
+    oldest_year: int   # earliest year with any fill for this vehicle

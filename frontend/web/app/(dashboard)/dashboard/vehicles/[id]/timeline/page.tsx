@@ -183,13 +183,13 @@ export default function VehicleTimelinePage() {
 // ==================================================
 
 const TL_STYLES = `
-  .tl-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 780px; }
+  .tl-shell { display: flex; flex-direction: column; gap: var(--space-5); max-width: 780px; margin: 0 auto; width: 100%; }
 
-  .tl-head { display: flex; flex-direction: column; gap: var(--space-2); }
-  .tl-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; }
-  .tl-back:hover { color: var(--colour-text); }
-  .tl-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
-  .tl-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; line-height: var(--leading-normal); }
+  .tl-head { display: flex; flex-direction: column; gap: 0; }
+  .tl-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; margin-bottom: var(--space-2); }
+  .tl-back:hover { color: #00d4ff; }
+  .tl-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0 0 4px; }
+  .tl-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; line-height: var(--leading-normal); margin: 0; }
 
   .tl-count { font-size: var(--text-sm); color: var(--colour-text-muted); margin: 0 0 var(--space-5); }
 

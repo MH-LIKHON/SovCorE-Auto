@@ -5,8 +5,8 @@
 # Purpose:
 #   REST endpoints for record attachments (invoices, photos,
 #   documents) that are added to a record after it is created.
-#   Covers the full lifecycle: presigned upload, registration,
-#   list, and delete.
+#   Covers the full lifecycle: presigned upload, proxy upload,
+#   registration, list, download, and delete.
 #
 # Design:
 #   Three-step upload flow:
@@ -34,7 +34,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
@@ -67,14 +67,8 @@ _ALLOWED_ATTACHMENT_EXTS: dict[str, str] = {
     "jpeg": "image/jpeg",
     "png":  "image/png",
     "webp": "image/webp",
-    "pdf":  "application/pdf",
-    "doc":  "application/msword",
-    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "xls":  "application/vnd.ms-excel",
-    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "txt":  "text/plain",
-    "csv":  "text/csv",
     "heic": "image/heic",
+    "pdf":  "application/pdf",
 }
 
 
@@ -143,6 +137,61 @@ async def sign_attachment(
 
 
 # ==================================================
+# PROXY UPLOAD (browser → backend → R2)
+# ==================================================
+
+
+@router.post(
+    "/accounts/{account_id}/vehicles/{vehicle_id}/records/{record_id}/attachments/upload",
+    response_model=AttachmentOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload an attachment file via the backend to R2 (avoids browser CORS)",
+)
+async def upload_attachment(
+    account_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    record_id: uuid.UUID,
+    file: UploadFile = File(...),
+    kind: str = Form(...),
+    filename: str = Form(""),
+    _: User = Depends(require_editor),
+    db: AsyncSession = Depends(get_db),
+) -> AttachmentOut:
+    await _get_record_for_attachment(db, account_id, vehicle_id, record_id)
+    raw_name = filename.strip() or file.filename or "file"
+    ext = _ext_from_filename(raw_name)
+    if ext not in _ALLOWED_ATTACHMENT_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"File type '.{ext}' is not permitted for attachments.",
+        )
+    content_type = file.content_type or _ALLOWED_ATTACHMENT_EXTS.get(ext, "application/octet-stream")
+    settings = get_settings()
+    r2 = get_r2_client()
+    key = (
+        f"{account_id}/vehicles/{vehicle_id}/records/{record_id}"
+        f"/attachments/{uuid.uuid4()}.{ext}"
+    )
+    data = await file.read()
+    try:
+        r2.put_object(Bucket=settings.r2_bucket_name, Key=key, Body=data, ContentType=content_type)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"R2 storage upload failed: {exc}",
+        ) from exc
+    body = AttachmentCreateIn(
+        kind=kind,
+        r2_key=key,
+        filename=raw_name,
+        content_type=content_type,
+        size_bytes=len(data),
+    )
+    row = await AttachmentRepository(db).create(record_id, body)
+    return AttachmentOut.model_validate(row)
+
+
+# ==================================================
 # LIST + CREATE
 # ==================================================
 
@@ -181,6 +230,48 @@ async def create_attachment(
     await _get_record_for_attachment(db, account_id, vehicle_id, record_id)
     row = await AttachmentRepository(db).create(record_id, body)
     return AttachmentOut.model_validate(row)
+
+
+# ==================================================
+# DOWNLOAD (authenticated stream → caller creates blob URL)
+# ==================================================
+
+
+@router.get(
+    "/accounts/{account_id}/attachments/{attachment_id}/download",
+    summary="Stream a record attachment through the backend (auth-gated)",
+)
+async def download_attachment(
+    account_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    _: User = Depends(require_viewer),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    attachment = await AttachmentRepository(db).get_by_id(attachment_id, account_id)
+    if attachment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment not found.",
+        )
+    settings = get_settings()
+    r2 = get_r2_client()
+    try:
+        obj = r2.get_object(Bucket=settings.r2_bucket_name, Key=attachment.r2_key)
+        data: bytes = obj["Body"].read()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Storage fetch failed: {exc}",
+        ) from exc
+    safe_name = attachment.filename.replace('"', '\\"')
+    return Response(
+        content=data,
+        media_type=attachment.content_type,
+        headers={
+            "Content-Disposition": f'inline; filename="{safe_name}"',
+            "Cache-Control": "private, max-age=300",
+        },
+    )
 
 
 # ==================================================

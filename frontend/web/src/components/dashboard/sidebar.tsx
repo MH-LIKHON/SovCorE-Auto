@@ -47,11 +47,6 @@ interface LinkSpec {
 const LINKS: ReadonlyArray<LinkSpec> = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/dashboard/vehicles", label: "Vehicles" },
-  { href: "/dashboard/records", label: "Records" },
-  { href: "/dashboard/documents", label: "Documents" },
-  { href: "/dashboard/expenses", label: "Expenses" },
-  { href: "/dashboard/reminders", label: "Reminders" },
-  { href: "/dashboard/tasks", label: "Tasks" },
   { href: "/dashboard/reports", label: "Reports" },
   { href: "/dashboard/search", label: "Search" },
   { href: "/dashboard/settings/account", label: "Settings" },
@@ -130,7 +125,7 @@ export function Sidebar({ email, open = false, onClose }: SidebarProps) {
 // ==================================================
 
 const SIDE_STYLES = `
-  /* ---- Desktop: sticky left panel ---- */
+  /* ---- Desktop: fixed-height panel — never moves, content area scrolls ---- */
   .sov-side {
     width: 260px;
     flex-shrink: 0;
@@ -140,9 +135,8 @@ const SIDE_STYLES = `
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-    min-height: 100vh;
-    position: sticky;
-    top: 0;
+    height: 100vh;
+    overflow-y: auto;
   }
   .sov-side__brand { text-decoration: none; }
 
@@ -151,12 +145,13 @@ const SIDE_STYLES = `
     display: block;
     padding: 10px 14px;
     border-radius: var(--radius-md);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
     font-size: var(--text-sm);
     color: var(--colour-text-muted);
     text-decoration: none;
     transition: background 0.2s, color 0.2s;
   }
-  .sov-side__link:hover { background: rgba(108, 99, 255, 0.06); color: var(--colour-text); }
+  .sov-side__link:hover { background: rgba(0, 212, 255, 0.06); color: #00d4ff; }
   .sov-side__link--active { background: rgba(108, 99, 255, 0.12); color: var(--colour-text); }
 
   .sov-side__foot {
@@ -168,16 +163,22 @@ const SIDE_STYLES = `
   }
   .sov-side__email { font-size: var(--text-xs); color: var(--colour-text-muted); margin: 0; word-break: break-all; }
   .sov-side__signout {
-    background: none;
-    border: none;
-    color: var(--colour-text-muted);
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.22);
+    border-radius: var(--radius-sm);
+    color: var(--colour-error);
     text-align: left;
-    padding: 6px 0;
+    width: 100%;
+    padding: 8px 12px;
     cursor: none;
     font-size: var(--text-sm);
-    transition: color 0.2s;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
   }
-  .sov-side__signout:hover { color: var(--colour-error); }
+  .sov-side__signout:hover {
+    background: rgba(239,68,68,0.14);
+    border-color: rgba(239,68,68,0.45);
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.1);
+  }
 
   /* Mobile close button — hidden on desktop, shown inside the drawer on tablet/mobile */
   .sov-side__close {

@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, datetime
 
 from pydantic import BaseModel
@@ -52,9 +53,9 @@ class WarrantyPatchIn(BaseModel):
 
 
 class WarrantyOut(BaseModel):
-    id: str
-    account_id: str
-    vehicle_id: str
+    id: uuid.UUID
+    account_id: uuid.UUID
+    vehicle_id: uuid.UUID
     component: str
     supplier: str | None
     expiry_date: date | None

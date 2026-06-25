@@ -11,7 +11,8 @@
 #   - tasks repositories (model imports)
 # ============================================================
 
+from app.tasks.models.custom_alert import CustomAlert
 from app.tasks.models.reminder import Reminder, ReminderType
 from app.tasks.models.task import Task, TaskStatus
 
-__all__ = ["Task", "TaskStatus", "Reminder", "ReminderType"]
+__all__ = ["Task", "TaskStatus", "Reminder", "ReminderType", "CustomAlert"]

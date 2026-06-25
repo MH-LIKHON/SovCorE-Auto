@@ -91,7 +91,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       />
 
       <main className="dash-main" id="dash-drawer">
-        {children}
+        <div className="dash-content">
+          {children}
+        </div>
       </main>
 
       <style>{SHELL_STYLES}</style>
@@ -104,19 +106,33 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 // ==================================================
 
 const SHELL_STYLES = `
-  /* ---- Desktop: horizontal flex with sidebar on the left ---- */
+  /* Hide the root navbar and footer on all dashboard pages.
+     :has() is supported in Chrome 105+, Safari 15.4+, Firefox 121+. */
+  body:has(.dash-shell) .sov-nav,
+  body:has(.dash-shell) .sov-foot { display: none !important; }
+
+  /* ---- Desktop: sidebar fixed, only the content area scrolls ---- */
   .dash-shell {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     background: var(--colour-bg);
   }
   .dash-main {
     flex: 1;
+    height: 100vh;
+    overflow-y: auto;
     padding: var(--space-10);
     min-width: 0;
   }
+  /* Centred content column — caps width so large screens don't leave blank rails */
+  .dash-content {
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+  }
 
-  /* Mobile top bar — hidden on desktop, sits above the content on tablet/mobile. */
+  /* Mobile top bar — hidden on desktop */
   .dash-topbar { display: none; }
 
   /* Hamburger button shape */
@@ -150,17 +166,16 @@ const SHELL_STYLES = `
   .dash-backdrop {
     position: fixed;
     inset: 0;
-    /* One step below the drawer (--z-modal) so the sidebar renders on top. */
     z-index: calc(var(--z-modal) - 1);
     background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
   }
 
-  /* ---- Tablet and below ---- */
+  /* ---- Level 2: Large tablet (≤1023px) — off-canvas drawer, full page scroll ---- */
   @media (max-width: 1023px) {
-    .dash-shell { flex-direction: column; }
-    .dash-main { padding: var(--space-6); }
+    .dash-shell { flex-direction: column; height: auto; overflow: visible; }
+    .dash-main { height: auto; overflow-y: visible; padding: var(--space-6); }
     .dash-topbar {
       display: flex;
       align-items: center;
@@ -176,8 +191,19 @@ const SHELL_STYLES = `
     }
   }
 
-  /* ---- Small phone ---- */
+  /* ---- Level 3: Tablet (≤767px) ---- */
+  @media (max-width: 767px) {
+    .dash-main { padding: var(--space-5); }
+  }
+
+  /* ---- Level 4: Large phone (≤479px) ---- */
   @media (max-width: 479px) {
     .dash-main { padding: var(--space-4); }
+    .dash-content { width: 100%; }
+  }
+
+  /* ---- Level 5: Small phone (≤359px) ---- */
+  @media (max-width: 359px) {
+    .dash-main { padding: var(--space-3); }
   }
 `;

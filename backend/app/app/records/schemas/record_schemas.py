@@ -29,7 +29,7 @@
 # ============================================================
 
 import uuid
-from datetime import date, datetime
+from datetime import date as _Date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -159,20 +159,22 @@ class FuelDetailOut(BaseModel):
 
 class RecordCreateIn(BaseModel):
     type: RecordType
-    date: date
+    date: _Date
     mileage: int | None = None
     cost: int | None = None  # pence
     currency: str = "GBP"
     supplier: str | None = None
     garage: str | None = None
     notes: str | None = None
-    reminder_date: date | None = None
-    warranty_expiry: date | None = None
+    reminder_date: _Date | None = None
+    warranty_expiry: _Date | None = None
     next_due_mileage: int | None = None
-    next_due_date: date | None = None
+    next_due_date: _Date | None = None
     # Type-specific detail blocks — service ignores if type does not match
     maintenance: MaintenanceDetailIn | None = None
     fuel: FuelDetailIn | None = None
+    # User-defined key/value pairs; only stored for custom type records.
+    custom_fields: list[dict[str, str]] | None = None
     # Attachments known at creation time (pre-uploaded to R2)
     attachments: list[AttachmentCreateIn] = []
     tags: list[str] = []
@@ -182,20 +184,21 @@ class RecordCreateIn(BaseModel):
 
 
 class RecordPatchIn(BaseModel):
-    date: date | None = None
+    date: _Date | None = None
     mileage: int | None = None
     cost: int | None = None
     currency: str | None = None
     supplier: str | None = None
     garage: str | None = None
     notes: str | None = None
-    reminder_date: date | None = None
-    warranty_expiry: date | None = None
+    reminder_date: _Date | None = None
+    warranty_expiry: _Date | None = None
     next_due_mileage: int | None = None
-    next_due_date: date | None = None
+    next_due_date: _Date | None = None
     # Allow updating the type-specific detail in the same PATCH call
     maintenance: MaintenanceDetailIn | None = None
     fuel: FuelDetailIn | None = None
+    custom_fields: list[dict[str, str]] | None = None
 
 
 # ------------------------------ List output (lightweight) -------------------
@@ -207,7 +210,7 @@ class RecordListOut(BaseModel):
     id: uuid.UUID
     vehicle_id: uuid.UUID
     type: RecordType
-    date: date
+    date: _Date
     mileage: int | None
     cost: int | None
     currency: str
@@ -215,6 +218,9 @@ class RecordListOut(BaseModel):
     garage: str | None
     notes: str | None
     created_at: datetime
+    # Populated by the repository via a batch count query; defaults to 0
+    # so the field is safe even when the ORM object has no attribute set.
+    attachment_count: int = 0
 
 
 # ------------------------------ Full detail output --------------------------
@@ -229,17 +235,17 @@ class RecordOut(BaseModel):
     account_id: uuid.UUID
     vehicle_id: uuid.UUID
     type: RecordType
-    date: date
+    date: _Date
     mileage: int | None
     cost: int | None
     currency: str
     supplier: str | None
     garage: str | None
     notes: str | None
-    reminder_date: date | None
-    warranty_expiry: date | None
+    reminder_date: _Date | None
+    warranty_expiry: _Date | None
     next_due_mileage: int | None
-    next_due_date: date | None
+    next_due_date: _Date | None
     created_by: uuid.UUID | None
     updated_by: uuid.UUID | None
     created_at: datetime
@@ -247,6 +253,7 @@ class RecordOut(BaseModel):
     attachments: list[AttachmentOut]
     # ORM relationship is `tags` (list[RecordTag]); validator flattens to strings.
     tags: list[str]
+    custom_fields: list[dict[str, str]] | None
     # ORM relationships are `maintenance_detail` and `fuel_detail`; aliases map them.
     maintenance: MaintenanceDetailOut | None = Field(None, alias="maintenance_detail")
     fuel: FuelDetailOut | None = Field(None, alias="fuel_detail")

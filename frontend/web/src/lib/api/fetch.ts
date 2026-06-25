@@ -29,7 +29,12 @@
 //   - All pages under frontend/web/app/(dashboard)/dashboard/
 // ============================================================
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Replace localhost with 127.0.0.1 — on Windows, localhost resolves to ::1 (IPv6) first
+// but uvicorn only binds to 127.0.0.1 (IPv4), causing "Failed to fetch" in the browser.
+const API = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(
+  "//localhost:",
+  "//127.0.0.1:",
+);
 
 // ==================================================
 // HELPERS
@@ -110,6 +115,41 @@ function _buildHeaders(token: string | null, extra?: HeadersInit): HeadersInit {
 }
 
 // ------------------------------ apiFetch ------------------------------------
+
+// ------------------------------ apiUpload -----------------------------------
+// Like apiFetch but for multipart/form-data. Does NOT set Content-Type so the
+// browser supplies the boundary automatically. Used for file proxy uploads.
+
+export async function apiUpload(
+  path: string,
+  body: FormData,
+  opts: RequestInit = {}
+): Promise<Response> {
+  const token = getToken();
+  const authHeader = token ? { Authorization: `Bearer ${token}` } : {};
+  const res = await fetch(`${API}${path}`, {
+    ...opts,
+    method: "POST",
+    credentials: "include",
+    headers: { ...authHeader, ...(opts.headers ?? {}) },
+    body,
+  });
+
+  if (res.status !== 401) return res;
+
+  const refreshed = await _silentRefresh();
+  if (!refreshed) { _clearSession(); _redirectToLogin(); return res; }
+
+  const newToken = getToken();
+  const newAuthHeader = newToken ? { Authorization: `Bearer ${newToken}` } : {};
+  return fetch(`${API}${path}`, {
+    ...opts,
+    method: "POST",
+    credentials: "include",
+    headers: { ...newAuthHeader, ...(opts.headers ?? {}) },
+    body,
+  });
+}
 
 export async function apiFetch(
   path: string,

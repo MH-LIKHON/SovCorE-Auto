@@ -86,6 +86,7 @@ class RecordRepository:
             warranty_expiry=data.warranty_expiry,
             next_due_mileage=data.next_due_mileage,
             next_due_date=data.next_due_date,
+            custom_fields=data.custom_fields,
             created_by=created_by,
             updated_by=created_by,
         )
@@ -142,7 +143,28 @@ class RecordRepository:
             .limit(page_size)
         )
         result = await self._db.execute(stmt)
-        return list(result.scalars().all()), total
+        records = list(result.scalars().all())
+
+        # One extra query to count attachments per record; avoids loading full
+        # attachment rows into the session for the lightweight list view.
+        if records:
+            record_ids = [r.id for r in records]
+            cnt_stmt = (
+                select(
+                    RecordAttachment.record_id,
+                    func.count(RecordAttachment.id).label("cnt"),
+                )
+                .where(RecordAttachment.record_id.in_(record_ids))
+                .group_by(RecordAttachment.record_id)
+            )
+            cnt_result = await self._db.execute(cnt_stmt)
+            counts: dict[uuid.UUID, int] = {
+                row.record_id: row.cnt for row in cnt_result.all()
+            }
+            for r in records:
+                r.attachment_count = counts.get(r.id, 0)  # type: ignore[attr-defined]
+
+        return records, total
 
     # ------------------------------ Get by ID -------------------------------
 

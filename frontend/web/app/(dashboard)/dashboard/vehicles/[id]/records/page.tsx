@@ -32,9 +32,9 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
-import { TextArea, TextField } from "@/src/components/ui/input";
 import { RecordTypeBadge } from "@/src/components/records/record-type-badge";
-import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
+import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
 // TYPES
@@ -86,6 +86,40 @@ interface RecordPage {
   page: number;
   page_size: number;
 }
+
+// Lightweight shapes for the three dedicated module tables
+interface PcnListItem {
+  id: string;
+  date: string;
+  amount: number;
+  status: string;
+  reference: string | null;
+  authority: string | null;
+}
+
+interface DamageListItem {
+  id: string;
+  date: string;
+  kind: string;
+  repair_cost: number | null;
+  description: string | null;
+}
+
+interface WarrantyListItem {
+  id: string;
+  component: string;
+  supplier: string | null;
+  expiry_date: string | null;
+  labour_cost: number | null;
+  parts_cost: number | null;
+  created_at: string;
+}
+
+type AnyEvent =
+  | { _kind: "record";   _date: string; data: RecordListItem }
+  | { _kind: "pcn";      _date: string; data: PcnListItem }
+  | { _kind: "damage";   _date: string; data: DamageListItem }
+  | { _kind: "warranty"; _date: string; data: WarrantyListItem };
 
 type RecordTypeValue =
   | "maintenance" | "repair" | "fuel" | "mot" | "tax" | "insurance"
@@ -212,11 +246,28 @@ export default function VehicleRecordsPage() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Attachment upload
+  // Attachment upload (existing record detail panel)
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [attachUploading, setAttachUploading] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [deletingAttachId, setDeletingAttachId] = useState<string | null>(null);
+  const [attachKind, setAttachKind] = useState("");
+  const [showAttachForm, setShowAttachForm] = useState(false);
+
+  // Attachment on new record form
+  const newAttachInputRef = useRef<HTMLInputElement | null>(null);
+  const [newAttachFile, setNewAttachFile] = useState<File | null>(null);
+  const [newAttachLabel, setNewAttachLabel] = useState("");
+
+  // Attachment viewer
+  const [viewLoadingAttach, setViewLoadingAttach] = useState<string | null>(null);
+  const [viewingAttach, setViewingAttach] = useState<{ url: string; filename: string; contentType: string } | null>(null);
+
+  // Dedicated module data (pcns, damage, warranty)
+  const [pcns, setPcns] = useState<PcnListItem[]>([]);
+  const [damages, setDamages] = useState<DamageListItem[]>([]);
+  const [warranties, setWarranties] = useState<WarrantyListItem[]>([]);
+  const [moduleLoading, setModuleLoading] = useState(true);
 
   // ==================================================
   // DATA LOADING
@@ -224,6 +275,13 @@ export default function VehicleRecordsPage() {
 
   async function loadRecords(filterType = typeFilter) {
     if (!accountId || !id) return;
+    // pcn / damage / warranty come from their own tables — the records API has nothing for them.
+    if (["pcn", "damage", "warranty"].includes(filterType)) {
+      setRecords([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const typeParam = filterType !== "all" ? `&type=${filterType}` : "";
     const res = await apiFetch(
@@ -237,7 +295,24 @@ export default function VehicleRecordsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadRecords(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadRecords().catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load PCN, damage, and warranty data once on mount.
+  useEffect(() => {
+    if (!accountId || !id) return;
+    (async () => {
+      setModuleLoading(true);
+      const [pcnRes, dmgRes, warRes] = await Promise.all([
+        apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/pcns?page=1&page_size=100`),
+        apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/damage?page=1&page_size=100`),
+        apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/warranties?page=1&page_size=50`),
+      ]);
+      if (pcnRes.ok) setPcns((await pcnRes.json()).items ?? []);
+      if (dmgRes.ok) setDamages((await dmgRes.json()).items ?? []);
+      if (warRes.ok) setWarranties((await warRes.json()).items ?? []);
+      setModuleLoading(false);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadDetail(recordId: string) {
     if (!accountId) return;
@@ -251,6 +326,8 @@ export default function VehicleRecordsPage() {
   }
 
   function handleRowClick(recordId: string) {
+    setShowAttachForm(false);
+    setAttachError(null);
     if (expandedId === recordId) {
       setExpandedId(null);
       setExpandedDetail(null);
@@ -271,6 +348,26 @@ export default function VehicleRecordsPage() {
     setExpandedDetail(null);
     loadRecords(t);
   }
+
+  // Merge all event sources and sort newest-first.
+  const visibleEvents: AnyEvent[] = (() => {
+    const evts: AnyEvent[] = [];
+    if (typeFilter === "all" || !["pcn", "damage", "warranty"].includes(typeFilter)) {
+      records.forEach((r) => evts.push({ _kind: "record", _date: r.date, data: r }));
+    }
+    if (typeFilter === "all" || typeFilter === "pcn") {
+      pcns.forEach((p) => evts.push({ _kind: "pcn", _date: p.date, data: p }));
+    }
+    if (typeFilter === "all" || typeFilter === "damage") {
+      damages.forEach((d) => evts.push({ _kind: "damage", _date: d.date, data: d }));
+    }
+    if (typeFilter === "all" || typeFilter === "warranty") {
+      warranties.forEach((w) =>
+        evts.push({ _kind: "warranty", _date: w.expiry_date ?? w.created_at, data: w })
+      );
+    }
+    return evts.sort((a, b) => (b._date > a._date ? 1 : b._date < a._date ? -1 : 0));
+  })();
 
   // ==================================================
   // ADD RECORD FORM
@@ -334,8 +431,21 @@ export default function VehicleRecordsPage() {
         setSaveError(err.detail ?? "Could not save the record.");
         return;
       }
+      const saved = await res.json();
+      if (newAttachFile && newAttachLabel.trim()) {
+        const fd = new FormData();
+        fd.append("file", newAttachFile);
+        fd.append("kind", newAttachLabel.trim());
+        fd.append("filename", newAttachFile.name);
+        await apiUpload(
+          `/api/v1/accounts/${accountId}/vehicles/${id}/records/${saved.id}/attachments/upload`,
+          fd
+        );
+      }
       setShowForm(false);
       setForm(EMPTY_FORM);
+      setNewAttachFile(null);
+      setNewAttachLabel("");
       await loadRecords();
     } catch {
       setSaveError("An unexpected error occurred.");
@@ -366,41 +476,32 @@ export default function VehicleRecordsPage() {
   // ATTACHMENT UPLOAD / DELETE
   // ==================================================
 
-  function kindFromFile(file: File): string {
-    if (file.type.startsWith("image/")) return "photo";
-    if (file.type === "application/pdf") return "invoice";
-    return "document";
-  }
-
   async function handleAttachUpload(file: File) {
     if (!expandedDetail || !accountId) return;
     setAttachUploading(true);
     setAttachError(null);
-    const kind = kindFromFile(file);
+    setShowAttachForm(false);
     try {
-      const signRes = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${id}/records/${expandedDetail.id}/attachments/sign`,
-        {
-          method: "POST",
-          body: JSON.stringify({ kind, filename: file.name, content_type: file.type, size_bytes: file.size }),
-        }
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", attachKind.trim());
+      fd.append("filename", file.name);
+      const res = await apiUpload(
+        `/api/v1/accounts/${accountId}/vehicles/${id}/records/${expandedDetail.id}/attachments/upload`,
+        fd
       );
-      if (!signRes.ok) { setAttachError("Could not generate upload URL."); return; }
-      const { upload_url, key } = await signRes.json();
-      const putRes = await fetch(upload_url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!putRes.ok) { setAttachError("Upload to storage failed."); return; }
-      const createRes = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${id}/records/${expandedDetail.id}/attachments`,
-        {
-          method: "POST",
-          body: JSON.stringify({ kind, r2_key: key, filename: file.name, content_type: file.type, size_bytes: file.size }),
-        }
-      );
-      if (!createRes.ok) { setAttachError("Could not register attachment."); return; }
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        let msg = `Upload failed (${res.status}).`;
+        try {
+          const body = JSON.parse(text);
+          if (typeof body?.detail === "string") msg = body.detail;
+          else if (Array.isArray(body?.detail) && body.detail[0]?.msg) msg = body.detail[0].msg;
+        } catch { /* non-JSON error body */ }
+        console.error("[attach-upload] failed", res.status, text);
+        setAttachError(msg);
+        return;
+      }
       await loadDetail(expandedDetail.id);
     } catch {
       setAttachError("An unexpected error occurred.");
@@ -420,6 +521,27 @@ export default function VehicleRecordsPage() {
     if (res.ok && expandedDetail) {
       await loadDetail(expandedDetail.id);
     }
+  }
+
+  async function handleAttachView(attachmentId: string, filename: string) {
+    setViewLoadingAttach(attachmentId);
+    setAttachError(null);
+    try {
+      const res = await apiFetch(`/api/v1/accounts/${accountId}/attachments/${attachmentId}/download`);
+      if (!res.ok) { setAttachError("Could not load file. It may have been removed from storage."); return; }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      setViewingAttach({ url: objectUrl, filename, contentType: blob.type || "application/octet-stream" });
+    } catch {
+      setAttachError("Could not load file.");
+    } finally {
+      setViewLoadingAttach(null);
+    }
+  }
+
+  function handleAttachViewClose() {
+    if (viewingAttach) URL.revokeObjectURL(viewingAttach.url);
+    setViewingAttach(null);
   }
 
   // ==================================================
@@ -457,129 +579,73 @@ export default function VehicleRecordsPage() {
 
             {/* Type + Date row */}
             <div className="rec-form-row">
-              <div className="rec-label sov-field">
-                <label htmlFor="rec-type-sel" className="sov-field__label">Type</label>
-                <div className="sov-input-wrap">
-                  <select id="rec-type-sel" className="sov-field__control" value={form.type} onChange={(e) => handleFormChange("type", e.target.value as RecordTypeValue)} disabled={saving}>
-                    {RECORD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <TextField
-                className="rec-label"
-                label="Date"
-                type="date"
-                value={form.date}
-                onChange={(e) => handleFormChange("date", e.target.value)}
-                disabled={saving}
-              />
-              <TextField
-                className="rec-label"
-                label="Mileage"
-                type="number"
-                placeholder="e.g. 52000"
-                value={form.mileage}
-                onChange={(e) => handleFormChange("mileage", e.target.value)}
-                disabled={saving}
-              />
-              <TextField
-                className="rec-label"
-                label="Total cost (£)"
-                type="number"
-                step="0.01"
-                placeholder="e.g. 149.99"
-                value={form.cost}
-                onChange={(e) => handleFormChange("cost", e.target.value)}
-                disabled={saving}
-              />
+              <label className="rec-label">
+                <span className="rec-label__text">Type</span>
+                <select className="rec-select" value={form.type} onChange={(e) => handleFormChange("type", e.target.value as RecordTypeValue)} disabled={saving}>
+                  {RECORD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </label>
+              <label className="rec-label">
+                <span className="rec-label__text">Date</span>
+                <input className="rec-input" type="date" value={form.date} onChange={(e) => handleFormChange("date", e.target.value)} disabled={saving} />
+              </label>
+              <label className="rec-label">
+                <span className="rec-label__text">Mileage</span>
+                <input className="rec-input" type="number" placeholder="e.g. 52000" value={form.mileage} onChange={(e) => handleFormChange("mileage", e.target.value)} disabled={saving} />
+              </label>
+              <label className="rec-label">
+                <span className="rec-label__text">Total cost (£)</span>
+                <input className="rec-input" type="number" step="0.01" placeholder="e.g. 149.99" value={form.cost} onChange={(e) => handleFormChange("cost", e.target.value)} disabled={saving} />
+              </label>
             </div>
 
             {/* Location row */}
             <div className="rec-form-row">
-              <TextField
-                className="rec-label rec-label--wide"
-                label="Garage"
-                type="text"
-                placeholder="e.g. Kwik Fit"
-                value={form.garage}
-                onChange={(e) => handleFormChange("garage", e.target.value)}
-                disabled={saving}
-              />
-              <TextField
-                className="rec-label rec-label--wide"
-                label="Supplier"
-                type="text"
-                placeholder="e.g. Halfords"
-                value={form.supplier}
-                onChange={(e) => handleFormChange("supplier", e.target.value)}
-                disabled={saving}
-              />
+              <label className="rec-label rec-label--wide">
+                <span className="rec-label__text">Garage</span>
+                <input className="rec-input" type="text" placeholder="e.g. Kwik Fit" value={form.garage} onChange={(e) => handleFormChange("garage", e.target.value)} disabled={saving} />
+              </label>
+              <label className="rec-label rec-label--wide">
+                <span className="rec-label__text">Supplier</span>
+                <input className="rec-input" type="text" placeholder="e.g. Halfords" value={form.supplier} onChange={(e) => handleFormChange("supplier", e.target.value)} disabled={saving} />
+              </label>
             </div>
 
             {/* Notes */}
-            <TextArea
-              className="rec-label rec-label--full"
-              label="Notes"
-              rows={2}
-              placeholder="Any additional notes…"
-              value={form.notes}
-              onChange={(e) => handleFormChange("notes", e.target.value)}
-              disabled={saving}
-            />
+            <label className="rec-label rec-label--full">
+              <span className="rec-label__text">Notes</span>
+              <textarea className="rec-textarea" rows={2} placeholder="Any additional notes…" value={form.notes} onChange={(e) => handleFormChange("notes", e.target.value)} disabled={saving} />
+            </label>
 
             {/* ---- Maintenance / repair detail fields ---- */}
             {isMaintForm && (
               <div className="rec-detail-block">
                 <p className="rec-detail-heading">Maintenance detail</p>
                 <div className="rec-form-row">
-                  <div className="rec-label sov-field">
-                    <label htmlFor="rec-maint-cat" className="sov-field__label">Category</label>
-                    <div className="sov-input-wrap">
-                      <select id="rec-maint-cat" className="sov-field__control" value={form.maint_category} onChange={(e) => handleFormChange("maint_category", e.target.value)} disabled={saving}>
-                        {MAINTENANCE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <TextField
-                    className="rec-label rec-label--wide"
-                    label="Item description"
-                    type="text"
-                    placeholder="e.g. Front brake pads"
-                    value={form.maint_item}
-                    onChange={(e) => handleFormChange("maint_item", e.target.value)}
-                    disabled={saving}
-                  />
-                  <TextField
-                    className="rec-label"
-                    label="Part number"
-                    type="text"
-                    placeholder="Optional"
-                    value={form.maint_part_number}
-                    onChange={(e) => handleFormChange("maint_part_number", e.target.value)}
-                    disabled={saving}
-                  />
+                  <label className="rec-label">
+                    <span className="rec-label__text">Category</span>
+                    <select className="rec-select" value={form.maint_category} onChange={(e) => handleFormChange("maint_category", e.target.value)} disabled={saving}>
+                      {MAINTENANCE_CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="rec-label rec-label--wide">
+                    <span className="rec-label__text">Item description</span>
+                    <input className="rec-input" type="text" placeholder="e.g. Front brake pads" value={form.maint_item} onChange={(e) => handleFormChange("maint_item", e.target.value)} disabled={saving} />
+                  </label>
+                  <label className="rec-label">
+                    <span className="rec-label__text">Part number</span>
+                    <input className="rec-input" type="text" placeholder="Optional" value={form.maint_part_number} onChange={(e) => handleFormChange("maint_part_number", e.target.value)} disabled={saving} />
+                  </label>
                 </div>
                 <div className="rec-form-row">
-                  <TextField
-                    className="rec-label"
-                    label="Labour cost (£)"
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g. 80.00"
-                    value={form.maint_labour_cost}
-                    onChange={(e) => handleFormChange("maint_labour_cost", e.target.value)}
-                    disabled={saving}
-                  />
-                  <TextField
-                    className="rec-label"
-                    label="Parts cost (£)"
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g. 45.00"
-                    value={form.maint_parts_cost}
-                    onChange={(e) => handleFormChange("maint_parts_cost", e.target.value)}
-                    disabled={saving}
-                  />
+                  <label className="rec-label">
+                    <span className="rec-label__text">Labour cost (£)</span>
+                    <input className="rec-input" type="number" step="0.01" placeholder="e.g. 80.00" value={form.maint_labour_cost} onChange={(e) => handleFormChange("maint_labour_cost", e.target.value)} disabled={saving} />
+                  </label>
+                  <label className="rec-label">
+                    <span className="rec-label__text">Parts cost (£)</span>
+                    <input className="rec-input" type="number" step="0.01" placeholder="e.g. 45.00" value={form.maint_parts_cost} onChange={(e) => handleFormChange("maint_parts_cost", e.target.value)} disabled={saving} />
+                  </label>
                 </div>
               </div>
             )}
@@ -589,35 +655,18 @@ export default function VehicleRecordsPage() {
               <div className="rec-detail-block">
                 <p className="rec-detail-heading">Fuel detail</p>
                 <div className="rec-form-row">
-                  <TextField
-                    className="rec-label"
-                    label="Litres"
-                    type="number"
-                    step="0.001"
-                    placeholder="e.g. 45.250"
-                    value={form.fuel_litres}
-                    onChange={(e) => handleFormChange("fuel_litres", e.target.value)}
-                    disabled={saving}
-                  />
-                  <TextField
-                    className="rec-label"
-                    label="Price per litre (p)"
-                    type="number"
-                    step="0.1"
-                    placeholder="e.g. 147.9"
-                    value={form.fuel_price_per_litre}
-                    onChange={(e) => handleFormChange("fuel_price_per_litre", e.target.value)}
-                    disabled={saving}
-                  />
-                  <TextField
-                    className="rec-label rec-label--wide"
-                    label="Station"
-                    type="text"
-                    placeholder="e.g. Shell Motorway Services"
-                    value={form.fuel_station}
-                    onChange={(e) => handleFormChange("fuel_station", e.target.value)}
-                    disabled={saving}
-                  />
+                  <label className="rec-label">
+                    <span className="rec-label__text">Litres</span>
+                    <input className="rec-input" type="number" step="0.001" placeholder="e.g. 45.250" value={form.fuel_litres} onChange={(e) => handleFormChange("fuel_litres", e.target.value)} disabled={saving} />
+                  </label>
+                  <label className="rec-label">
+                    <span className="rec-label__text">Price per litre (p)</span>
+                    <input className="rec-input" type="number" step="0.1" placeholder="e.g. 147.9" value={form.fuel_price_per_litre} onChange={(e) => handleFormChange("fuel_price_per_litre", e.target.value)} disabled={saving} />
+                  </label>
+                  <label className="rec-label rec-label--wide">
+                    <span className="rec-label__text">Station</span>
+                    <input className="rec-input" type="text" placeholder="e.g. Shell Motorway Services" value={form.fuel_station} onChange={(e) => handleFormChange("fuel_station", e.target.value)} disabled={saving} />
+                  </label>
                   <label className="rec-label rec-label--check">
                     <span className="rec-label__text">Full tank</span>
                     <input type="checkbox" checked={form.fuel_full_tank} onChange={(e) => handleFormChange("fuel_full_tank", e.target.checked)} disabled={saving} />
@@ -626,13 +675,58 @@ export default function VehicleRecordsPage() {
               </div>
             )}
 
+            {/* Optional file attachment */}
+            <div className="rec-form-attach-row">
+              <span className="rec-label__text">Attach a file</span>
+              <div className="rec-form-attach-controls">
+                <input
+                  type="text"
+                  className="rec-attach-kind-input"
+                  placeholder="Label (e.g. Receipt)"
+                  value={newAttachLabel}
+                  onChange={(e) => setNewAttachLabel(e.target.value)}
+                  disabled={saving}
+                  maxLength={32}
+                />
+                <button
+                  type="button"
+                  className="rec-btn rec-btn--ghost rec-btn--sm"
+                  onClick={() => newAttachInputRef.current?.click()}
+                  disabled={saving}
+                >
+                  {newAttachFile ? newAttachFile.name : "Choose file"}
+                </button>
+                {newAttachFile && (
+                  <button
+                    type="button"
+                    className="rec-attach-cancel"
+                    onClick={() => { setNewAttachFile(null); setNewAttachLabel(""); }}
+                    disabled={saving}
+                  >
+                    Remove
+                  </button>
+                )}
+                <input
+                  ref={newAttachInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,.pdf"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setNewAttachFile(f);
+                    e.target.value = "";
+                  }}
+                />
+              </div>
+            </div>
+
             {/* Actions */}
             {saveError && <p className="rec-error">{saveError}</p>}
             <div className="rec-form-actions">
               <button className="rec-btn rec-btn--primary" onClick={handleAddRecord} disabled={saving}>
                 {saving ? "Saving…" : "Save record"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
+              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setNewAttachFile(null); setNewAttachLabel(""); }} disabled={saving}>
                 Cancel
               </button>
             </div>
@@ -660,163 +754,264 @@ export default function VehicleRecordsPage() {
       {/* ---- Records list ---- */}
       <Card>
         <div className="rec-list-head">
-          <span className="rec-count">{total} record{total !== 1 ? "s" : ""}</span>
+          <span className="rec-count">{visibleEvents.length} event{visibleEvents.length !== 1 ? "s" : ""}</span>
         </div>
 
-        {loading ? (
+        {(loading || moduleLoading) ? (
           <div className="rec-skeleton" />
-        ) : records.length === 0 ? (
+        ) : visibleEvents.length === 0 ? (
           <div className="rec-empty">
             <p>No records yet.</p>
             <button className="rec-btn rec-btn--primary" onClick={() => setShowForm(true)}>Add your first record</button>
           </div>
         ) : (
           <div className="rec-rows">
-            {records.map((rec) => (
-              <div key={rec.id}>
-                {/* ---- Summary row ---- */}
-                <button
-                  className="rec-row"
-                  onClick={() => handleRowClick(rec.id)}
-                  aria-expanded={expandedId === rec.id}
-                >
-                  <div className="rec-row__left">
-                    <RecordTypeBadge type={rec.type} />
-                    <span className="rec-row__date">{formatDate(rec.date)}</span>
-                    <span className="rec-row__location">{locationText(rec.supplier, rec.garage)}</span>
+            {visibleEvents.map((evt) => {
+              if (evt._kind === "pcn") {
+                return (
+                  <div key={`pcn-${evt.data.id}`} className="rec-row rec-row--module">
+                    <div className="rec-row__left">
+                      <RecordTypeBadge type="pcn" />
+                      <span className="rec-row__date">{formatDate(evt.data.date)}</span>
+                      {evt.data.authority && <span className="rec-row__location">{evt.data.authority}</span>}
+                      {evt.data.reference && <span className="rec-row__location">{evt.data.reference}</span>}
+                    </div>
+                    <div className="rec-row__right">
+                      <span className="rec-row__cost">{formatGBP(evt.data.amount)}</span>
+                      <span className="rec-row__module-tag">{evt.data.status}</span>
+                      <Link href={`/dashboard/vehicles/${id}/pcns`} className="rec-row__module-link">View ↗</Link>
+                    </div>
                   </div>
-                  <div className="rec-row__right">
-                    {rec.cost !== null && <span className="rec-row__cost">{formatGBP(rec.cost)}</span>}
-                    <span className="rec-row__chevron" aria-hidden="true">{expandedId === rec.id ? "▲" : "▼"}</span>
+                );
+              }
+              if (evt._kind === "damage") {
+                return (
+                  <div key={`damage-${evt.data.id}`} className="rec-row rec-row--module">
+                    <div className="rec-row__left">
+                      <RecordTypeBadge type="damage" />
+                      <span className="rec-row__date">{formatDate(evt.data.date)}</span>
+                      <span className="rec-row__location">{evt.data.kind.replace("_", " ")}</span>
+                      {evt.data.description && <span className="rec-row__location">{evt.data.description}</span>}
+                    </div>
+                    <div className="rec-row__right">
+                      {evt.data.repair_cost !== null && <span className="rec-row__cost">{formatGBP(evt.data.repair_cost)}</span>}
+                      <Link href={`/dashboard/vehicles/${id}/damage`} className="rec-row__module-link">View ↗</Link>
+                    </div>
                   </div>
-                </button>
+                );
+              }
+              if (evt._kind === "warranty") {
+                return (
+                  <div key={`warranty-${evt.data.id}`} className="rec-row rec-row--module">
+                    <div className="rec-row__left">
+                      <RecordTypeBadge type="warranty" />
+                      <span className="rec-row__date">{evt.data.expiry_date ? `Expires ${formatDate(evt.data.expiry_date)}` : formatDate(evt.data.created_at)}</span>
+                      <span className="rec-row__location">{evt.data.component}</span>
+                      {evt.data.supplier && <span className="rec-row__location">{evt.data.supplier}</span>}
+                    </div>
+                    <div className="rec-row__right">
+                      {(evt.data.labour_cost !== null || evt.data.parts_cost !== null) && (
+                        <span className="rec-row__cost">{formatGBP((evt.data.labour_cost ?? 0) + (evt.data.parts_cost ?? 0))}</span>
+                      )}
+                      <Link href={`/dashboard/vehicles/${id}/warranty`} className="rec-row__module-link">View ↗</Link>
+                    </div>
+                  </div>
+                );
+              }
+              // evt._kind === "record"
+              const rec = evt.data;
+              return (
+                <div key={rec.id}>
+                  {/* ---- Summary row ---- */}
+                  <button
+                    className="rec-row"
+                    onClick={() => handleRowClick(rec.id)}
+                    aria-expanded={expandedId === rec.id}
+                  >
+                    <div className="rec-row__left">
+                      <RecordTypeBadge type={rec.type} />
+                      <span className="rec-row__date">{formatDate(rec.date)}</span>
+                      <span className="rec-row__location">{locationText(rec.supplier, rec.garage)}</span>
+                    </div>
+                    <div className="rec-row__right">
+                      {rec.cost !== null && <span className="rec-row__cost">{formatGBP(rec.cost)}</span>}
+                      <span className="rec-row__chevron" aria-hidden="true">{expandedId === rec.id ? "▲" : "▼"}</span>
+                    </div>
+                  </button>
 
-                {/* ---- Expanded detail ---- */}
-                {expandedId === rec.id && (
-                  <div className="rec-detail">
-                    {detailLoading || !expandedDetail ? (
-                      <div className="rec-detail-skeleton" />
-                    ) : (
-                      <>
-                        {/* Core fields */}
-                        <dl className="rec-dl">
-                          <div><dt>Date</dt><dd>{formatDate(expandedDetail.date)}</dd></div>
-                          {expandedDetail.mileage !== null && <div><dt>Mileage</dt><dd>{expandedDetail.mileage.toLocaleString("en-GB")} mi</dd></div>}
-                          {expandedDetail.cost !== null && <div><dt>Total cost</dt><dd>{formatGBP(expandedDetail.cost)}</dd></div>}
-                          {expandedDetail.garage && <div><dt>Garage</dt><dd>{expandedDetail.garage}</dd></div>}
-                          {expandedDetail.supplier && <div><dt>Supplier</dt><dd>{expandedDetail.supplier}</dd></div>}
-                          {expandedDetail.notes && <div><dt>Notes</dt><dd>{expandedDetail.notes}</dd></div>}
-                          {expandedDetail.next_due_date && <div><dt>Next due</dt><dd>{formatDate(expandedDetail.next_due_date)}</dd></div>}
-                          {expandedDetail.next_due_mileage !== null && <div><dt>Next due mileage</dt><dd>{expandedDetail.next_due_mileage.toLocaleString("en-GB")} mi</dd></div>}
-                          {expandedDetail.warranty_expiry && <div><dt>Warranty expiry</dt><dd>{formatDate(expandedDetail.warranty_expiry)}</dd></div>}
-                        </dl>
+                  {/* ---- Expanded detail ---- */}
+                  {expandedId === rec.id && (
+                    <div className="rec-detail">
+                      {detailLoading || !expandedDetail ? (
+                        <div className="rec-detail-skeleton" />
+                      ) : (
+                        <>
+                          {/* Core fields */}
+                          <dl className="rec-dl">
+                            <div><dt>Date</dt><dd>{formatDate(expandedDetail.date)}</dd></div>
+                            {expandedDetail.mileage !== null && <div><dt>Mileage</dt><dd>{expandedDetail.mileage.toLocaleString("en-GB")} mi</dd></div>}
+                            {expandedDetail.cost !== null && <div><dt>Total cost</dt><dd>{formatGBP(expandedDetail.cost)}</dd></div>}
+                            {expandedDetail.garage && <div><dt>Garage</dt><dd>{expandedDetail.garage}</dd></div>}
+                            {expandedDetail.supplier && <div><dt>Supplier</dt><dd>{expandedDetail.supplier}</dd></div>}
+                            {expandedDetail.notes && <div><dt>Notes</dt><dd>{expandedDetail.notes}</dd></div>}
+                            {expandedDetail.next_due_date && <div><dt>Next due</dt><dd>{formatDate(expandedDetail.next_due_date)}</dd></div>}
+                            {expandedDetail.next_due_mileage !== null && <div><dt>Next due mileage</dt><dd>{expandedDetail.next_due_mileage.toLocaleString("en-GB")} mi</dd></div>}
+                            {expandedDetail.warranty_expiry && <div><dt>Warranty expiry</dt><dd>{formatDate(expandedDetail.warranty_expiry)}</dd></div>}
+                          </dl>
 
-                        {/* Maintenance detail */}
-                        {expandedDetail.maintenance && (
-                          <div className="rec-detail-sub">
-                            <p className="rec-detail-heading">Maintenance detail</p>
-                            <dl className="rec-dl">
-                              <div><dt>Category</dt><dd>{expandedDetail.maintenance.category}</dd></div>
-                              {expandedDetail.maintenance.item && <div><dt>Item</dt><dd>{expandedDetail.maintenance.item}</dd></div>}
-                              {expandedDetail.maintenance.part_number && <div><dt>Part number</dt><dd>{expandedDetail.maintenance.part_number}</dd></div>}
-                              {expandedDetail.maintenance.labour_cost !== null && <div><dt>Labour</dt><dd>{formatGBP(expandedDetail.maintenance.labour_cost)}</dd></div>}
-                              {expandedDetail.maintenance.parts_cost !== null && <div><dt>Parts</dt><dd>{formatGBP(expandedDetail.maintenance.parts_cost)}</dd></div>}
-                            </dl>
-                          </div>
-                        )}
-
-                        {/* Fuel detail */}
-                        {expandedDetail.fuel && (
-                          <div className="rec-detail-sub">
-                            <p className="rec-detail-heading">Fuel detail</p>
-                            <dl className="rec-dl">
-                              <div><dt>Litres</dt><dd>{Number(expandedDetail.fuel.litres).toFixed(3)} L</dd></div>
-                              <div><dt>Price per litre</dt><dd>{expandedDetail.fuel.price_per_litre}p</dd></div>
-                              {expandedDetail.fuel.station && <div><dt>Station</dt><dd>{expandedDetail.fuel.station}</dd></div>}
-                              <div><dt>Full tank</dt><dd>{expandedDetail.fuel.full_tank ? "Yes" : "No"}</dd></div>
-                            </dl>
-                          </div>
-                        )}
-
-                        {/* Tags */}
-                        {expandedDetail.tags.length > 0 && (
-                          <div className="rec-detail-sub">
-                            <p className="rec-detail-heading">Tags</p>
-                            <div className="rec-tags">
-                              {expandedDetail.tags.map((tag) => (
-                                <span key={tag} className="rec-tag">{tag}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* ~~~~~~~~~ Attachments ~~~~~~~~~ */}
-                        <div className="rec-detail-sub">
-                          <div className="rec-attach-head">
-                            <p className="rec-detail-heading">Attachments</p>
-                            <button
-                              className="rec-attach-add"
-                              onClick={() => { setAttachError(null); attachInputRef.current?.click(); }}
-                              disabled={attachUploading}
-                            >
-                              {attachUploading ? "Uploading…" : "+ Add file"}
-                            </button>
-                          </div>
-                          <input
-                            ref={attachInputRef}
-                            type="file"
-                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
-                            style={{ display: "none" }}
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) handleAttachUpload(f);
-                              e.target.value = "";
-                            }}
-                          />
-                          {attachError && <p className="rec-error" style={{ marginTop: "6px" }}>{attachError}</p>}
-                          {expandedDetail.attachments.length === 0 && !attachUploading ? (
-                            <p className="rec-attach-empty">No attachments. Upload invoices, photos or documents.</p>
-                          ) : (
-                            <div className="rec-attach-list">
-                              {expandedDetail.attachments.map((a) => (
-                                <div key={a.id} className="rec-attach-row">
-                                  <span className="rec-attach-kind">{a.kind}</span>
-                                  <span className="rec-attach-name">{a.filename}</span>
-                                  <span className="rec-attach-size">{(a.size_bytes / 1024).toFixed(0)} KB</span>
-                                  <button
-                                    className="rec-btn rec-btn--danger-sm"
-                                    onClick={() => handleAttachDelete(a.id)}
-                                    disabled={deletingAttachId === a.id}
-                                  >
-                                    {deletingAttachId === a.id ? "…" : "Delete"}
-                                  </button>
-                                </div>
-                              ))}
+                          {/* Maintenance detail */}
+                          {expandedDetail.maintenance && (
+                            <div className="rec-detail-sub">
+                              <p className="rec-detail-heading">Maintenance detail</p>
+                              <dl className="rec-dl">
+                                <div><dt>Category</dt><dd>{expandedDetail.maintenance.category}</dd></div>
+                                {expandedDetail.maintenance.item && <div><dt>Item</dt><dd>{expandedDetail.maintenance.item}</dd></div>}
+                                {expandedDetail.maintenance.part_number && <div><dt>Part number</dt><dd>{expandedDetail.maintenance.part_number}</dd></div>}
+                                {expandedDetail.maintenance.labour_cost !== null && <div><dt>Labour</dt><dd>{formatGBP(expandedDetail.maintenance.labour_cost)}</dd></div>}
+                                {expandedDetail.maintenance.parts_cost !== null && <div><dt>Parts</dt><dd>{formatGBP(expandedDetail.maintenance.parts_cost)}</dd></div>}
+                              </dl>
                             </div>
                           )}
-                        </div>
 
-                        {/* Actions */}
-                        <div className="rec-detail-actions">
-                          <button
-                            className="rec-btn rec-btn--danger-sm"
-                            onClick={() => handleDelete(expandedDetail.id)}
-                            disabled={deletingId === expandedDetail.id}
-                          >
-                            {deletingId === expandedDetail.id ? "Deleting…" : "Delete record"}
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                          {/* Fuel detail */}
+                          {expandedDetail.fuel && (
+                            <div className="rec-detail-sub">
+                              <p className="rec-detail-heading">Fuel detail</p>
+                              <dl className="rec-dl">
+                                <div><dt>Litres</dt><dd>{Number(expandedDetail.fuel.litres).toFixed(3)} L</dd></div>
+                                <div><dt>Price per litre</dt><dd>{expandedDetail.fuel.price_per_litre}p</dd></div>
+                                {expandedDetail.fuel.station && <div><dt>Station</dt><dd>{expandedDetail.fuel.station}</dd></div>}
+                                <div><dt>Full tank</dt><dd>{expandedDetail.fuel.full_tank ? "Yes" : "No"}</dd></div>
+                              </dl>
+                            </div>
+                          )}
+
+                          {/* Tags */}
+                          {expandedDetail.tags.length > 0 && (
+                            <div className="rec-detail-sub">
+                              <p className="rec-detail-heading">Tags</p>
+                              <div className="rec-tags">
+                                {expandedDetail.tags.map((tag) => (
+                                  <span key={tag} className="rec-tag">{tag}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ~~~~~~~~~ Attachments ~~~~~~~~~ */}
+                          <div className="rec-detail-sub">
+                            <div className="rec-attach-head">
+                              <p className="rec-detail-heading">Attachments</p>
+                              {!showAttachForm && (
+                                <button
+                                  className="rec-attach-add"
+                                  onClick={() => { setAttachError(null); setShowAttachForm(true); }}
+                                  disabled={attachUploading}
+                                >
+                                  {attachUploading ? "Uploading…" : "+ Add file"}
+                                </button>
+                              )}
+                            </div>
+                            {showAttachForm && (
+                              <div className="rec-attach-form">
+                                <input
+                                  type="text"
+                                  className="rec-attach-kind-input"
+                                  value={attachKind}
+                                  onChange={(e) => setAttachKind(e.target.value.toUpperCase())}
+                                  placeholder="LABEL"
+                                  maxLength={32}
+                                />
+                                <button
+                                  className="rec-attach-add"
+                                  onClick={() => {
+                                    if (!attachKind.trim()) { setAttachError("Enter a label first."); return; }
+                                    setAttachError(null);
+                                    attachInputRef.current?.click();
+                                  }}
+                                >
+                                  Choose file
+                                </button>
+                                <button
+                                  className="rec-attach-cancel"
+                                  onClick={() => { setShowAttachForm(false); setAttachKind(""); }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                            <input
+                              ref={attachInputRef}
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/heic,.pdf"
+                              style={{ display: "none" }}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleAttachUpload(f);
+                                e.target.value = "";
+                              }}
+                            />
+                            {attachError && <p className="rec-error" style={{ marginTop: "6px" }}>{attachError}</p>}
+                            {expandedDetail.attachments.length === 0 && !attachUploading ? (
+                              <p className="rec-attach-empty">No attachments. Upload invoices, photos or documents.</p>
+                            ) : (
+                              <div className="rec-attach-list">
+                                {expandedDetail.attachments.map((a) => (
+                                  <div key={a.id} className="rec-attach-row">
+                                    <span className="rec-attach-kind">{a.kind}</span>
+                                    <span className="rec-attach-name">{a.filename}</span>
+                                    <span className="rec-attach-size">{(a.size_bytes / 1024).toFixed(0)} KB</span>
+                                    <button
+                                      className="sov-action-btn sov-action-btn--view"
+                                      onClick={() => handleAttachView(a.id, a.filename)}
+                                      disabled={viewLoadingAttach === a.id}
+                                    >
+                                      {viewLoadingAttach === a.id ? "…" : "View"}
+                                    </button>
+                                    <button
+                                      className="sov-action-btn sov-action-btn--delete"
+                                      onClick={() => handleAttachDelete(a.id)}
+                                      disabled={deletingAttachId === a.id}
+                                    >
+                                      {deletingAttachId === a.id ? "…" : "Delete"}
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="rec-detail-actions">
+                            <button
+                              className="rec-btn rec-btn--danger-sm"
+                              onClick={() => handleDelete(expandedDetail.id)}
+                              disabled={deletingId === expandedDetail.id}
+                            >
+                              {deletingId === expandedDetail.id ? "Deleting…" : "Delete record"}
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>
 
       <style>{REC_STYLES}</style>
+
+      {viewingAttach && (
+        <DocViewerModal
+          viewUrl={viewingAttach.url}
+          filename={viewingAttach.filename}
+          contentType={viewingAttach.contentType}
+          onClose={handleAttachViewClose}
+        />
+      )}
     </div>
   );
 }
@@ -830,8 +1025,6 @@ const REC_STYLES = `
 
   /* Header */
   .rec-head { display: flex; flex-direction: column; gap: var(--space-2); }
-  .rec-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; }
-  .rec-back:hover { color: var(--colour-text); }
   .rec-head__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
   .rec-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
   .rec-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; margin: 4px 0 0; }
@@ -845,8 +1038,24 @@ const REC_STYLES = `
   .rec-label--full { width: 100%; }
   .rec-label--check { min-width: auto; flex-direction: row; align-items: center; gap: var(--space-2); padding-bottom: 8px; }
   .rec-label__text { font-size: var(--text-sm); color: var(--colour-text-muted); }
+  .rec-input, .rec-select, .rec-textarea {
+    background: var(--colour-bg);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    font-size: var(--text-sm);
+    color: var(--colour-text);
+    outline: none;
+    transition: border-color 0.2s;
+    cursor: none;
+  }
+  .rec-input:focus, .rec-select:focus, .rec-textarea:focus { border-color: var(--colour-accent); }
+  .rec-textarea { resize: vertical; width: 100%; }
   .rec-detail-block { border: 0.5px solid var(--colour-border); border-radius: var(--radius-md); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
   .rec-detail-heading { font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--colour-text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 var(--space-2); }
+  .rec-form-attach-row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding-top: var(--space-3); border-top: 0.5px solid var(--colour-border); margin-top: var(--space-2); }
+  .rec-form-attach-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .rec-btn--sm { padding: 5px 12px; font-size: var(--text-xs); }
   .rec-form-actions { display: flex; gap: var(--space-3); margin-top: var(--space-2); }
   .rec-error { font-size: var(--text-sm); color: var(--colour-error); }
 
@@ -866,6 +1075,12 @@ const REC_STYLES = `
   }
   .rec-chip:hover { color: var(--colour-text); border-color: var(--colour-accent); }
   .rec-chip--active { background: rgba(108,99,255,0.12); color: var(--colour-text); border-color: var(--colour-accent); }
+
+  /* Module-sourced rows (PCN / damage / warranty) — no expand */
+  .rec-row--module { cursor: default; }
+  .rec-row__module-link { font-size: var(--text-xs); color: var(--colour-accent); text-decoration: none; white-space: nowrap; display: inline-block; transition: color 0.2s, transform 0.2s; }
+  .rec-row__module-link:hover { color: #00d4ff; transform: scale(1.08); }
+  .rec-row__module-tag { font-size: var(--text-xs); color: var(--colour-text-muted); text-transform: capitalize; }
 
   /* List */
   .rec-list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); }
@@ -918,6 +1133,12 @@ const REC_STYLES = `
 
   /* Attachments */
   .rec-attach-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+  .rec-attach-form { display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-3); flex-wrap: wrap; }
+  .rec-attach-kind-input { width: 110px; background: rgba(255,255,255,0.04); border: 1px solid var(--colour-border); border-radius: var(--radius-full, 999px); color: var(--colour-text-muted); font-size: var(--text-xs); padding: 1px 10px; text-transform: uppercase; cursor: text; outline: none; transition: border-color 0.15s; }
+  .rec-attach-kind-input::placeholder { color: var(--colour-text-muted); }
+  .rec-attach-kind-input:focus { border-color: var(--colour-accent); color: var(--colour-text); }
+  .rec-attach-cancel { font-size: var(--text-sm); color: var(--colour-text-muted); background: none; border: none; cursor: none; padding: 5px 8px; transition: color 0.15s; }
+  .rec-attach-cancel:hover { color: var(--colour-text); }
   .rec-attach-add {
     font-size: var(--text-xs);
     color: var(--colour-accent);
@@ -927,7 +1148,10 @@ const REC_STYLES = `
     cursor: none;
     text-decoration: underline;
     text-underline-offset: 2px;
+    display: inline-block;
+    transition: color 0.2s, transform 0.2s;
   }
+  .rec-attach-add:hover { color: #00d4ff; transform: scale(1.08); }
   .rec-attach-add:disabled { opacity: 0.5; }
   .rec-attach-empty { font-size: var(--text-sm); color: var(--colour-text-muted); margin: 0; }
   .rec-attach-list { display: flex; flex-direction: column; gap: 6px; }
@@ -959,8 +1183,8 @@ const REC_STYLES = `
   .rec-btn--primary:disabled { opacity: 0.55; }
   .rec-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
   .rec-btn--ghost:hover { color: var(--colour-text); }
-  .rec-btn--danger-sm { background: none; border: 1px solid var(--colour-error); color: var(--colour-error); padding: 5px 14px; font-size: var(--text-xs); border-radius: var(--radius-sm); cursor: none; transition: background 0.2s; }
-  .rec-btn--danger-sm:hover { background: rgba(239,68,68,0.1); }
+  .rec-btn--danger-sm { background: none; border: 1px solid var(--colour-error); color: var(--colour-error); padding: 5px 14px; font-size: var(--text-xs); border-radius: var(--radius-sm); cursor: none; transition: background 0.2s; white-space: nowrap; }
+  .rec-btn--danger-sm:hover { background: rgba(239,68,68,0.12); }
   .rec-btn--danger-sm:disabled { opacity: 0.55; }
 
   /* Empty state */

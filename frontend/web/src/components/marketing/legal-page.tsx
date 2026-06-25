@@ -112,7 +112,7 @@ const LEGAL_STYLES = `
 
   /* ---------- Head ---------- */
   .legal__head { margin-bottom: var(--space-6); }
-  .legal__title { font-size: var(--text-3xl); margin-bottom: var(--space-2); }
+  .legal__title { font-size: var(--text-3xl); margin-bottom: var(--space-2); letter-spacing: var(--tracking-tight); }
   .legal__updated { color: var(--colour-text-faint); font-size: var(--text-sm); }
 
   /* ---------- Intro ---------- */
@@ -121,7 +121,7 @@ const LEGAL_STYLES = `
 
   /* ---------- Section list ---------- */
   .legal__list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: var(--space-8); }
-  .legal__section-heading { font-size: var(--text-lg); color: var(--colour-text); margin-bottom: var(--space-3); }
+  .legal__section-heading { font-size: var(--text-lg); color: var(--colour-text); margin-bottom: var(--space-3); letter-spacing: normal; }
   .legal__section-body { color: var(--colour-text-muted); font-size: var(--text-base); line-height: var(--leading-normal); }
   .legal__section-body p { margin-bottom: var(--space-3); }
   .legal__section-body ul { list-style: disc; padding-left: 22px; margin: var(--space-3) 0; display: flex; flex-direction: column; gap: 8px; }

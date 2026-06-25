@@ -50,7 +50,7 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -76,6 +76,7 @@ class RecordType(str, Enum):
     warranty = "warranty"
     diagnostics = "diagnostics"
     damage = "damage"
+    roadside = "roadside"
     custom = "custom"
 
 
@@ -150,6 +151,8 @@ class Record(Base):
     warranty_expiry: Mapped[date | None] = mapped_column(Date, nullable=True)
     next_due_mileage: Mapped[int | None] = mapped_column(Integer, nullable=True)
     next_due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Stores user-defined key/value pairs for custom record type.
+    custom_fields: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
     # ------------------------------ Audit fields ----------------------------
     # SET NULL on delete so deleting a user does not cascade-delete records.

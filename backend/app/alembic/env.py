@@ -55,12 +55,15 @@ import app.audit.models    # noqa: F401, E402
 # Phase 4 — operational modules (PCN, damage, warranty).
 import app.operational.models  # noqa: F401, E402
 
-# Phase 5 — tasks and reminders.
+# Phase 5 — tasks, reminders and custom alerts.
 import app.tasks.models  # noqa: F401, E402
 
 # Phase 7 — backups and erasure.
 import app.backups.models  # noqa: F401, E402
 import app.erasure.models  # noqa: F401, E402
+
+# Phase 8 — entity attachments (damage, PCN, warranty files).
+import app.entity_attachments.models  # noqa: F401, E402
 
 # ==================================================
 # ALEMBIC CONFIG

@@ -147,6 +147,7 @@ class ReportRepository:
             .join(
                 MaintenanceDetail,
                 MaintenanceDetail.record_id == Record.id,
+                isouter=True,
             )
             .where(
                 Record.account_id == account_id,

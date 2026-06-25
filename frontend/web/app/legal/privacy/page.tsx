@@ -44,8 +44,8 @@ const SECTIONS: readonly LegalSection[] = [
     body: (
       <p>
         This policy applies to SovCorE Auto and the domains and APIs through which it is
-        delivered. It does not cover other products operated by VelVadY LTD trading as SovCorE
-        (including SovCorE QR and SovCorE HRM), each of which publishes its own privacy policy.
+        delivered. It does not cover other products operated by VelVadY LTD trading as SovCorE,
+        each of which publishes its own privacy policy.
       </p>
     ),
   },

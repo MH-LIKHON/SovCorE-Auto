@@ -48,28 +48,21 @@ class ExpenseService:
     # ==================================================
 
     async def get_analytics(
-        self, vehicle_id: uuid.UUID, account_id: uuid.UUID
+        self, vehicle_id: uuid.UUID, account_id: uuid.UUID, year: int | None = None
     ) -> ExpenseAnalyticsOut:
         rows = await self._repo.fetch_expenses(vehicle_id, account_id)
 
+        selected_year = year or date.today().year
         total_spend = 0
-        current_year = date.today().year
         annual_spend = 0
+        oldest_year = date.today().year
 
         # ~~~~~~~~~ Category totals ~~~~~~~~~
         cat_spend: dict[str, int] = defaultdict(int)
         cat_count: dict[str, int] = defaultdict(int)
 
-        # ~~~~~~~~~ Monthly breakdown (last 12 months) ~~~~~~~~~
-        today = date.today()
-        months: list[str] = []
-        for offset in range(11, -1, -1):
-            y = today.year
-            m = today.month - offset
-            while m <= 0:
-                m += 12
-                y -= 1
-            months.append(f"{y:04d}-{m:02d}")
+        # ~~~~~~~~~ Monthly breakdown (Jan-Dec for selected year) ~~~~~~~~~
+        months: list[str] = [f"{selected_year:04d}-{m:02d}" for m in range(1, 13)]
         monthly_bucket: dict[str, int] = {m: 0 for m in months}
 
         for row in rows:
@@ -77,9 +70,12 @@ class ExpenseService:
             record_type: str = row["type"].value if hasattr(row["type"], "value") else str(row["type"])
             row_date: date = row["date"]
 
+            if row_date.year < oldest_year:
+                oldest_year = row_date.year
+
             total_spend += cost
 
-            if row_date.year == current_year:
+            if row_date.year == selected_year:
                 annual_spend += cost
 
             cat_spend[record_type] += cost
@@ -109,4 +105,5 @@ class ExpenseService:
             annual_spend_pence=annual_spend,
             by_category=by_category,
             monthly=monthly,
+            oldest_year=oldest_year,
         )

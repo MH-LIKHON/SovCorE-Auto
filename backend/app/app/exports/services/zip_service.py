@@ -231,21 +231,23 @@ class ZipService:
 
     @staticmethod
     def _readme() -> str:
-        today = datetime.now(timezone.utc).strftime("%-d %B %Y at %H:%M UTC")
+        now = datetime.now(timezone.utc)
+        # %-d is Linux-only; use .day to avoid ValueError on Windows.
+        today = f"{now.day} {now.strftime('%B %Y')} at {now.strftime('%H:%M')} UTC"
         return (
-            f"SovCorE Auto — Account data export\n"
+            f"SovCorE Auto: Account data export\n"
             f"Exported {today}\n\n"
             "This archive contains a full export of your SovCorE Auto account data\n"
             "in CSV format. Each file can be opened in a spreadsheet application.\n\n"
             "Files included:\n"
-            "  vehicles.csv    — all vehicles and their basic information\n"
-            "  records.csv     — all records (maintenance, fuel, MOT, tax, etc.)\n"
-            "  documents.csv   — document metadata (V5C, insurance, etc.)\n"
-            "  tasks.csv       — vehicle tasks\n"
-            "  reminders.csv   — scheduled reminders\n"
-            "  pcns.csv        — penalty charge notices\n"
-            "  damage.csv      — damage history entries\n"
-            "  warranties.csv  — warranty records\n\n"
+            "  vehicles.csv    : all vehicles and their basic information\n"
+            "  records.csv     : all records (maintenance, fuel, MOT, tax, etc.)\n"
+            "  documents.csv   : document metadata (V5C, insurance, etc.)\n"
+            "  tasks.csv       : vehicle tasks\n"
+            "  reminders.csv   : scheduled reminders\n"
+            "  pcns.csv        : penalty charge notices\n"
+            "  damage.csv      : damage history entries\n"
+            "  warranties.csv  : warranty records\n\n"
             "Note: document binary files stored in object storage are not included\n"
             "in this export. They can be downloaded individually from the\n"
             "SovCorE Auto documents section for each vehicle.\n\n"

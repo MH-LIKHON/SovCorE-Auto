@@ -19,7 +19,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
@@ -47,7 +47,8 @@ router = APIRouter()
 async def get_fuel_analytics(
     account_id: uuid.UUID,
     vehicle_id: uuid.UUID,
+    year: int | None = Query(default=None),
     _: User = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> FuelAnalyticsOut:
-    return await FuelService(db).get_analytics(vehicle_id, account_id)
+    return await FuelService(db).get_analytics(vehicle_id, account_id, year=year)

@@ -66,6 +66,7 @@ export interface VehicleCard {
   image_key: string | null;
   renewals: RenewalRag;
   health_score: number;
+  custom_alert_status: RagStatus;
 }
 
 interface VehicleCardProps {
@@ -226,6 +227,21 @@ export function VehicleCard({ vehicle, accountId }: VehicleCardProps) {
                 </div>
               );
             })}
+            {/* 5th dot: worst-case status across all custom alerts */}
+            {vehicle.custom_alert_status !== "unknown" && (
+              <div
+                className="vc-rag__item"
+                title={`Alerts: ${ragLabel(vehicle.custom_alert_status)}`}
+                aria-label={`Alerts ${ragLabel(vehicle.custom_alert_status)}`}
+              >
+                <span
+                  className="vc-rag__dot"
+                  style={{ background: ragColour(vehicle.custom_alert_status) }}
+                  aria-hidden="true"
+                />
+                <span className="vc-rag__label">ALERTS</span>
+              </div>
+            )}
           </div>
         </div>
 

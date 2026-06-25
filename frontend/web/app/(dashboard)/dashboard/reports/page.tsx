@@ -25,7 +25,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
@@ -62,6 +62,7 @@ interface CostsReport {
   by_category: CategoryTotal[];
   monthly: MonthlyTotal[];
   by_vehicle: VehicleCostRow[];
+  oldest_year: number;
 }
 
 interface FuelReport {
@@ -71,6 +72,7 @@ interface FuelReport {
   annual_spend_pence: number;
   avg_mpg: number | null;
   monthly: MonthlyTotal[];
+  oldest_year: number;
 }
 
 interface MaintenanceCategoryRow {
@@ -86,6 +88,7 @@ interface MaintenanceReport {
   annual_spend_pence: number;
   by_category: MaintenanceCategoryRow[];
   monthly: MonthlyTotal[];
+  oldest_year: number;
 }
 
 // ==================================================
@@ -113,8 +116,10 @@ function maxOf(items: MonthlyTotal[]): number {
 }
 
 // ==================================================
-// EXPORT BUTTON
+// YEAR CONSTANTS
 // ==================================================
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 // ==================================================
 // ACCOUNT EXPORT BUTTON
@@ -126,17 +131,13 @@ function AccountExportButton({ accountId }: { accountId: string }) {
   async function handleExport() {
     setBusy(true);
     try {
-      const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/exports/account`,
-        { method: "POST" }
-      );
+      const res = await apiFetch(`/api/v1/accounts/${accountId}/exports/account`, { method: "POST" });
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        const today = new Date().toISOString().split("T")[0];
         a.href = url;
-        a.download = `sovcoreAuto-export-${today}.zip`;
+        a.download = `sovcoreAuto-export-${new Date().toISOString().split("T")[0]}.zip`;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -146,57 +147,136 @@ function AccountExportButton({ accountId }: { accountId: string }) {
   }
 
   return (
-    <button
-      className="rec-btn rec-btn--primary"
-      onClick={handleExport}
-      disabled={busy}
-    >
+    <button className="rec-btn rec-btn--primary" onClick={handleExport} disabled={busy}>
       {busy ? "Preparing export…" : "Download account data"}
     </button>
   );
 }
 
-interface ExportButtonProps {
-  accountId: string;
-  vehicleId: string;
-  type: string;
-  label: string;
+// ==================================================
+// EXPORT MODAL
+// ==================================================
+
+const REPORT_TYPES = [
+  { value: "vehicle",        label: "Vehicle report" },
+  { value: "service_history", label: "Service history" },
+  { value: "maintenance",    label: "Maintenance" },
+  { value: "expenses",       label: "Expenses" },
+];
+
+interface VehicleItem {
+  vehicle_id: string;
+  registration: string;
+  make: string;
+  model: string;
+  year: number | null;
 }
 
-function ExportButton({ accountId, vehicleId, type, label }: ExportButtonProps) {
-  const [busy, setBusy] = useState(false);
+interface ExportModalProps {
+  accountId: string;
+  vehicles: VehicleItem[];
+  onClose: () => void;
+}
 
-  async function handleExport() {
+function ExportModal({ accountId, vehicles, onClose }: ExportModalProps) {
+  const [selected, setSelected] = useState<string>("all");
+  const [reportType, setReportType]  = useState("vehicle");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleGenerate() {
     setBusy(true);
+    setError(null);
     try {
-      const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/exports/vehicle/${vehicleId}?type=${type}`,
-        { method: "POST" }
-      );
-      if (res.ok) {
-        // ~~~~~~~~~ Trigger a browser file download from the response bytes ~~~~~~~~~
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        const today = new Date().toISOString().split("T")[0];
-        a.href = url;
-        a.download = `sovcoreAuto-${type.replace("_", "-")}-${today}.pdf`;
-        a.click();
-        URL.revokeObjectURL(url);
+      let url: string;
+      let filename: string;
+      const today = new Date().toISOString().split("T")[0];
+      if (selected === "all") {
+        url      = `/api/v1/accounts/${accountId}/exports/fleet`;
+        filename = `sovcoreAuto-fleet-report-${today}.pdf`;
+      } else {
+        url      = `/api/v1/accounts/${accountId}/exports/vehicle/${selected}?type=${reportType}`;
+        filename = `sovcoreAuto-${reportType.replace("_", "-")}-${today}.pdf`;
       }
+      const res = await apiFetch(url, { method: "POST" });
+      if (!res.ok) { setError(`Export failed (${res.status}).`); return; }
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(objUrl);
+      onClose();
+    } catch {
+      setError("Network error — could not reach the server.");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <button
-      className="rec-btn rec-btn--ghost rpt-export-btn"
-      onClick={handleExport}
-      disabled={busy}
-    >
-      {busy ? "…" : label}
-    </button>
+    <div className="xpm-overlay" onClick={onClose}>
+      <div className="xpm-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="xpm-header">
+          <span className="xpm-title">Export PDF report</span>
+          <button className="xpm-close" onClick={onClose} aria-label="Close">✕</button>
+        </header>
+
+        <div className="xpm-body">
+          {/* Vehicle selector */}
+          <p className="xpm-label">Select vehicle</p>
+          <div className="xpm-vehicle-list">
+            <button
+              className={`xpm-vehicle-row${selected === "all" ? " xpm-vehicle-row--active" : ""}`}
+              onClick={() => setSelected("all")}
+            >
+              <span className="xpm-vehicle-reg xpm-vehicle-reg--fleet">All vehicles</span>
+              <span className="xpm-vehicle-desc">Fleet report: all vehicles merged</span>
+            </button>
+            {vehicles.map((v) => (
+              <button
+                key={v.vehicle_id}
+                className={`xpm-vehicle-row${selected === v.vehicle_id ? " xpm-vehicle-row--active" : ""}`}
+                onClick={() => setSelected(v.vehicle_id)}
+              >
+                <span className="xpm-vehicle-reg">{v.registration}</span>
+                <span className="xpm-vehicle-desc">
+                  {v.make} {v.model}{v.year ? ` · ${v.year}` : ""}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Report type — only for single vehicle */}
+          {selected !== "all" && (
+            <>
+              <p className="xpm-label" style={{ marginTop: "var(--space-4)" }}>Report type</p>
+              <div className="xpm-type-grid">
+                {REPORT_TYPES.map((rt) => (
+                  <button
+                    key={rt.value}
+                    className={`xpm-type-btn${reportType === rt.value ? " xpm-type-btn--active" : ""}`}
+                    onClick={() => setReportType(rt.value)}
+                  >
+                    {rt.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {error && <p className="xpm-error">{error}</p>}
+        </div>
+
+        <footer className="xpm-footer">
+          <button className="rec-btn rec-btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="rec-btn rec-btn--primary" onClick={handleGenerate} disabled={busy}>
+            {busy ? "Generating…" : "Generate PDF"}
+          </button>
+        </footer>
+      </div>
+    </div>
   );
 }
 
@@ -215,6 +295,19 @@ export default function ReportsPage() {
   const [fuelLoading, setFuelLoading] = useState(true);
   const [maintLoading, setMaintLoading] = useState(true);
 
+  const [exportOpen, setExportOpen] = useState(false);
+  const [year, setYear] = useState(CURRENT_YEAR);
+
+  // Build year options from the oldest record across all three reports.
+  const yearOptions = useMemo(() => {
+    const candidates: number[] = [];
+    if (costs) candidates.push(costs.oldest_year);
+    if (fuel) candidates.push(fuel.oldest_year);
+    if (maint) candidates.push(maint.oldest_year);
+    const oldest = candidates.length > 0 ? Math.min(...candidates) : CURRENT_YEAR;
+    return Array.from({ length: CURRENT_YEAR - oldest + 1 }, (_, i) => CURRENT_YEAR - i);
+  }, [costs, fuel, maint]);
+
   // ==================================================
   // DATA LOADING
   // ==================================================
@@ -225,25 +318,25 @@ export default function ReportsPage() {
     // ~~~~~~~~~ Three parallel fetches — each section renders independently ~~~~~~~~~
     (async () => {
       setCostsLoading(true);
-      const res = await apiFetch(`/api/v1/accounts/${accountId}/reports/costs`);
+      const res = await apiFetch(`/api/v1/accounts/${accountId}/reports/costs?year=${year}`);
       if (res.ok) setCosts(await res.json());
       setCostsLoading(false);
     })();
 
     (async () => {
       setFuelLoading(true);
-      const res = await apiFetch(`/api/v1/accounts/${accountId}/reports/fuel`);
+      const res = await apiFetch(`/api/v1/accounts/${accountId}/reports/fuel?year=${year}`);
       if (res.ok) setFuel(await res.json());
       setFuelLoading(false);
     })();
 
     (async () => {
       setMaintLoading(true);
-      const res = await apiFetch(`/api/v1/accounts/${accountId}/reports/maintenance`);
+      const res = await apiFetch(`/api/v1/accounts/${accountId}/reports/maintenance?year=${year}`);
       if (res.ok) setMaint(await res.json());
       setMaintLoading(false);
     })();
-  }, [accountId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accountId, year]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ==================================================
   // RENDER
@@ -256,7 +349,18 @@ export default function ReportsPage() {
       <header className="rec-head">
         <div className="rec-head__row">
           <div>
-            <h1 className="rec-title">Reports</h1>
+            <div className="rpt-title-row">
+              <h1 className="rec-title">Reports</h1>
+              <select
+                className="rpt-year-select"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+              >
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
             <p className="rec-sub">Spending, fuel economy, and maintenance analytics across your fleet.</p>
           </div>
         </div>
@@ -271,32 +375,38 @@ export default function ReportsPage() {
         {!costsLoading && costs && (
           <>
             {/* Stats row */}
-            <Card>
+            <Card style={{ overflow: "visible" }}>
               <h3 className="rec-section-title">Overview</h3>
               <div className="rpt-stats">
-                <div className="rpt-stat">
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{formatGBP(costs.total_spend_pence)}</span>
                   <span className="rpt-stat__label">All-time spend</span>
-                </div>
-                <div className="rpt-stat">
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{formatGBP(costs.annual_spend_pence)}</span>
-                  <span className="rpt-stat__label">This year</span>
-                </div>
-                <div className="rpt-stat">
+                  <span className="rpt-stat__label">{year}</span>
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
+                  <span className="rpt-stat__value">
+                    {formatGBP(Math.round(costs.annual_spend_pence / (year === CURRENT_YEAR ? Math.max(new Date().getMonth() + 1, 1) : 12)))}
+                  </span>
+                  <span className="rpt-stat__label">Monthly avg</span>
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{costs.by_vehicle.length}</span>
                   <span className="rpt-stat__label">Vehicles tracked</span>
-                </div>
-                <div className="rpt-stat">
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{costs.by_category.reduce((s, c) => s + c.count, 0)}</span>
                   <span className="rpt-stat__label">Total records</span>
-                </div>
+                </Card>
               </div>
             </Card>
 
             {/* Monthly spend chart */}
             {costs.monthly.some((m) => m.total_pence > 0) && (
               <Card>
-                <h3 className="rec-section-title">Monthly spend — last 12 months</h3>
+                <h3 className="rec-section-title">Monthly spend, {year}</h3>
                 <div className="rpt-chart">
                   {costs.monthly.map((m) => (
                     <div key={m.month} className="rpt-bar-col">
@@ -348,7 +458,7 @@ export default function ReportsPage() {
                         </span>
                       </div>
                       <div className="rpt-row__right">
-                        <span className="rpt-row__sub">{formatGBP(v.annual_spend_pence)} this year</span>
+                        <span className="rpt-row__sub">{formatGBP(v.annual_spend_pence)} in {year}</span>
                         <span className="rpt-row__value">{formatGBP(v.total_spend_pence)} total</span>
                       </div>
                     </div>
@@ -376,31 +486,31 @@ export default function ReportsPage() {
 
         {!fuelLoading && fuel && (
           <>
-            <Card>
+            <Card style={{ overflow: "visible" }}>
               <h3 className="rec-section-title">Overview</h3>
               <div className="rpt-stats">
-                <div className="rpt-stat">
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{fuel.total_fills}</span>
                   <span className="rpt-stat__label">Total fills</span>
-                </div>
-                <div className="rpt-stat">
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{fuel.total_litres.toFixed(1)} L</span>
                   <span className="rpt-stat__label">Total litres</span>
-                </div>
-                <div className="rpt-stat">
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{formatGBP(fuel.total_spend_pence)}</span>
                   <span className="rpt-stat__label">Total spend</span>
-                </div>
-                <div className="rpt-stat">
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{formatGBP(fuel.annual_spend_pence)}</span>
-                  <span className="rpt-stat__label">This year</span>
-                </div>
-                <div className="rpt-stat">
+                  <span className="rpt-stat__label">{year}</span>
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">
                     {fuel.avg_mpg !== null ? `${fuel.avg_mpg} mpg` : "—"}
                   </span>
                   <span className="rpt-stat__label">Fleet avg MPG</span>
-                </div>
+                </Card>
               </div>
               {fuel.avg_mpg === null && fuel.total_fills > 0 && (
                 <p className="rpt-note">
@@ -411,7 +521,7 @@ export default function ReportsPage() {
 
             {fuel.monthly.some((m) => m.total_pence > 0) && (
               <Card>
-                <h3 className="rec-section-title">Monthly fuel spend — last 12 months</h3>
+                <h3 className="rec-section-title">Monthly fuel spend, {year}</h3>
                 <div className="rpt-chart">
                   {fuel.monthly.map((m) => (
                     <div key={m.month} className="rpt-bar-col">
@@ -450,27 +560,39 @@ export default function ReportsPage() {
 
         {!maintLoading && maint && (
           <>
-            <Card>
+            <Card style={{ overflow: "visible" }}>
               <h3 className="rec-section-title">Overview</h3>
               <div className="rpt-stats">
-                <div className="rpt-stat">
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{maint.total_jobs}</span>
                   <span className="rpt-stat__label">Total jobs</span>
-                </div>
-                <div className="rpt-stat">
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{formatGBP(maint.total_spend_pence)}</span>
                   <span className="rpt-stat__label">Total spend</span>
-                </div>
-                <div className="rpt-stat">
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{formatGBP(maint.annual_spend_pence)}</span>
-                  <span className="rpt-stat__label">This year</span>
-                </div>
+                  <span className="rpt-stat__label">{year}</span>
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
+                  <span className="rpt-stat__value">
+                    {maint.total_jobs > 0 ? formatGBP(Math.round(maint.total_spend_pence / maint.total_jobs)) : "—"}
+                  </span>
+                  <span className="rpt-stat__label">Avg job cost</span>
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
+                  <span className="rpt-stat__value">
+                    {formatGBP(Math.round(maint.annual_spend_pence / (year === CURRENT_YEAR ? Math.max(new Date().getMonth() + 1, 1) : 12)))}
+                  </span>
+                  <span className="rpt-stat__label">Monthly avg</span>
+                </Card>
               </div>
             </Card>
 
             {maint.monthly.some((m) => m.total_pence > 0) && (
               <Card>
-                <h3 className="rec-section-title">Monthly maintenance spend — last 12 months</h3>
+                <h3 className="rec-section-title">Monthly maintenance spend, {year}</h3>
                 <div className="rpt-chart">
                   {maint.monthly.map((m) => (
                     <div key={m.month} className="rpt-bar-col">
@@ -518,50 +640,46 @@ export default function ReportsPage() {
         )}
       </section>
 
-      {/* ---- Account data export ---- */}
-      <section className="rpt-section">
-        <h2 className="rpt-section-heading">Account data export</h2>
-        <Card>
-          <h3 className="rec-section-title">Download your data</h3>
-          <p className="rpt-note" style={{ marginTop: 0, paddingTop: 0, border: "none", marginBottom: "var(--space-4)" }}>
-            Export all your vehicles, records, documents, tasks, reminders, and operational data as a ZIP archive of CSV files.
-          </p>
-          <AccountExportButton accountId={accountId} />
-        </Card>
-      </section>
-
-      {/* ---- PDF exports section ---- */}
-      {costs && costs.by_vehicle.length > 0 && (
-        <section className="rpt-section">
-          <h2 className="rpt-section-heading">Export</h2>
-          <Card>
-            <h3 className="rec-section-title">PDF reports by vehicle</h3>
-            <p className="rpt-note" style={{ marginTop: 0, paddingTop: 0, border: "none" }}>
-              Download a PDF report for any vehicle. Reports open as file downloads.
+      {/* ---- Export pair: side-by-side on large screens ---- */}
+      <div className="rpt-export-pair">
+        <section className="rpt-section rpt-export-col">
+          <h2 className="rpt-section-heading">Account data export</h2>
+          <Card className="rpt-export-card">
+            <h3 className="rec-section-title">Download your data</h3>
+            <p className="rpt-note" style={{ marginTop: 0, paddingTop: 0, border: "none", marginBottom: "var(--space-4)" }}>
+              All vehicles, records, documents and tasks as a ZIP of CSV files.
             </p>
-            <div className="rec-rows">
-              {costs.by_vehicle.map((v) => (
-                <div key={v.vehicle_id} className="rpt-row">
-                  <div className="rpt-row__left">
-                    <span className="rpt-row__label rpt-row__reg">{v.registration}</span>
-                    <span className="rpt-row__count">
-                      {v.make} {v.model}{v.year ? ` · ${v.year}` : ""}
-                    </span>
-                  </div>
-                  <div className="rpt-export-btns">
-                    <ExportButton accountId={accountId} vehicleId={v.vehicle_id} type="vehicle" label="Vehicle report" />
-                    <ExportButton accountId={accountId} vehicleId={v.vehicle_id} type="service_history" label="Service history" />
-                    <ExportButton accountId={accountId} vehicleId={v.vehicle_id} type="maintenance" label="Maintenance" />
-                    <ExportButton accountId={accountId} vehicleId={v.vehicle_id} type="expenses" label="Expenses" />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <AccountExportButton accountId={accountId} />
           </Card>
         </section>
-      )}
+
+        <section className="rpt-section rpt-export-col">
+          <h2 className="rpt-section-heading">PDF export</h2>
+          <Card className="rpt-export-card">
+            <h3 className="rec-section-title">Generate a PDF report</h3>
+            <p className="rpt-note" style={{ marginTop: 0, paddingTop: 0, border: "none", marginBottom: "var(--space-4)" }}>
+              Export a report for a single vehicle or a merged fleet report for all vehicles.
+            </p>
+            <button
+              className="rec-btn rec-btn--primary"
+              onClick={() => setExportOpen(true)}
+              disabled={!costs || costs.by_vehicle.length === 0}
+            >
+              Export PDF report
+            </button>
+          </Card>
+        </section>
+      </div>
 
       <style>{RPT_STYLES}</style>
+
+      {exportOpen && costs && (
+        <ExportModal
+          accountId={accountId}
+          vehicles={costs.by_vehicle}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -577,7 +695,7 @@ const RPT_STYLES = `
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
     color: var(--colour-text);
-    letter-spacing: var(--tracking-tight);
+    letter-spacing: normal;
     margin: 0;
     padding-top: var(--space-2);
   }
@@ -591,10 +709,7 @@ const RPT_STYLES = `
   .rpt-stat {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: var(--space-4);
-    border: 0.5px solid var(--colour-border);
-    border-radius: var(--radius-md);
+    min-width: 0;
   }
   .rpt-stat__value {
     font-size: var(--text-xl);
@@ -606,6 +721,7 @@ const RPT_STYLES = `
     color: var(--colour-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    margin-top: 4px;
   }
 
   /* ---- Monthly bar chart ---- */
@@ -632,7 +748,9 @@ const RPT_STYLES = `
     text-overflow: ellipsis;
     max-width: 100%;
     text-align: center;
+    transition: transform 0.2s ease;
   }
+  .rpt-bar-col:hover .rpt-bar-amount { transform: translateY(-6px); }
   .rpt-bar-track {
     width: 100%;
     flex: 1;
@@ -641,15 +759,21 @@ const RPT_STYLES = `
     background: rgba(255,255,255,0.03);
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   }
+  .rpt-bar-col { cursor: default; }
   .rpt-bar-fill {
     width: 100%;
     background: rgba(108,99,255,0.5);
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
     min-height: 4px;
-    transition: height 0.3s ease;
+    transition: height 0.3s ease, transform 0.2s ease, background 0.2s;
+    transform-origin: bottom center;
   }
   .rpt-bar-fill--fuel  { background: rgba(74,222,128,0.4); }
   .rpt-bar-fill--maint { background: rgba(245,158,11,0.45); }
+  /* Hover: each fill type shifts to its brightest complementary colour */
+  .rpt-bar-col:hover .rpt-bar-fill                     { transform: scaleY(1.12); background: rgba(0,212,255,0.7); }
+  .rpt-bar-col:hover .rpt-bar-fill.rpt-bar-fill--fuel  { background: rgba(74,222,128,0.85); }
+  .rpt-bar-col:hover .rpt-bar-fill.rpt-bar-fill--maint { background: rgba(251,191,36,0.85); }
   .rpt-bar-label {
     font-size: 9px;
     color: var(--colour-text-muted);
@@ -685,17 +809,104 @@ const RPT_STYLES = `
     border-top: 0.5px solid var(--colour-border);
   }
 
-  /* ---- Export buttons strip ---- */
-  .rpt-export-btns {
-    display: flex;
-    gap: var(--space-2);
-    flex-wrap: wrap;
+  /* ---- Export modal ---- */
+  .xpm-overlay {
+    position: fixed; inset: 0; z-index: 9000;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    cursor: none;
+  }
+  .xpm-modal {
+    background: var(--colour-surface);
+    border: 0.5px solid var(--colour-border);
+    border-radius: var(--radius-md);
+    width: min(480px, 94vw);
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+    cursor: none;
+  }
+  .xpm-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 0.5px solid var(--colour-border);
     flex-shrink: 0;
   }
-  .rpt-export-btn {
-    font-size: var(--text-xs);
-    padding: 4px 10px;
+  .xpm-title { font-size: var(--text-md); font-weight: var(--weight-medium); }
+  .xpm-close {
+    background: none; border: none; color: var(--colour-text-muted);
+    font-size: var(--text-lg); cursor: none; line-height: 1;
+    transition: color 0.2s;
   }
+  .xpm-close:hover { color: var(--colour-text); }
+  .xpm-body { padding: var(--space-5); overflow-y: auto; flex: 1; }
+  .xpm-label {
+    font-size: var(--text-xs); color: var(--colour-text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin: 0 0 var(--space-2);
+  }
+  .xpm-vehicle-list { display: flex; flex-direction: column; gap: 6px; }
+  .xpm-vehicle-row {
+    display: flex; flex-direction: column; gap: 2px; text-align: left;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    background: none; cursor: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .xpm-vehicle-row:hover { border-color: var(--colour-accent); background: rgba(108,99,255,0.04); }
+  .xpm-vehicle-row--active { border-color: var(--colour-accent); background: rgba(108,99,255,0.08); }
+  .xpm-vehicle-reg { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text); letter-spacing: 0.04em; }
+  .xpm-vehicle-reg--fleet { color: var(--colour-accent); }
+  .xpm-vehicle-desc { font-size: var(--text-xs); color: var(--colour-text-muted); }
+  .xpm-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .xpm-type-btn {
+    padding: var(--space-2) var(--space-3); font-size: var(--text-sm);
+    border: 1px solid var(--colour-border); border-radius: var(--radius-sm);
+    background: none; color: var(--colour-text-muted); cursor: none;
+    transition: border-color 0.2s, color 0.2s, background 0.2s; text-align: left;
+  }
+  .xpm-type-btn:hover { border-color: var(--colour-accent); color: var(--colour-text); }
+  .xpm-type-btn--active { border-color: var(--colour-accent); background: rgba(108,99,255,0.08); color: var(--colour-text); }
+  .xpm-error { font-size: var(--text-sm); color: var(--colour-error); margin-top: var(--space-3); }
+  .xpm-footer {
+    display: flex; gap: var(--space-3); justify-content: flex-end;
+    padding: var(--space-4) var(--space-5);
+    border-top: 0.5px solid var(--colour-border); flex-shrink: 0;
+  }
+
+  /* ---- Export pair: two columns on large screens ---- */
+  .rpt-export-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-5);
+    align-items: start;
+  }
+  .rpt-export-col { height: 100%; }
+  .rpt-export-card { height: 100%; box-sizing: border-box; }
+
+  /* ---- Year select + title row ---- */
+  .rpt-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .rpt-year-select {
+    appearance: none;
+    background: var(--colour-surface);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    color: var(--colour-text);
+    font-size: var(--text-sm);
+    font-family: inherit;
+    padding: 4px 28px 4px 10px;
+    cursor: none;
+    transition: border-color 0.2s;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 9px center;
+  }
+  .rpt-year-select:hover { border-color: var(--colour-accent); }
+  .rpt-year-select:focus { outline: none; border-color: var(--colour-accent); }
 
   /* ---- Responsive ---- */
   @media (max-width: 767px) {
@@ -704,6 +915,6 @@ const RPT_STYLES = `
     .rpt-bar-amount { display: none; }
     .rpt-row { flex-direction: column; align-items: flex-start; }
     .rpt-row__right { align-items: flex-start; }
-    .rpt-export-btns { margin-top: var(--space-2); }
+    .rpt-export-pair { grid-template-columns: 1fr; }
   }
 `;

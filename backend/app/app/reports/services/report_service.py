@@ -100,12 +100,15 @@ class ReportService:
     # COSTS REPORT
     # ==================================================
 
-    async def get_costs_report(self, account_id: uuid.UUID) -> CostsReportOut:
+    async def get_costs_report(
+        self, account_id: uuid.UUID, year: int | None = None
+    ) -> CostsReportOut:
         rows = await self._repo.fetch_cost_rows(account_id)
 
-        current_year = date.today().year
+        selected_year = year or date.today().year
         total_spend = 0
         annual_spend = 0
+        oldest_year = date.today().year
 
         # ~~~~~~~~~ Per-category aggregation ~~~~~~~~~
         cat_spend: dict[str, int] = defaultdict(int)
@@ -116,8 +119,8 @@ class ReportService:
         veh_annual: dict[str, int] = defaultdict(int)
         veh_meta: dict[str, dict] = {}
 
-        # ~~~~~~~~~ Monthly breakdown setup ~~~~~~~~~
-        months = _last_12_months()
+        # ~~~~~~~~~ Monthly breakdown setup (Jan-Dec for selected year) ~~~~~~~~~
+        months = _year_months(selected_year)
         monthly_bucket: dict[str, int] = {m: 0 for m in months}
 
         for row in rows:
@@ -130,11 +133,14 @@ class ReportService:
             row_date: date = row["date"]
             vid = str(row["vehicle_id"])
 
+            if row_date.year < oldest_year:
+                oldest_year = row_date.year
+
             total_spend += cost
             cat_spend[rec_type] += cost
             cat_count[rec_type] += 1
 
-            if row_date.year == current_year:
+            if row_date.year == selected_year:
                 annual_spend += cost
                 veh_annual[vid] += cost
 
@@ -187,22 +193,26 @@ class ReportService:
             by_category=by_category,
             monthly=monthly,
             by_vehicle=by_vehicle,
+            oldest_year=oldest_year,
         )
 
     # ==================================================
     # FUEL REPORT
     # ==================================================
 
-    async def get_fuel_report(self, account_id: uuid.UUID) -> FuelReportOut:
+    async def get_fuel_report(
+        self, account_id: uuid.UUID, year: int | None = None
+    ) -> FuelReportOut:
         rows = await self._repo.fetch_fuel_rows(account_id)
 
-        current_year = date.today().year
+        selected_year = year or date.today().year
         total_fills = len(rows)
         total_litres = Decimal("0")
         total_spend = 0
         annual_spend = 0
+        oldest_year = date.today().year
 
-        months = _last_12_months()
+        months = _year_months(selected_year)
         monthly_bucket: dict[str, int] = {m: 0 for m in months}
 
         # Group fills by vehicle for per-vehicle MPG calculation.
@@ -214,10 +224,13 @@ class ReportService:
             litres = Decimal(str(row["litres"])) if row["litres"] is not None else Decimal("0")
             vid = str(row["vehicle_id"])
 
+            if row_date.year < oldest_year:
+                oldest_year = row_date.year
+
             total_litres += litres
             total_spend += cost
 
-            if row_date.year == current_year:
+            if row_date.year == selected_year:
                 annual_spend += cost
 
             label = _month_label(row_date)
@@ -250,6 +263,7 @@ class ReportService:
             annual_spend_pence=annual_spend,
             avg_mpg=avg_mpg,
             monthly=monthly,
+            oldest_year=oldest_year,
         )
 
     # ==================================================
@@ -257,35 +271,40 @@ class ReportService:
     # ==================================================
 
     async def get_maintenance_report(
-        self, account_id: uuid.UUID
+        self, account_id: uuid.UUID, year: int | None = None
     ) -> MaintenanceReportOut:
         rows = await self._repo.fetch_maintenance_rows(account_id)
 
-        current_year = date.today().year
+        selected_year = year or date.today().year
         total_jobs = len(rows)
         total_spend = 0
         annual_spend = 0
+        oldest_year = date.today().year
 
         cat_spend: dict[str, int] = defaultdict(int)
         cat_count: dict[str, int] = defaultdict(int)
 
-        months = _last_12_months()
+        months = _year_months(selected_year)
         monthly_bucket: dict[str, int] = {m: 0 for m in months}
 
         for row in rows:
             cost: int = row["cost"] or 0
             row_date: date = row["date"]
+            cat_raw = row["category"]
             category: str = (
-                row["category"].value
-                if hasattr(row["category"], "value")
-                else str(row["category"])
+                cat_raw.value if hasattr(cat_raw, "value")
+                else str(cat_raw) if cat_raw is not None
+                else "miscellaneous"
             )
+
+            if row_date.year < oldest_year:
+                oldest_year = row_date.year
 
             total_spend += cost
             cat_spend[category] += cost
             cat_count[category] += 1
 
-            if row_date.year == current_year:
+            if row_date.year == selected_year:
                 annual_spend += cost
 
             label = _month_label(row_date)
@@ -312,6 +331,7 @@ class ReportService:
             annual_spend_pence=annual_spend,
             by_category=by_category,
             monthly=monthly,
+            oldest_year=oldest_year,
         )
 
 
@@ -322,20 +342,9 @@ class ReportService:
 # ------------------------------ 12-month window ----------------------------
 
 
-def _last_12_months() -> list[str]:
-    """
-    Return 12 YYYY-MM labels, oldest first, ending with the current month.
-    """
-    today = date.today()
-    months: list[str] = []
-    for offset in range(11, -1, -1):
-        y = today.year
-        m = today.month - offset
-        while m <= 0:
-            m += 12
-            y -= 1
-        months.append(f"{y:04d}-{m:02d}")
-    return months
+def _year_months(year: int) -> list[str]:
+    """Return 12 YYYY-MM labels Jan-Dec for the given year."""
+    return [f"{year:04d}-{m:02d}" for m in range(1, 13)]
 
 
 def _month_label(d: date) -> str:

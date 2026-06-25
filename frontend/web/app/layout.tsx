@@ -41,7 +41,7 @@ import "@/src/styles/globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "SovCorE Auto — vehicle management",
+    default: "SovCorE Auto | Vehicle management",
     template: "%s | SovCorE Auto",
   },
   description:
@@ -56,14 +56,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "SovCorE Auto",
-    title: "SovCorE Auto — vehicle management",
+    title: "SovCorE Auto | Vehicle management",
     description:
       "Self-hosted vehicle management for individuals, families and small fleets.",
     locale: "en_GB",
   },
   twitter: {
     card: "summary_large_image",
-    title: "SovCorE Auto — vehicle management",
+    title: "SovCorE Auto | Vehicle management",
     description:
       "Self-hosted vehicle management for individuals, families and small fleets.",
   },

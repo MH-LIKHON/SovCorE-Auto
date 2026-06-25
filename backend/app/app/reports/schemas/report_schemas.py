@@ -67,6 +67,7 @@ class CostsReportOut(BaseModel):
     by_category: list[CategoryTotal]    # sorted by spend descending
     monthly: list[MonthlyTotal]         # last 12 months, all vehicles
     by_vehicle: list[VehicleCostRow]    # per-vehicle breakdown, sorted by spend descending
+    oldest_year: int                    # earliest year with any record in the account
 
 
 # ==================================================
@@ -81,6 +82,7 @@ class FuelReportOut(BaseModel):
     annual_spend_pence: int             # current calendar year
     avg_mpg: float | None               # fleet average across all valid segments
     monthly: list[MonthlyTotal]         # last 12 months
+    oldest_year: int                    # earliest year with any fuel record in the account
 
 
 # ==================================================
@@ -101,3 +103,4 @@ class MaintenanceReportOut(BaseModel):
     annual_spend_pence: int
     by_category: list[MaintenanceCategoryRow]   # sorted by count descending
     monthly: list[MonthlyTotal]                 # last 12 months
+    oldest_year: int                            # earliest year with any maintenance record

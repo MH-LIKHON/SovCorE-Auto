@@ -57,13 +57,12 @@ const SECTIONS: readonly LegalSection[] = [
       <>
         <p>
           SovCorE Auto uses passwordless email sign-in. A six-digit one-time code is sent to
-          your email address each time you sign in. The code is hashed (SHA-256) before storage
-          and is valid for ten minutes. It is consumed on first use and cannot be replayed.
+          your email address each time you sign in. The code is hashed before storage and is
+          valid for ten minutes. It is consumed on first use and cannot be replayed.
         </p>
         <p>
           Time-based one-time password (TOTP) two-factor authentication is available as an
-          additional layer. The TOTP secret is encrypted at rest using Fernet symmetric
-          encryption derived from the application secret key.
+          additional layer. The TOTP secret is encrypted at rest.
         </p>
         <p>
           Microsoft OpenID Connect sign-in is available as an alternative to email codes. We do
@@ -76,7 +75,7 @@ const SECTIONS: readonly LegalSection[] = [
     heading: "Session management",
     body: (
       <p>
-        Access tokens are short-lived (thirty minutes) and held in browser memory only — not
+        Access tokens are short-lived (thirty minutes) and held in browser memory only, not
         in localStorage or sessionStorage beyond the active session. Refresh tokens are stored
         exclusively in HTTP-only, Secure, SameSite=Lax cookies and are never accessible to
         page JavaScript. The refresh token path is restricted to the authentication endpoint
@@ -109,8 +108,7 @@ const SECTIONS: readonly LegalSection[] = [
     body: (
       <ul>
         <li>Role-based access control (Owner, Admin, Editor, Viewer) on every protected endpoint.</li>
-        <li>Every account-scoped query is filtered by account ID at the data layer.</li>
-        <li>File uploads are validated against allowed MIME types and magic bytes before storage.</li>
+        <li>File uploads are validated before storage.</li>
         <li>Content Security Policy headers are set on all responses.</li>
         <li>Rate limiting is applied to authentication endpoints.</li>
         <li>CSRF protection is applied to the OAuth sign-in callback via a signed state cookie.</li>

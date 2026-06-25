@@ -25,6 +25,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { LoginBackground } from '@/src/components/login/login-background'
@@ -49,6 +50,21 @@ function isValidEmail(value: string): boolean {
 }
 
 // ==================================================
+// MICROSOFT ICON
+// ==================================================
+
+function MicrosoftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <rect x="0"   y="0"   width="7.3" height="7.3" fill="#F25022"/>
+      <rect x="8.7" y="0"   width="7.3" height="7.3" fill="#7FBA00"/>
+      <rect x="0"   y="8.7" width="7.3" height="7.3" fill="#00A4EF"/>
+      <rect x="8.7" y="8.7" width="7.3" height="7.3" fill="#FFB900"/>
+    </svg>
+  )
+}
+
+// ==================================================
 // REGISTER PAGE
 // ==================================================
 
@@ -63,6 +79,7 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ssoLoading, setSsoLoading] = useState(false)
 
   const [stage, setStage] = useState<Stage>('email')
   const [emailAttempted, setEmailAttempted] = useState(false)
@@ -82,6 +99,24 @@ export default function RegisterPage() {
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = prev }
   }, [])
+
+  // SSO error passed back as ?sso_error= after a failed Microsoft redirect.
+  useEffect(() => {
+    const ssoError = params.get('sso_error')
+    if (!ssoError) return
+    const messages: Record<string, string> = {
+      access_denied:  'Microsoft sign-up was cancelled or access was denied.',
+      state_mismatch: 'Sign-up session expired. Please start again.',
+      missing_code:   'Microsoft did not return an authorisation code. Please try again.',
+      sso_failed:     'Could not complete Microsoft sign-up. Contact support if this keeps happening.',
+    }
+    setError(messages[ssoError] ?? 'Microsoft sign-up failed. Please try again.')
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleMicrosoftSSO() {
+    setSsoLoading(true)
+    window.location.href = `${API}/api/v1/auth/sso/microsoft/start`
+  }
 
   // ------------------------------ Stage 1: Request Code ----------------------
 
@@ -220,7 +255,7 @@ export default function RegisterPage() {
         <div style={{ opacity: success ? 0 : 1, transition: 'opacity 0.3s' }}>
           {/* ~~~~~~~~~ Back to home ~~~~~~~~~ */}
           <div style={{ marginBottom: 20 }}>
-            <a
+            <Link
               href="/"
               style={{
                 display: 'inline-flex',
@@ -245,7 +280,7 @@ export default function RegisterPage() {
                 <path d="M8 6H4M4 6L6.5 3.5M4 6L6.5 8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               Home
-            </a>
+            </Link>
           </div>
 
           {/* ~~~~~~~~~ Logo + Branding ~~~~~~~~~ */}
@@ -262,6 +297,57 @@ export default function RegisterPage() {
           >
             <BrandLockup subtitle="Auto" size="lg" />
           </div>
+
+          {/* ~~~~~~~~~ Microsoft SSO ~~~~~~~~~ */}
+          {stage === 'email' && (
+            <>
+              <div style={{ marginBottom: 4 }}>
+                <button
+                  type="button"
+                  onClick={handleMicrosoftSSO}
+                  disabled={ssoLoading}
+                  style={{
+                    width: '100%',
+                    padding: '11px 16px',
+                    borderRadius: 10,
+                    border: '0.5px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.03)',
+                    color: 'var(--colour-text)',
+                    fontSize: 13,
+                    fontFamily: 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                    cursor: ssoLoading ? 'default' : 'none',
+                    opacity: ssoLoading ? 0.6 : 1,
+                    transition: 'border-color 0.2s, background 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!ssoLoading) {
+                      e.currentTarget.style.borderColor = 'rgba(108,99,255,0.35)'
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+                      e.currentTarget.style.transform = 'translateY(-1px)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                    e.currentTarget.style.transform = ''
+                  }}
+                >
+                  <MicrosoftIcon />
+                  <span>{ssoLoading ? 'Redirecting...' : 'Sign up with Microsoft'}</span>
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0 12px' }}>
+                <div style={{ flex: 1, height: '0.5px', background: 'rgba(255,255,255,0.06)' }} />
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>or</span>
+                <div style={{ flex: 1, height: '0.5px', background: 'rgba(255,255,255,0.06)' }} />
+              </div>
+            </>
+          )}
 
           {/* ~~~~~~~~~ Stage 1: Email ~~~~~~~~~ */}
           {stage === 'email' && (
@@ -387,6 +473,7 @@ function EmailStage({
           fontSize: 11,
           letterSpacing: '0.5px',
           textTransform: 'uppercase' as const,
+          textAlign: 'center',
           color: focused ? '#6c63ff' : 'var(--colour-text-muted)',
           marginBottom: 8,
           transition: 'color 0.3s',

@@ -25,7 +25,9 @@
 from fastapi import APIRouter
 
 from app.api.v1.accounts import router as accounts_router
+from app.api.v1.custom_alerts import router as custom_alerts_router
 from app.api.v1.attachments import router as attachments_router
+from app.api.v1.entity_attachments import router as entity_attachments_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.backups import router as backups_router
@@ -68,6 +70,7 @@ v1_router.include_router(operational_router, tags=["operational"])
 # Phase 5 — health score, tasks and reminders
 v1_router.include_router(vehicle_health_router, tags=["health-score"])
 v1_router.include_router(tasks_router, tags=["tasks"])
+v1_router.include_router(custom_alerts_router, tags=["custom-alerts"])
 # Phase 6 — reports, export, search
 v1_router.include_router(reports_router, tags=["reports"])
 v1_router.include_router(exports_router, tags=["exports"])
@@ -75,5 +78,6 @@ v1_router.include_router(search_router, tags=["search"])
 # Phase 7 — backups and erasure
 v1_router.include_router(backups_router, tags=["backups"])
 v1_router.include_router(erasure_router, tags=["erasure"])
-# Phase 8 — record attachments and photos
+# Phase 8 — record attachments, photos and entity attachments
 v1_router.include_router(attachments_router, tags=["attachments"])
+v1_router.include_router(entity_attachments_router, tags=["entity-attachments"])

@@ -29,7 +29,7 @@ import uuid
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,18 +74,43 @@ async def export_vehicle_pdf(
     # ~~~~~~~~~ Generate the requested PDF in memory ~~~~~~~~~
     svc = PDFService(db)
 
-    if report_type == "service_history":
-        pdf_bytes = await svc.service_history(vehicle_id, account_id)
-    elif report_type == "maintenance":
-        pdf_bytes = await svc.maintenance_report(vehicle_id, account_id)
-    elif report_type == "expenses":
-        pdf_bytes = await svc.expense_report(vehicle_id, account_id)
-    else:
-        pdf_bytes = await svc.vehicle_report(vehicle_id, account_id)
+    try:
+        if report_type == "service_history":
+            pdf_bytes = await svc.service_history(vehicle_id, account_id)
+        elif report_type == "maintenance":
+            pdf_bytes = await svc.maintenance_report(vehicle_id, account_id)
+        elif report_type == "expenses":
+            pdf_bytes = await svc.expense_report(vehicle_id, account_id)
+        else:
+            pdf_bytes = await svc.vehicle_report(vehicle_id, account_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     slug = _FILENAMES.get(report_type, "report")
     filename = f"sovcoreAuto-{slug}-{date.today().isoformat()}.pdf"
 
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post(
+    "/accounts/{account_id}/exports/fleet",
+    summary="Export a merged fleet PDF report (all vehicles)",
+    response_class=Response,
+)
+async def export_fleet_pdf(
+    account_id: uuid.UUID,
+    _: User = Depends(require_viewer),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    try:
+        pdf_bytes = await PDFService(db).fleet_report(account_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    filename = f"sovcoreAuto-fleet-report-{date.today().isoformat()}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",

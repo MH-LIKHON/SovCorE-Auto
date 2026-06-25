@@ -64,7 +64,7 @@ const SECTIONS: readonly LegalSection[] = [
             that holds your encrypted refresh token. It is used to issue a new access token
             when the short-lived access token expires (every thirty minutes). Without this
             cookie you would need to sign in again on every page load. Duration: thirty days
-            from last sign-in, or until you sign out. Accessible only by our server — not by
+            from last sign-in, or until you sign out. Accessible only by our server, not by
             JavaScript running in the page.
           </li>
           <li>

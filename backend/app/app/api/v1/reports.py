@@ -19,7 +19,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
@@ -52,10 +52,11 @@ router = APIRouter()
 )
 async def get_costs_report(
     account_id: uuid.UUID,
+    year: int | None = Query(default=None),
     _: User = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> CostsReportOut:
-    return await ReportService(db).get_costs_report(account_id)
+    return await ReportService(db).get_costs_report(account_id, year=year)
 
 
 # ------------------------------ Fuel report ---------------------------------
@@ -68,10 +69,11 @@ async def get_costs_report(
 )
 async def get_fuel_report(
     account_id: uuid.UUID,
+    year: int | None = Query(default=None),
     _: User = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> FuelReportOut:
-    return await ReportService(db).get_fuel_report(account_id)
+    return await ReportService(db).get_fuel_report(account_id, year=year)
 
 
 # ------------------------------ Maintenance report --------------------------
@@ -84,7 +86,8 @@ async def get_fuel_report(
 )
 async def get_maintenance_report(
     account_id: uuid.UUID,
+    year: int | None = Query(default=None),
     _: User = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> MaintenanceReportOut:
-    return await ReportService(db).get_maintenance_report(account_id)
+    return await ReportService(db).get_maintenance_report(account_id, year=year)

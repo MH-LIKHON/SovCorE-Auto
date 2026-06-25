@@ -31,6 +31,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
+import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -260,7 +261,7 @@ export default function WarrantyPage() {
                 type="text"
                 placeholder="e.g. Clutch assembly"
                 value={form.component}
-                onChange={(e) => handleFormChange("component", e.target.value)}
+                onChange={(e) => handleFormChange("component", e.target.value.toUpperCase())}
                 disabled={saving}
               />
               <TextField
@@ -269,7 +270,7 @@ export default function WarrantyPage() {
                 type="text"
                 placeholder="e.g. Halfords"
                 value={form.supplier}
-                onChange={(e) => handleFormChange("supplier", e.target.value)}
+                onChange={(e) => handleFormChange("supplier", e.target.value.toUpperCase())}
                 disabled={saving}
               />
               <TextField
@@ -286,21 +287,27 @@ export default function WarrantyPage() {
               <TextField
                 className="rec-label"
                 label="Labour cost (£)"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="Optional"
                 value={form.labour_cost}
-                onChange={(e) => handleFormChange("labour_cost", e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                  handleFormChange("labour_cost", v);
+                }}
                 disabled={saving}
               />
               <TextField
                 className="rec-label"
                 label="Parts cost (£)"
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="Optional"
                 value={form.parts_cost}
-                onChange={(e) => handleFormChange("parts_cost", e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                  handleFormChange("parts_cost", v);
+                }}
                 disabled={saving}
               />
             </div>
@@ -344,33 +351,40 @@ export default function WarrantyPage() {
         ) : (
           <div className="rec-rows">
             {warranties.map((w) => (
-              <div key={w.id} className="war-row">
-                <div className="war-row__left">
-                  <span className={expiryBadgeClass(w.expiry_date)}>{expiryLabel(w.expiry_date)}</span>
-                  <div className="war-row__info">
-                    <span className="war-row__component">{w.component}</span>
-                    {w.supplier && <span className="war-row__supplier">{w.supplier}</span>}
+              <div key={w.id} className="war-entry">
+                <div className="war-row">
+                  <div className="war-row__left">
+                    <span className={expiryBadgeClass(w.expiry_date)}>{expiryLabel(w.expiry_date)}</span>
+                    <div className="war-row__info">
+                      <span className="war-row__component">{w.component}</span>
+                      {w.supplier && <span className="war-row__supplier">{w.supplier}</span>}
+                    </div>
+                  </div>
+                  <div className="war-row__right">
+                    {w.expiry_date && (
+                      <span className="war-row__expiry" style={{ color: expiryColour(w.expiry_date) }}>
+                        {formatDate(w.expiry_date)}
+                      </span>
+                    )}
+                    {(w.labour_cost !== null || w.parts_cost !== null) && (
+                      <span className="war-row__cost">
+                        {formatGBP((w.labour_cost ?? 0) + (w.parts_cost ?? 0))}
+                      </span>
+                    )}
+                    <button
+                      className="rec-btn rec-btn--danger-sm"
+                      onClick={() => handleDelete(w.id)}
+                      disabled={deletingId === w.id}
+                    >
+                      {deletingId === w.id ? "…" : "Delete"}
+                    </button>
                   </div>
                 </div>
-                <div className="war-row__right">
-                  {w.expiry_date && (
-                    <span className="war-row__expiry" style={{ color: expiryColour(w.expiry_date) }}>
-                      {formatDate(w.expiry_date)}
-                    </span>
-                  )}
-                  {(w.labour_cost !== null || w.parts_cost !== null) && (
-                    <span className="war-row__cost">
-                      {formatGBP((w.labour_cost ?? 0) + (w.parts_cost ?? 0))}
-                    </span>
-                  )}
-                  <button
-                    className="rec-btn rec-btn--danger-sm"
-                    onClick={() => handleDelete(w.id)}
-                    disabled={deletingId === w.id}
-                  >
-                    {deletingId === w.id ? "…" : "Delete"}
-                  </button>
-                </div>
+                <EntityAttachmentPanel
+                  entityType="warranty"
+                  entityId={w.id}
+                  accountId={accountId}
+                />
               </div>
             ))}
           </div>
@@ -387,6 +401,10 @@ export default function WarrantyPage() {
 // ==================================================
 
 const WAR_STYLES = `
+  /* ---- Warranty entry wrapper (row + attachment panel) ---- */
+  .war-entry { border-bottom: 0.5px solid var(--colour-border); }
+  .war-entry:last-child { border-bottom: none; }
+
   /* ---- Warranty rows ---- */
   .war-row {
     display: flex;
@@ -394,10 +412,8 @@ const WAR_STYLES = `
     justify-content: space-between;
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
-    border-bottom: 0.5px solid var(--colour-border);
     flex-wrap: wrap;
   }
-  .war-row:last-child { border-bottom: none; }
   .war-row__left { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
   .war-row__right { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
   .war-row__info { display: flex; flex-direction: column; gap: 2px; }
