@@ -171,11 +171,11 @@ export default function AccountSettingsPage() {
           <dl className="set-list">
             <div>
               <dt>Name</dt>
-              <dd>{account?.name ?? "—"}</dd>
+              <dd>{account?.name ?? "-"}</dd>
             </div>
             <div>
               <dt>Type</dt>
-              <dd>{account ? ACCOUNT_TYPE_LABELS[account.type] : "—"}</dd>
+              <dd>{account ? ACCOUNT_TYPE_LABELS[account.type] : "-"}</dd>
             </div>
           </dl>
         )}
@@ -187,7 +187,7 @@ export default function AccountSettingsPage() {
         <dl className="set-list">
           <div>
             <dt>Email</dt>
-            <dd>{me?.email ?? "—"}</dd>
+            <dd>{me?.email ?? "-"}</dd>
           </div>
           <div>
             <dt>Full name</dt>
@@ -200,12 +200,12 @@ export default function AccountSettingsPage() {
                 <Badge tone={me.is_email_verified ? "success" : "muted"}>
                   {me.is_email_verified ? "Verified" : "Not verified"}
                 </Badge>
-              ) : "—"}
+              ) : "-"}
             </dd>
           </div>
           <div>
             <dt>Member since</dt>
-            <dd>{memberSince ?? "—"}</dd>
+            <dd>{memberSince ?? "-"}</dd>
           </div>
         </dl>
       </Card>
@@ -225,7 +225,7 @@ export default function AccountSettingsPage() {
                 <Badge tone={me.totp_enabled ? "success" : "muted"}>
                   {me.totp_enabled ? "Enabled" : "Not set up"}
                 </Badge>
-              ) : "—"}
+              ) : "-"}
             </dd>
           </div>
         </dl>

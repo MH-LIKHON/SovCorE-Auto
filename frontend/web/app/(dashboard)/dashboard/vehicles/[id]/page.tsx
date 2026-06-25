@@ -354,11 +354,9 @@ export default function VehicleProfilePage() {
   if (loading) {
     return (
       <div className="vd-shell">
-        <div className="vd-skeleton-head" />
         <div className="vd-skeleton-body" />
         <style>{`
           .vd-shell { display: flex; flex-direction: column; gap: var(--space-6); }
-          .vd-skeleton-head { height: 60px; background: rgba(255,255,255,0.04); border-radius: var(--radius-lg); animation: shimmer 1.6s infinite; }
           .vd-skeleton-body { height: 320px; background: rgba(255,255,255,0.04); border-radius: var(--radius-lg); animation: shimmer 1.6s infinite; }
           @keyframes shimmer { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
         `}</style>
@@ -370,115 +368,23 @@ export default function VehicleProfilePage() {
     return (
       <div className="vd-shell">
         <p style={{ color: "var(--colour-error)" }}>Vehicle not found.</p>
-        <Link href="/dashboard/vehicles" className="vd-back">Back to vehicles</Link>
       </div>
     );
   }
 
   return (
     <div className="vd-shell">
-      {/* ~~~~~~~~~ Header ~~~~~~~~~ */}
-      <header className="vd-head">
-        <div className="vd-head__left">
-          <Link href="/dashboard/vehicles" className="vd-back">← Vehicles</Link>
-          <h1 className="vd-title">{title}</h1>
-          <div className="vd-head__meta">
-            {vehicle.registration && (
-              <span className="vd-plate">{vehicle.registration}</span>
-            )}
-            <Badge tone={LIFECYCLE_BADGE_TONE[vehicle.lifecycle_state]}>
-              {LIFECYCLE_LABELS[vehicle.lifecycle_state]}
-            </Badge>
-          </div>
-        </div>
-        <div className="vd-head__media">
-          <div className="vd-photo-wrap">
-            {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt={title} className="vd-thumb" />
-            ) : (
-              <div className="vd-thumb vd-thumb--fallback">
-                <BodyTypeIcon
-                  bodyType={vehicle.body_type as Parameters<typeof BodyTypeIcon>[0]["bodyType"]}
-                  size={56}
-                  className="vd-thumb__icon"
-                />
-              </div>
-            )}
-            <button
-              className="vd-photo-btn"
-              onClick={() => photoInputRef.current?.click()}
-              disabled={photoUploading}
-              title="Change cover photo"
-            >
-              {photoUploading ? "…" : imageUrl ? "Change" : "Add photo"}
-            </button>
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handlePhotoUpload(f);
-                e.target.value = "";
-              }}
-            />
-          </div>
-          {photoError && <p className="vd-photo-error">{photoError}</p>}
-        </div>
-      </header>
-
-      {/* ~~~~~~~~~ Tabs ~~~~~~~~~ */}
-      <nav className="vd-tabs" aria-label="Vehicle sections">
+      {/* ~~~~~~~~~ Secondary sub-tabs (Overview / Details / Ownership / Renewals) ~~~~~~~~~ */}
+      <nav className="vd-tabs" aria-label="Vehicle overview sections">
         {(["overview", "info", "ownership", "renewals"] as Tab[]).map((t) => (
           <button
             key={t}
             className={t === tab ? "vd-tab vd-tab--active" : "vd-tab"}
             onClick={() => { setTab(t); setEditingInfo(false); setEditingOwnership(false); setEditingRenewals(false); setSaveError(null); }}
           >
-            {t === "overview" ? "Overview" : t === "info" ? "Details" : t === "ownership" ? "Ownership" : "Renewals"}
+            {t === "overview" ? "Summary" : t === "info" ? "Details" : t === "ownership" ? "Ownership" : "Renewals"}
           </button>
         ))}
-        <Link href={`/dashboard/vehicles/${vehicle.id}/photos`} className="vd-tab">
-          Photos
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/documents`} className="vd-tab">
-          Documents
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/records`} className="vd-tab">
-          Records
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/fuel`} className="vd-tab">
-          Fuel
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/expenses`} className="vd-tab">
-          Expenses
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/pcns`} className="vd-tab">
-          PCNs
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/damage`} className="vd-tab">
-          Damage
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/warranty`} className="vd-tab">
-          Warranty
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/tasks`} className="vd-tab">
-          Tasks
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/reminders`} className="vd-tab">
-          Reminders
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/alerts`} className="vd-tab">
-          Alerts
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/timeline`} className="vd-tab">
-          Timeline
-        </Link>
-        <Link href={`/dashboard/vehicles/${vehicle.id}/audit`} className="vd-tab">
-          Audit
-        </Link>
       </nav>
 
       {/* ==================================================
@@ -486,6 +392,44 @@ export default function VehicleProfilePage() {
       ================================================== */}
       {tab === "overview" && (
         <div className="vd-content">
+          {/* Vehicle photo */}
+          <div className="vd-photo-row">
+            <div className="vd-photo-wrap">
+              {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imageUrl} alt={title} className="vd-thumb" />
+              ) : (
+                <div className="vd-thumb vd-thumb--fallback">
+                  <BodyTypeIcon
+                    bodyType={vehicle.body_type as Parameters<typeof BodyTypeIcon>[0]["bodyType"]}
+                    size={56}
+                    className="vd-thumb__icon"
+                  />
+                </div>
+              )}
+              <button
+                className="vd-photo-btn"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={photoUploading}
+                title="Change cover photo"
+              >
+                {photoUploading ? "…" : imageUrl ? "Change" : "Add photo"}
+              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handlePhotoUpload(f);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+            {photoError && <p className="vd-photo-error">{photoError}</p>}
+          </div>
+
           {/* Renewal RAG panel */}
           <Card>
             <h2 className="vd-card-title">Renewal status</h2>
@@ -525,13 +469,13 @@ export default function VehicleProfilePage() {
           <Card>
             <h2 className="vd-card-title">Key facts</h2>
             <dl className="vd-dl">
-              <div><dt>Year</dt><dd>{vehicle.year ?? "—"}</dd></div>
-              <div><dt>Fuel type</dt><dd>{vehicle.fuel_type ?? "—"}</dd></div>
-              <div><dt>Transmission</dt><dd>{vehicle.transmission ?? "—"}</dd></div>
-              <div><dt>Engine</dt><dd>{vehicle.engine ?? "—"}</dd></div>
-              <div><dt>Colour</dt><dd>{vehicle.colour ?? "—"}</dd></div>
-              <div><dt>Mileage</dt><dd>{vehicle.mileage !== null ? vehicle.mileage.toLocaleString("en-GB") + " mi" : "—"}</dd></div>
-              <div><dt>VIN</dt><dd>{vehicle.vin ?? "—"}</dd></div>
+              <div><dt>Year</dt><dd>{vehicle.year ?? "-"}</dd></div>
+              <div><dt>Fuel type</dt><dd>{vehicle.fuel_type ?? "-"}</dd></div>
+              <div><dt>Transmission</dt><dd>{vehicle.transmission ?? "-"}</dd></div>
+              <div><dt>Engine</dt><dd>{vehicle.engine ?? "-"}</dd></div>
+              <div><dt>Colour</dt><dd>{vehicle.colour ?? "-"}</dd></div>
+              <div><dt>Mileage</dt><dd>{vehicle.mileage !== null ? vehicle.mileage.toLocaleString("en-GB") + " mi" : "-"}</dd></div>
+              <div><dt>VIN</dt><dd>{vehicle.vin ?? "-"}</dd></div>
             </dl>
           </Card>
 
@@ -641,26 +585,26 @@ export default function VehicleProfilePage() {
             </div>
           ) : (
             <dl className="vd-dl">
-              <div><dt>Registration</dt><dd>{vehicle.registration ?? "—"}</dd></div>
-              <div><dt>VIN</dt><dd>{vehicle.vin ?? "—"}</dd></div>
-              <div><dt>Make</dt><dd>{vehicle.make ?? "—"}</dd></div>
-              <div><dt>Model</dt><dd>{vehicle.model ?? "—"}</dd></div>
-              <div><dt>Variant</dt><dd>{vehicle.variant ?? "—"}</dd></div>
-              <div><dt>Year</dt><dd>{vehicle.year ?? "—"}</dd></div>
-              <div><dt>Colour</dt><dd>{vehicle.colour ?? "—"}</dd></div>
-              <div><dt>Body type</dt><dd>{vehicle.body_type ?? "—"}</dd></div>
-              <div><dt>Fuel type</dt><dd>{vehicle.fuel_type ?? "—"}</dd></div>
-              <div><dt>Transmission</dt><dd>{vehicle.transmission ?? "—"}</dd></div>
-              <div><dt>Engine</dt><dd>{vehicle.engine ?? "—"}</dd></div>
-              <div><dt>Mileage</dt><dd>{vehicle.mileage !== null ? vehicle.mileage.toLocaleString("en-GB") + " mi" : "—"}</dd></div>
-              <div><dt>Doors</dt><dd>{vehicle.doors ?? "—"}</dd></div>
-              <div><dt>Seats</dt><dd>{vehicle.seats ?? "—"}</dd></div>
-              <div><dt>Horsepower</dt><dd>{vehicle.horsepower !== null ? vehicle.horsepower + " bhp" : "—"}</dd></div>
-              <div><dt>Torque</dt><dd>{vehicle.torque !== null ? vehicle.torque + " Nm" : "—"}</dd></div>
-              <div><dt>Emission class</dt><dd>{vehicle.emission_class ?? "—"}</dd></div>
-              <div><dt>Tyre sizes</dt><dd>{vehicle.tyre_sizes ?? "—"}</dd></div>
-              <div><dt>Battery size</dt><dd>{vehicle.battery_size ?? "—"}</dd></div>
-              <div><dt>Wheel sizes</dt><dd>{vehicle.wheel_sizes ?? "—"}</dd></div>
+              <div><dt>Registration</dt><dd>{vehicle.registration ?? "-"}</dd></div>
+              <div><dt>VIN</dt><dd>{vehicle.vin ?? "-"}</dd></div>
+              <div><dt>Make</dt><dd>{vehicle.make ?? "-"}</dd></div>
+              <div><dt>Model</dt><dd>{vehicle.model ?? "-"}</dd></div>
+              <div><dt>Variant</dt><dd>{vehicle.variant ?? "-"}</dd></div>
+              <div><dt>Year</dt><dd>{vehicle.year ?? "-"}</dd></div>
+              <div><dt>Colour</dt><dd>{vehicle.colour ?? "-"}</dd></div>
+              <div><dt>Body type</dt><dd>{vehicle.body_type ?? "-"}</dd></div>
+              <div><dt>Fuel type</dt><dd>{vehicle.fuel_type ?? "-"}</dd></div>
+              <div><dt>Transmission</dt><dd>{vehicle.transmission ?? "-"}</dd></div>
+              <div><dt>Engine</dt><dd>{vehicle.engine ?? "-"}</dd></div>
+              <div><dt>Mileage</dt><dd>{vehicle.mileage !== null ? vehicle.mileage.toLocaleString("en-GB") + " mi" : "-"}</dd></div>
+              <div><dt>Doors</dt><dd>{vehicle.doors ?? "-"}</dd></div>
+              <div><dt>Seats</dt><dd>{vehicle.seats ?? "-"}</dd></div>
+              <div><dt>Horsepower</dt><dd>{vehicle.horsepower !== null ? vehicle.horsepower + " bhp" : "-"}</dd></div>
+              <div><dt>Torque</dt><dd>{vehicle.torque !== null ? vehicle.torque + " Nm" : "-"}</dd></div>
+              <div><dt>Emission class</dt><dd>{vehicle.emission_class ?? "-"}</dd></div>
+              <div><dt>Tyre sizes</dt><dd>{vehicle.tyre_sizes ?? "-"}</dd></div>
+              <div><dt>Battery size</dt><dd>{vehicle.battery_size ?? "-"}</dd></div>
+              <div><dt>Wheel sizes</dt><dd>{vehicle.wheel_sizes ?? "-"}</dd></div>
             </dl>
           )}
         </Card>
@@ -709,15 +653,15 @@ export default function VehicleProfilePage() {
             </div>
           ) : (
             <dl className="vd-dl">
-              <div><dt>Current owner</dt><dd>{ownership?.current_owner ?? "—"}</dd></div>
-              <div><dt>Registered keeper</dt><dd>{ownership?.registered_keeper ?? "—"}</dd></div>
+              <div><dt>Current owner</dt><dd>{ownership?.current_owner ?? "-"}</dd></div>
+              <div><dt>Registered keeper</dt><dd>{ownership?.registered_keeper ?? "-"}</dd></div>
               <div><dt>Purchase date</dt><dd>{formatDate(ownership?.purchase_date ?? null)}</dd></div>
               <div><dt>Purchase price</dt><dd>{formatGBP(ownership?.purchase_price ?? null)}</dd></div>
-              <div><dt>Seller</dt><dd>{ownership?.seller ?? "—"}</dd></div>
-              <div><dt>Dealer</dt><dd>{ownership?.dealer ?? "—"}</dd></div>
-              <div><dt>Finance company</dt><dd>{ownership?.finance_company ?? "—"}</dd></div>
-              <div><dt>Finance status</dt><dd>{ownership?.finance_status ?? "—"}</dd></div>
-              <div><dt>Notes</dt><dd>{ownership?.notes ?? "—"}</dd></div>
+              <div><dt>Seller</dt><dd>{ownership?.seller ?? "-"}</dd></div>
+              <div><dt>Dealer</dt><dd>{ownership?.dealer ?? "-"}</dd></div>
+              <div><dt>Finance company</dt><dd>{ownership?.finance_company ?? "-"}</dd></div>
+              <div><dt>Finance status</dt><dd>{ownership?.finance_status ?? "-"}</dd></div>
+              <div><dt>Notes</dt><dd>{ownership?.notes ?? "-"}</dd></div>
             </dl>
           )}
         </Card>
@@ -774,7 +718,7 @@ export default function VehicleProfilePage() {
               <div><dt>Tax due date</dt><dd style={{ color: ragColour(renewal?.tax_due_date ?? null) }}>{formatDate(renewal?.tax_due_date ?? null)}</dd></div>
               <div><dt>Insurance expiry</dt><dd style={{ color: ragColour(renewal?.insurance_expiry ?? null) }}>{formatDate(renewal?.insurance_expiry ?? null)}</dd></div>
               <div><dt>Service due date</dt><dd style={{ color: ragColour(renewal?.service_due_date ?? null) }}>{formatDate(renewal?.service_due_date ?? null)}</dd></div>
-              <div><dt>Service due mileage</dt><dd>{renewal?.service_due_mileage !== null && renewal?.service_due_mileage !== undefined ? renewal.service_due_mileage.toLocaleString("en-GB") + " mi" : "—"}</dd></div>
+              <div><dt>Service due mileage</dt><dd>{renewal?.service_due_mileage !== null && renewal?.service_due_mileage !== undefined ? renewal.service_due_mileage.toLocaleString("en-GB") + " mi" : "-"}</dd></div>
             </dl>
           )}
         </Card>
@@ -792,28 +736,8 @@ export default function VehicleProfilePage() {
 const VD_STYLES = `
   .vd-shell { display: flex; flex-direction: column; gap: var(--space-6); max-width: 900px; margin: 0 auto; width: 100%; }
 
-  /* ---- Header ---- */
-  .vd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); }
-  .vd-head__left { display: flex; flex-direction: column; gap: var(--space-2); }
-  .vd-back { font-size: var(--text-sm); color: var(--colour-text-muted); text-decoration: none; display: inline-block; transform-origin: left center; transition: color 0.2s, transform 0.2s; }
-  .vd-back:hover { color: #00d4ff; transform: scale(1.08); }
-  .vd-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
-  .vd-head__meta { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-
-  /* Registration plate badge */
-  .vd-plate {
-    display: inline-block;
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
-    letter-spacing: 0.1em;
-    background: #f0c30f;
-    color: #1a1a1a;
-    padding: 2px 10px;
-    border-radius: 4px;
-    text-transform: uppercase;
-  }
-
-  .vd-head__media { flex-shrink: 0; }
+  /* ---- Photo row (in overview content) ---- */
+  .vd-photo-row { display: flex; align-items: center; justify-content: center; gap: var(--space-3); }
   .vd-thumb {
     width: 80px;
     height: 56px;
@@ -829,7 +753,7 @@ const VD_STYLES = `
   }
   .vd-thumb__icon { color: rgba(136,136,170,0.5); }
 
-  .vd-photo-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .vd-photo-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
   .vd-photo-btn {
     font-size: var(--text-xs);
     color: var(--colour-text-muted);
@@ -851,6 +775,7 @@ const VD_STYLES = `
     border-bottom: 1px solid var(--colour-border);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    justify-content: center;
   }
   .vd-tab {
     padding: 9px 16px;
@@ -916,9 +841,5 @@ const VD_STYLES = `
   @media (max-width: 767px) {
     .vd-rag-grid { grid-template-columns: 1fr; }
     .vd-dl > div { grid-template-columns: 1fr; gap: 3px; }
-    .vd-head { flex-direction: column-reverse; align-items: center; }
-    .vd-head__left { align-items: center; text-align: center; }
-    .vd-head__meta { justify-content: center; }
-    .vd-photo-wrap { align-items: center; }
   }
 `;

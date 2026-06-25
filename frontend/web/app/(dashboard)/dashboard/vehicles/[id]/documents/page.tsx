@@ -64,7 +64,7 @@ const DOC_TYPES = Object.entries(DOC_TYPE_LABELS).map(([value, label]) => ({ val
 // ==================================================
 
 function formatBytes(n: number | null): string {
-  if (n === null) return "—";
+  if (n === null) return "-";
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
@@ -130,7 +130,7 @@ export default function VehicleDocumentsPage() {
       if (!res.ok) {
         const detail = await res.text().catch(() => "");
         console.error("[doc-upload] non-ok", res.status, detail);
-        throw new Error(`Upload failed (${res.status}). Check the file type — PDF, JPG, PNG and WEBP are accepted.`);
+        throw new Error(`Upload failed (${res.status}). Accepted types: PDF, JPG, PNG and WEBP are accepted.`);
       }
       setUploadProgress("done");
       setFile(null);
@@ -179,7 +179,6 @@ export default function VehicleDocumentsPage() {
     <div className="docs-shell">
       {/* Header */}
       <header className="docs-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="docs-back">← Vehicle</Link>
         <h1 className="docs-title">Documents</h1>
         <p className="docs-sub">
           Upload certificates, invoices and records for this vehicle.
@@ -268,7 +267,7 @@ export default function VehicleDocumentsPage() {
                     </td>
                     <td className="docs-td--size">{formatBytes(doc.file_size)}</td>
                     <td className="docs-td--date">{formatDateTime(doc.created_at)}</td>
-                    <td className="docs-td--by">{doc.uploaded_by_email ?? "—"}</td>
+                    <td className="docs-td--by">{doc.uploaded_by_email ?? "-"}</td>
                     <td className="docs-td--actions">
                       <button
                         className="sov-action-btn sov-action-btn--view"

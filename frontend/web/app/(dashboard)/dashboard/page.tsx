@@ -136,11 +136,11 @@ export default function DashboardPage() {
       {/* ~~~~~~~~~ Stats row ~~~~~~~~~ */}
       <div className="db-stats">
         <Card padding="var(--space-5)" hoverEffect="glow">
-          <span className="db-stat__value">{loading ? "—" : (summary?.active_vehicle_count ?? activeVehicles.length)}</span>
+          <span className="db-stat__value">{loading ? "-" : (summary?.active_vehicle_count ?? activeVehicles.length)}</span>
           <span className="db-stat__label">Vehicles</span>
         </Card>
         <Card padding="var(--space-5)" hoverEffect="glow">
-          <span className="db-stat__value">{loading ? "—" : (summary?.member_count ?? 0)}</span>
+          <span className="db-stat__value">{loading ? "-" : (summary?.member_count ?? 0)}</span>
           <span className="db-stat__label">Members</span>
         </Card>
         <Card padding="var(--space-5)" hoverEffect="glow">
@@ -148,7 +148,7 @@ export default function DashboardPage() {
             className="db-stat__value"
             style={{ color: redCount > 0 ? "var(--colour-error)" : undefined }}
           >
-            {loading ? "—" : redCount}
+            {loading ? "-" : redCount}
           </span>
           <span className="db-stat__label">Alerts</span>
         </Card>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
             className="db-stat__value"
             style={{ color: amberCount > 0 ? "var(--colour-amber)" : undefined }}
           >
-            {loading ? "—" : amberCount}
+            {loading ? "-" : amberCount}
           </span>
           <span className="db-stat__label">Due soon</span>
         </Card>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
             className="db-stat__value"
             style={{ color: (summary?.open_task_count ?? 0) > 0 ? "var(--colour-accent2)" : undefined }}
           >
-            {loading ? "—" : (summary?.open_task_count ?? "—")}
+            {loading ? "-" : (summary?.open_task_count ?? "-")}
           </span>
           <span className="db-stat__label">Open tasks</span>
         </Card>
@@ -177,13 +177,13 @@ export default function DashboardPage() {
               color: (summary?.custom_alert_count ?? 0) > 0 ? "var(--colour-error)" : undefined,
             }}
           >
-            {loading ? "—" : (summary?.custom_alert_count ?? 0)}
+            {loading ? "-" : (summary?.custom_alert_count ?? 0)}
           </span>
           <span className="db-stat__label">Custom alerts</span>
         </Card>
         <Card padding="var(--space-5)" hoverEffect="glow">
           <span className="db-stat__value" style={{ fontSize: "var(--text-xl)" }}>
-            {loading ? "—" : formatCurrency(summary?.monthly_spend_pence ?? 0)}
+            {loading ? "-" : formatCurrency(summary?.monthly_spend_pence ?? 0)}
           </span>
           <span className="db-stat__label">This month</span>
         </Card>

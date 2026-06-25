@@ -149,7 +149,7 @@ const RECORD_TYPES: { value: RecordTypeValue; label: string }[] = [
   { value: "pcn",          label: "PCN" },
   { value: "cleaning",     label: "Cleaning" },
   { value: "accessories",  label: "Accessories" },
-  { value: "custom",       label: "Custom" },
+  { value: "custom",       label: "Miscellaneous" },
 ];
 
 const SHOW_GARAGE   = new Set<RecordTypeValue>(["maintenance", "repair", "mot", "diagnostics", "custom"]);
@@ -174,17 +174,17 @@ const MAINTENANCE_CATEGORIES = [
 // ==================================================
 
 function formatDate(d: string | null): string {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function formatGBP(pence: number | null): string {
-  if (pence === null) return "—";
+  if (pence === null) return "-";
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 }
 
 function locationText(supplier: string | null, garage: string | null): string {
-  return garage || supplier || "—";
+  return garage || supplier || "-";
 }
 
 // ==================================================
@@ -569,7 +569,6 @@ export default function VehicleRecordsPage() {
     <div className="rec-shell">
       {/* ---- Header ---- */}
       <header className="rec-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="rec-back">← Vehicle</Link>
         <div className="rec-head__row">
           <div>
             <h1 className="rec-title">Records</h1>
@@ -613,7 +612,7 @@ export default function VehicleRecordsPage() {
                     <option value="pcn">PCN</option>
                     <option value="cleaning">Cleaning</option>
                     <option value="accessories">Accessories</option>
-                    <option value="custom">Custom</option>
+                    <option value="custom">Miscellaneous</option>
                   </optgroup>
                 </select>
               </label>
@@ -1082,7 +1081,7 @@ const REC_STYLES = `
 
   /* Header */
   .rec-head { display: flex; flex-direction: column; gap: var(--space-2); }
-  .rec-head__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+  .rec-head__row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
   .rec-title { font-size: var(--text-2xl); letter-spacing: var(--tracking-tight); margin: 0; }
   .rec-sub { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; margin: 4px 0 0; }
 

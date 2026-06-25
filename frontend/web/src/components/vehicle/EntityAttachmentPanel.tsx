@@ -143,7 +143,7 @@ export function EntityAttachmentPanel({
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
       console.error("[entity-attach] threw:", err);
-      setUploadError("Network error — could not reach the server.");
+      setUploadError("Network error: could not reach the server.");
     } finally {
       setUploading(false);
     }

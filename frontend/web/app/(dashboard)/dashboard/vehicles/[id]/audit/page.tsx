@@ -106,7 +106,6 @@ export default function VehicleAuditPage() {
     <div className="aud-shell">
       {/* Header */}
       <header className="aud-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="aud-back">← Vehicle</Link>
         <h1 className="aud-title">Audit log</h1>
         <p className="aud-sub">Every change to records and documents in this account, in order.</p>
       </header>

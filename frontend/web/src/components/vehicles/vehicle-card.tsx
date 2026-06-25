@@ -22,7 +22,7 @@
 //
 //   The health score ring is a 40px SVG circle showing the
 //   percentage in stroke-dasharray. Phase 5 will supply a real
-//   score; until then the API returns 0, displayed as "—".
+//   score; until then the API returns 0, displayed as "-".
 //
 //   Responsive: the grid reflows from 1 column on mobile to 2
 //   at md (768 px) to 3 at lg (1024 px). The card itself has a
@@ -100,7 +100,7 @@ function ragLabel(status: RagStatus): string {
 }
 
 function formatMileage(m: number | null): string {
-  if (m === null) return "—";
+  if (m === null) return "-";
   return m.toLocaleString("en-GB") + " mi";
 }
 
@@ -145,7 +145,7 @@ function HealthRing({ score }: { score: number }) {
         />
       </svg>
       <span className="vc-health__label" style={{ color: colour }}>
-        {score > 0 ? `${score}` : "—"}
+        {score > 0 ? `${score}` : "-"}
       </span>
     </div>
   );

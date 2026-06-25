@@ -72,12 +72,12 @@ interface FuelAnalytics {
 // ==================================================
 
 function formatGBP(pence: number | null): string {
-  if (pence === null) return "—";
+  if (pence === null) return "-";
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 }
 
 function formatDate(d: string | null): string {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
@@ -136,6 +136,10 @@ export default function FuelPage() {
     ? Math.max(...analytics.monthly_spend.map((m) => m.total_pence), 1)
     : 1;
 
+  const monthlyAvg = analytics
+    ? Math.round(analytics.annual_spend_pence / (year === CURRENT_YEAR ? Math.max(new Date().getMonth() + 1, 1) : 12))
+    : 0;
+
   // ==================================================
   // RENDER
   // ==================================================
@@ -144,7 +148,6 @@ export default function FuelPage() {
     <div className="rec-shell">
       {/* ---- Header ---- */}
       <header className="rec-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="rec-back">← Vehicle</Link>
         <div className="rec-head__row">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
@@ -161,7 +164,7 @@ export default function FuelPage() {
             </div>
             <p className="rec-sub">Fill history, economy, and running fuel costs for this vehicle.</p>
           </div>
-          <Link href={`/dashboard/vehicles/${id}/records?type=fuel`} className="rec-btn rec-btn--ghost">
+          <Link href={`/dashboard/vehicles/${id}/records?type=fuel`} className="rec-btn rec-btn--primary">
             Add fuel record
           </Link>
         </div>
@@ -188,18 +191,24 @@ export default function FuelPage() {
             <div className="fuel-stats">
 
               <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
-                <span className="fuel-stat__value">{analytics.total_fills}</span>
-                <span className="fuel-stat__label">Total fills</span>
+                <span className="fuel-stat__value">
+                  {analytics.cost_per_mile_pence !== null
+                    ? `${analytics.cost_per_mile_pence}p / mi`
+                    : "-"}
+                </span>
+                <span className="fuel-stat__label">Cost per mile</span>
               </Card>
 
               <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
-                <span className="fuel-stat__value">{Number(analytics.total_litres).toFixed(1)} L</span>
-                <span className="fuel-stat__label">Total litres</span>
+                <span className="fuel-stat__value">
+                  {analytics.avg_mpg !== null ? `${analytics.avg_mpg} mpg` : "-"}
+                </span>
+                <span className="fuel-stat__label">Avg economy</span>
               </Card>
 
               <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
-                <span className="fuel-stat__value">{formatGBP(analytics.total_spend_pence)}</span>
-                <span className="fuel-stat__label">Total spend</span>
+                <span className="fuel-stat__value">{formatGBP(monthlyAvg)}</span>
+                <span className="fuel-stat__label">Monthly avg</span>
               </Card>
 
               <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
@@ -208,19 +217,8 @@ export default function FuelPage() {
               </Card>
 
               <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
-                <span className="fuel-stat__value">
-                  {analytics.avg_mpg !== null ? `${analytics.avg_mpg} mpg` : "—"}
-                </span>
-                <span className="fuel-stat__label">Avg economy</span>
-              </Card>
-
-              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
-                <span className="fuel-stat__value">
-                  {analytics.cost_per_mile_pence !== null
-                    ? `${analytics.cost_per_mile_pence}p / mi`
-                    : "—"}
-                </span>
-                <span className="fuel-stat__label">Cost per mile</span>
+                <span className="fuel-stat__value">{formatGBP(analytics.total_spend_pence)}</span>
+                <span className="fuel-stat__label">Total spend</span>
               </Card>
 
             </div>
@@ -307,7 +305,7 @@ const FUEL_STYLES = `
   /* ---- Stats row ---- */
   .fuel-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: var(--space-4);
   }
   .fuel-stat {
@@ -451,6 +449,7 @@ const FUEL_STYLES = `
   /* ---- Responsive ---- */
   @media (max-width: 767px) {
     .fuel-stats { grid-template-columns: repeat(2, 1fr); }
+    .fuel-stats > :last-child { grid-column: 1 / -1; }
     .fuel-chart { height: 100px; }
     .fuel-bar-amount { display: none; }
     .fuel-row { flex-direction: column; align-items: flex-start; }

@@ -122,6 +122,13 @@ export default function ExpensesPage() {
 
   const hasExpenses = analytics && analytics.total_spend_pence > 0;
 
+  const yearRecords    = analytics ? analytics.by_category.reduce((s, c) => s + c.count, 0) : 0;
+  const monthlyAvg     = analytics ? Math.round(analytics.annual_spend_pence / (year === CURRENT_YEAR ? Math.max(new Date().getMonth() + 1, 1) : 12)) : 0;
+  const avgPerRecord   = yearRecords > 0 && analytics ? Math.round(analytics.annual_spend_pence / yearRecords) : 0;
+  const categoryCount  = analytics ? analytics.by_category.length : 0;
+  const thisMonthKey   = `${year}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const thisMonthPence = analytics ? (analytics.monthly.find((m) => m.month === thisMonthKey)?.total_pence ?? 0) : 0;
+
   // ==================================================
   // RENDER
   // ==================================================
@@ -130,7 +137,6 @@ export default function ExpensesPage() {
     <div className="rec-shell">
       {/* ---- Header ---- */}
       <header className="rec-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="rec-back">← Vehicle</Link>
         <div className="rec-head__row">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
@@ -147,7 +153,7 @@ export default function ExpensesPage() {
             </div>
             <p className="rec-sub">Running costs by category for this vehicle. Fuel is tracked separately.</p>
           </div>
-          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--ghost">
+          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">
             Add expense record
           </Link>
         </div>
@@ -173,32 +179,41 @@ export default function ExpensesPage() {
             <h2 className="rec-section-title">Summary</h2>
             <div className="fuel-stats">
               <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
-                <span className="fuel-stat__value">{formatGBP(analytics.total_spend_pence)}</span>
-                <span className="fuel-stat__label">Total spend</span>
+                <span className="fuel-stat__value">{formatGBP(thisMonthPence)}</span>
+                <span className="fuel-stat__label">This month</span>
+              </Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
+                <span className="fuel-stat__value">{formatGBP(avgPerRecord)}</span>
+                <span className="fuel-stat__label">Avg per record</span>
+              </Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
+                <span className="fuel-stat__value">{formatGBP(monthlyAvg)}</span>
+                <span className="fuel-stat__label">Monthly avg</span>
               </Card>
               <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
                 <span className="fuel-stat__value">{formatGBP(analytics.annual_spend_pence)}</span>
                 <span className="fuel-stat__label">{year}</span>
               </Card>
               <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
-                <span className="fuel-stat__value">
-                  {analytics.by_category.reduce((s, c) => s + c.count, 0)}
-                </span>
-                <span className="fuel-stat__label">Total records</span>
+                <span className="fuel-stat__value">{formatGBP(analytics.total_spend_pence)}</span>
+                <span className="fuel-stat__label">Total spend</span>
               </Card>
             </div>
           </Card>
 
           {/* ---- By-category breakdown ---- */}
           <Card>
-            <h2 className="rec-section-title">By category</h2>
+            <div className="rec-list-head">
+              <h2 className="rec-section-title" style={{ margin: 0 }}>By category</h2>
+              <span className="rec-count">
+                {categoryCount} {categoryCount !== 1 ? "categories" : "category"} · {yearRecords} record{yearRecords !== 1 ? "s" : ""}
+              </span>
+            </div>
             <div className="exp-cat-list">
               {analytics.by_category.map((cat) => (
                 <div key={cat.record_type} className="exp-cat-row">
-                  <div className="exp-cat-row__left">
-                    <span className="exp-cat-row__label">{cat.label}</span>
-                    <span className="exp-cat-row__count">{cat.count} record{cat.count !== 1 ? "s" : ""}</span>
-                  </div>
+                  <span className="exp-cat-row__label">{cat.label}</span>
+                  <span className="exp-cat-row__count">{cat.count} record{cat.count !== 1 ? "s" : ""}</span>
                   <span className="exp-cat-row__total">{formatGBP(cat.total_pence)}</span>
                 </div>
               ))}
@@ -245,23 +260,22 @@ const EXP_STYLES = `
   /* ---- Category breakdown ---- */
   .exp-cat-list { display: flex; flex-direction: column; gap: 0; }
   .exp-cat-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
     align-items: center;
-    justify-content: space-between;
     gap: var(--space-4);
     padding: var(--space-3) 0;
     border-bottom: 0.5px solid var(--colour-border);
   }
   .exp-cat-row:last-child { border-bottom: none; }
-  .exp-cat-row__left { display: flex; flex-direction: column; gap: 2px; }
   .exp-cat-row__label { font-size: var(--text-sm); color: var(--colour-text); }
-  .exp-cat-row__count { font-size: var(--text-xs); color: var(--colour-text-muted); }
-  .exp-cat-row__total { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text); white-space: nowrap; }
+  .exp-cat-row__count { font-size: var(--text-xs); color: var(--colour-text-muted); text-align: right; white-space: nowrap; }
+  .exp-cat-row__total { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text); text-align: right; white-space: nowrap; }
 
   /* ---- Shared with fuel page (bar chart, stats) ---- */
   .fuel-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: var(--space-4);
   }
   .fuel-stat {
@@ -356,6 +370,7 @@ const EXP_STYLES = `
 
   @media (max-width: 767px) {
     .fuel-stats { grid-template-columns: repeat(2, 1fr); }
+    .fuel-stats > :last-child { grid-column: 1 / -1; }
     .fuel-chart { height: 100px; }
     .fuel-bar-amount { display: none; }
   }

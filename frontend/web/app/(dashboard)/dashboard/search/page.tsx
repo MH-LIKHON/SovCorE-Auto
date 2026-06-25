@@ -123,14 +123,14 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 function formatDate(d: string | null): string {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString("en-GB", {
     day: "numeric", month: "short", year: "numeric",
   });
 }
 
 function capitalize(s: string): string {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "—";
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "-";
 }
 
 // ==================================================
@@ -275,7 +275,7 @@ function SearchInner() {
                     className="srch-row"
                   >
                     <div className="srch-row__left">
-                      <span className="srch-row__title srch-row__reg">{v.registration || "—"}</span>
+                      <span className="srch-row__title srch-row__reg">{v.registration || "-"}</span>
                       <span className="srch-row__sub">
                         {[v.make, v.model, v.year].filter(Boolean).join(" · ")}
                       </span>
@@ -363,7 +363,7 @@ function SearchInner() {
                     <div className="srch-row__left">
                       <span className="srch-row__title">{t.title}</span>
                       <span className="srch-row__sub">
-                        {t.vehicle_registration || "—"}
+                        {t.vehicle_registration || "-"}
                         {t.due_date ? ` · Due ${formatDate(t.due_date)}` : ""}
                       </span>
                     </div>
@@ -393,7 +393,7 @@ function SearchInner() {
                     <div className="srch-row__left">
                       <span className="srch-row__tag">#{t.tag}</span>
                       <span className="srch-row__sub">
-                        {t.vehicle_registration || "—"} · {RECORD_LABELS[t.record_type] || capitalize(t.record_type)}
+                        {t.vehicle_registration || "-"} · {RECORD_LABELS[t.record_type] || capitalize(t.record_type)}
                       </span>
                     </div>
                     <span className="srch-row__date">{formatDate(t.record_date)}</span>

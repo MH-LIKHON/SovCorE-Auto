@@ -94,12 +94,12 @@ const EMPTY_FORM: AddForm = {
 // ==================================================
 
 function formatGBP(pence: number | null): string {
-  if (pence === null) return "—";
+  if (pence === null) return "-";
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 }
 
 function formatDate(d: string | null): string {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
@@ -338,7 +338,6 @@ export default function DamagePage() {
     <div className="rec-shell">
       {/* ---- Header ---- */}
       <header className="rec-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="rec-back">← Vehicle</Link>
         <div className="rec-head__row">
           <div>
             <h1 className="rec-title">Damage history</h1>

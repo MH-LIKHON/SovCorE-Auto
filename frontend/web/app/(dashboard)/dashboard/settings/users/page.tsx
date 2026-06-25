@@ -196,7 +196,7 @@ export default function UsersPage() {
                   return (
                     <tr key={m.id} className={isMe ? "mem-row mem-row--me" : "mem-row"}>
                       <td>{m.email}{isMe && <span className="mem-you"> (you)</span>}</td>
-                      <td className="mem-col--name">{m.full_name || <span className="set-muted">—</span>}</td>
+                      <td className="mem-col--name">{m.full_name || <span className="set-muted">-</span>}</td>
                       <td>
                         <Badge tone={ROLE_BADGE_TONE[m.role]}>{m.role}</Badge>
                       </td>

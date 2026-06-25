@@ -174,7 +174,7 @@ const SHELL_STYLES = `
 
   /* ---- Level 2: Large tablet (≤1023px) — off-canvas drawer, full page scroll ---- */
   @media (max-width: 1023px) {
-    .dash-shell { flex-direction: column; height: auto; overflow: visible; }
+    .dash-shell { flex-direction: column; height: auto; overflow: visible; --topbar-h: 65px; }
     .dash-main { height: auto; overflow-y: visible; padding: var(--space-6); }
     .dash-topbar {
       display: flex;

@@ -123,7 +123,6 @@ export default function VehicleTimelinePage() {
     <div className="tl-shell">
       {/* Header */}
       <header className="tl-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="tl-back">← Vehicle</Link>
         <h1 className="tl-title">Timeline</h1>
         <p className="tl-sub">A chronological record of everything that has happened to this vehicle.</p>
       </header>

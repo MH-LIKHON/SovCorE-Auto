@@ -298,7 +298,6 @@ export default function VehiclePhotosPage() {
     <div className="ph-shell">
       {/* ---- Header ---- */}
       <header className="ph-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="ph-back">← Vehicle</Link>
         <h1 className="ph-title">Photos</h1>
         <p className="ph-sub">Cover photo and damage images for {title}.</p>
       </header>

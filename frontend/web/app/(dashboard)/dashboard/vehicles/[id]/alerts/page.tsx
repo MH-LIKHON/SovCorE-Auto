@@ -130,7 +130,7 @@ const CONDITION_TYPE_LABELS: Record<AlertCondition["type"], string> = {
 // ==================================================
 
 function formatDate(d: string | null): string {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
@@ -379,7 +379,6 @@ export default function AlertsPage() {
     <div className="rec-shell">
       {/* ---- Header ---- */}
       <header className="rec-head">
-        <Link href={`/dashboard/vehicles/${id}`} className="rec-back">← Vehicle</Link>
         <div className="rec-head__row">
           <div>
             <h1 className="rec-title">Alerts</h1>

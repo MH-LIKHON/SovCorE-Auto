@@ -96,7 +96,7 @@ interface MaintenanceReport {
 // ==================================================
 
 function formatGBP(pence: number | null): string {
-  if (pence === null) return "—";
+  if (pence === null) return "-";
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "GBP",
@@ -209,7 +209,7 @@ function ExportModal({ accountId, vehicles, onClose }: ExportModalProps) {
       URL.revokeObjectURL(objUrl);
       onClose();
     } catch {
-      setError("Network error — could not reach the server.");
+      setError("Network error: could not reach the server.");
     } finally {
       setBusy(false);
     }
@@ -379,12 +379,12 @@ export default function ReportsPage() {
               <h3 className="rec-section-title">Overview</h3>
               <div className="rpt-stats">
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">{formatGBP(costs.total_spend_pence)}</span>
-                  <span className="rpt-stat__label">All-time spend</span>
+                  <span className="rpt-stat__value">{costs.by_vehicle.length}</span>
+                  <span className="rpt-stat__label">Vehicles tracked</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">{formatGBP(costs.annual_spend_pence)}</span>
-                  <span className="rpt-stat__label">{year}</span>
+                  <span className="rpt-stat__value">{costs.by_category.reduce((s, c) => s + c.count, 0)}</span>
+                  <span className="rpt-stat__label">Total records</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">
@@ -393,12 +393,12 @@ export default function ReportsPage() {
                   <span className="rpt-stat__label">Monthly avg</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">{costs.by_vehicle.length}</span>
-                  <span className="rpt-stat__label">Vehicles tracked</span>
+                  <span className="rpt-stat__value">{formatGBP(costs.annual_spend_pence)}</span>
+                  <span className="rpt-stat__label">{year}</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">{costs.by_category.reduce((s, c) => s + c.count, 0)}</span>
-                  <span className="rpt-stat__label">Total records</span>
+                  <span className="rpt-stat__value">{formatGBP(costs.total_spend_pence)}</span>
+                  <span className="rpt-stat__label">All-time spend</span>
                 </Card>
               </div>
             </Card>
@@ -494,22 +494,22 @@ export default function ReportsPage() {
                   <span className="rpt-stat__label">Total fills</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">{fuel.total_litres.toFixed(1)} L</span>
-                  <span className="rpt-stat__label">Total litres</span>
+                  <span className="rpt-stat__value">
+                    {fuel.avg_mpg !== null ? `${fuel.avg_mpg} mpg` : "-"}
+                  </span>
+                  <span className="rpt-stat__label">Fleet avg MPG</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">{formatGBP(fuel.total_spend_pence)}</span>
-                  <span className="rpt-stat__label">Total spend</span>
+                  <span className="rpt-stat__value">{fuel.total_litres.toFixed(1)} L</span>
+                  <span className="rpt-stat__label">Total litres</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">{formatGBP(fuel.annual_spend_pence)}</span>
                   <span className="rpt-stat__label">{year}</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">
-                    {fuel.avg_mpg !== null ? `${fuel.avg_mpg} mpg` : "—"}
-                  </span>
-                  <span className="rpt-stat__label">Fleet avg MPG</span>
+                  <span className="rpt-stat__value">{formatGBP(fuel.total_spend_pence)}</span>
+                  <span className="rpt-stat__label">Total spend</span>
                 </Card>
               </div>
               {fuel.avg_mpg === null && fuel.total_fills > 0 && (
@@ -568,16 +568,8 @@ export default function ReportsPage() {
                   <span className="rpt-stat__label">Total jobs</span>
                 </Card>
                 <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">{formatGBP(maint.total_spend_pence)}</span>
-                  <span className="rpt-stat__label">Total spend</span>
-                </Card>
-                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
-                  <span className="rpt-stat__value">{formatGBP(maint.annual_spend_pence)}</span>
-                  <span className="rpt-stat__label">{year}</span>
-                </Card>
-                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
                   <span className="rpt-stat__value">
-                    {maint.total_jobs > 0 ? formatGBP(Math.round(maint.total_spend_pence / maint.total_jobs)) : "—"}
+                    {maint.total_jobs > 0 ? formatGBP(Math.round(maint.total_spend_pence / maint.total_jobs)) : "-"}
                   </span>
                   <span className="rpt-stat__label">Avg job cost</span>
                 </Card>
@@ -586,6 +578,14 @@ export default function ReportsPage() {
                     {formatGBP(Math.round(maint.annual_spend_pence / (year === CURRENT_YEAR ? Math.max(new Date().getMonth() + 1, 1) : 12)))}
                   </span>
                   <span className="rpt-stat__label">Monthly avg</span>
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
+                  <span className="rpt-stat__value">{formatGBP(maint.annual_spend_pence)}</span>
+                  <span className="rpt-stat__label">{year}</span>
+                </Card>
+                <Card className="rpt-stat" padding="var(--space-4)" hoverEffect="glow">
+                  <span className="rpt-stat__value">{formatGBP(maint.total_spend_pence)}</span>
+                  <span className="rpt-stat__label">Total spend</span>
                 </Card>
               </div>
             </Card>
@@ -703,7 +703,7 @@ const RPT_STYLES = `
   /* ---- Stats grid ---- */
   .rpt-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: var(--space-4);
   }
   .rpt-stat {
@@ -911,6 +911,7 @@ const RPT_STYLES = `
   /* ---- Responsive ---- */
   @media (max-width: 767px) {
     .rpt-stats { grid-template-columns: repeat(2, 1fr); }
+    .rpt-stats > :last-child { grid-column: 1 / -1; }
     .rpt-chart { height: 100px; }
     .rpt-bar-amount { display: none; }
     .rpt-row { flex-direction: column; align-items: flex-start; }
