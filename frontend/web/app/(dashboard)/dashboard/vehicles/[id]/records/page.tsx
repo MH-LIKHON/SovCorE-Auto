@@ -489,6 +489,7 @@ export default function VehicleRecordsPage() {
     setAttachUploading(true);
     setAttachError(null);
     setShowAttachForm(false);
+    setAttachKind("");
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -748,7 +749,7 @@ export default function VehicleRecordsPage() {
                   type="button"
                   className="rec-btn rec-btn--ghost rec-btn--sm"
                   onClick={() => newAttachInputRef.current?.click()}
-                  disabled={saving}
+                  disabled={saving || !newAttachLabel.trim()}
                 >
                   {newAttachFile ? newAttachFile.name : "Choose file"}
                 </button>
