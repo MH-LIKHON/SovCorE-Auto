@@ -1,20 +1,20 @@
-# SovCorE Auto
+# SovCorE Auto ★
 
-A vehicle management platform that records a vehicle once and keeps its service history, running costs, documents, reminders and reports in step from that single entry.
+A vehicle management platform built to keep a complete, organised record of every vehicle from first ownership through to disposal.
 
-This repository is published as part of the author's engineering portfolio. It is shared so that reviewers and recruiters can see the architecture, the engineering practices, and the quality of the work.
+This repository is published as part of the author's engineering portfolio. It is shared so that reviewers and recruiters can assess the architecture, the engineering practices, and the quality of the work.
 
-> Viewing and evaluation only. This repository is not open source. No permission is granted to clone, copy, run, reuse, modify or redistribute the code. See the LICENSE for the full terms.
+> Viewing and evaluation only. This repository is not open source. No permission is granted to clone, copy, run, reuse, modify or redistribute the code. See the [LICENSE](./LICENSE) for the full terms.
 
 ---
 
-## Overview
+## What it does
 
-SovCorE Auto turns a glovebox of receipts and a spreadsheet into one organised, defensible record for every vehicle. A maintenance job, a fuel fill, an MOT result or an uploaded document is entered once, and the timeline, the cost totals, the renewal reminders and the vehicle health score are read from that entry rather than typed again.
+SovCorE Auto replaces scattered paper receipts, maintenance spreadsheets and missed renewal reminders with a single, structured record for every vehicle.
 
-It is designed for a private owner with one car, a family sharing several vehicles, or a small business running a handful of vans, with multi-user collaboration and clear roles.
+A service job, a fuel fill, an MOT result or an uploaded invoice is entered once. The full service history, running costs, upcoming renewals and current vehicle health all update from that entry rather than being recorded separately.
 
-This project demonstrates a full product built across two applications: a typed React frontend and a Python service behind a versioned REST API, with a relational data model, role-based access, and a documented, phased delivery plan.
+It is designed for a private owner with one car, a family sharing several vehicles, or a small business managing a compact fleet, with multi-user collaboration and clearly defined access roles.
 
 ---
 
@@ -24,76 +24,112 @@ This project demonstrates a full product built across two applications: a typed 
 | --- | --- |
 | Frontend framework | Next.js 15, App Router |
 | Frontend runtime | React 19 |
-| Language | TypeScript |
-| Styling | Tailwind v4 with a shared design-token system |
-| Backend framework | Python, FastAPI |
-| Validation | Pydantic |
-| Data access | SQLAlchemy or SQLModel with Alembic migrations |
+| Languages | TypeScript, Python |
+| Styling | Tailwind CSS v4 with a shared design-token system |
+| Backend framework | FastAPI |
+| Validation | Pydantic v2 |
+| Data access | SQLAlchemy with Alembic migrations |
 | Database | PostgreSQL |
-| Authentication | Passwordless email codes, Microsoft single sign-on, JWT with refresh tokens |
-| Tooling | Docker, type checking, linting and formatting on both applications |
+| Object storage | Cloudflare R2 |
+| Authentication | Passwordless email codes, Microsoft SSO, JWT with refresh tokens |
+| Transactional email | Resend |
+| Background jobs | APScheduler |
+| Tooling | Docker, type checking, linting and formatting across both applications |
 
 ---
 
 ## Architecture
 
-Two applications with a clear separation of responsibility. The frontend owns the user interface. The backend owns the data, the rules, the authentication and the background work. They communicate over a versioned REST API.
+Two applications with a clear separation of responsibility. The frontend owns the user interface. The backend owns the data, the business rules, the authentication and all background work. They communicate over a versioned REST API.
 
 ```
                 Browser
-                   │  HTTPS
-                   ▼
-        ┌────────────────────┐
-        │  Next.js frontend  │   user interface only
-        └─────────┬──────────┘
-                  │  REST  /api/v1
-                  ▼
-        ┌────────────────────┐
-        │  FastAPI backend   │   routers → services →
-        │                    │   repositories → models
-        └─────────┬──────────┘
-                  ▼
-            PostgreSQL
+                   |  HTTPS
+                   v
+        +----------------------+
+        |  Next.js frontend    |  user interface only
+        +----------+-----------+
+                   |  REST  /api/v1
+                   v
+        +----------------------+
+        |  FastAPI backend     |  routers -> services ->
+        |                      |  repositories -> models
+        +----------+-----------+
+                   v
+              PostgreSQL + R2
 ```
 
-The backend holds a strict layering. A router calls a service, a service calls a repository, and the repository is the only layer that touches the database. Each account is an isolation boundary, and every query is scoped to the caller's account so one account's data is never visible to another.
+The backend follows a strict layer hierarchy. A router calls a service, a service calls a repository, and the repository is the only layer permitted to touch the database. Each account is an isolation boundary: every query is scoped to the calling account so no account's data is ever accessible to another.
 
 ---
 
 ## Feature set
 
-- **Vehicles and ownership.** Full specification, plus an ownership and finance record that travels with the vehicle.
-- **Record system.** Every action is a record: maintenance, repair, fuel, MOT, tax, insurance, parking, penalty notices, warranty, diagnostics and damage.
-- **Maintenance history.** A structured catalogue across engine, transmission, brakes, suspension, steering, wheels, cooling, electrical, climate control and exhaust.
-- **Fuel and running costs.** Fuel logs with economy and cost-per-mile analytics, and a complete running-costs view.
-- **Documents and photos.** Certificates, invoices and agreements attached to a vehicle and its records. Cover photo per vehicle, before and after damage photos with a photos gallery, and record attachments of any kind.
-- **Reminders and tasks.** Staged email reminders for the dates that matter, with assignable follow-up tasks.
-- **Vehicle health score.** A red, amber or green standing per vehicle from its key dates and condition.
-- **Collaboration.** Account types and Owner, Admin, Editor and Viewer roles, with shared vehicles and ownership transfer.
-- **Reports and export.** Cost and fuel reporting, PDF vehicle and service-history exports, and a full account export.
-- **UK GDPR erasure.** Two-step account and data erasure purging all database rows and stored files.
-- **Backups.** Manual and nightly scheduled backups to object storage with download and restore.
+**Vehicles and ownership**
+Full technical specification per vehicle, plus an ownership and finance record that travels with it across transfers.
+
+**Record system**
+Fifteen record types covering every stage of a vehicle's working life: maintenance, repair, fuel, MOT, tax, insurance, parking, penalty charge notices, cleaning, accessories, warranty, diagnostics, damage, roadside assistance and freeform custom entries.
+
+**Maintenance history**
+A structured catalogue across engine, transmission, brakes, suspension, steering, wheels, cooling, electrical, climate control and exhaust systems.
+
+**Fuel and running costs**
+Fuel logs with MPG economy tracking and cost-per-mile analytics, alongside a full running-costs breakdown by category.
+
+**Custom alerts**
+Flexible alert conditions per vehicle: a specific date, every N months or years, a mileage threshold, or every N miles. Multiple conditions per alert with configurable notification windows by days or miles.
+
+**Attachments**
+Certificates, invoices and agreements attached to vehicles and their records. Structured file support across penalty charge notices, damage reports and warranty records.
+
+**Reminders and tasks**
+Staged email reminders for renewal dates at configurable intervals, with assignable follow-up tasks per vehicle.
+
+**Branded email notifications**
+A complete transactional email system: passwordless login codes, renewal reminders and custom alert notifications, each with a vehicle registration plate block, RAG urgency colouring by days or miles remaining, and a full legal disclaimer footer.
+
+**Vehicle health score**
+A red, amber or green standing per vehicle, derived from its renewal dates and open alerts, visible at a glance on the fleet dashboard.
+
+**Reports and export**
+Cost and fuel analytics, PDF service history and vehicle specification exports, and a complete account data export in structured format.
+
+**Collaboration**
+Owner, Admin, Editor and Viewer roles across personal and fleet account types, with shared vehicle access and ownership transfer between users.
+
+**UK GDPR erasure**
+Two-step account and data erasure that purges all database rows and associated stored files permanently.
+
+**Backups**
+Manual and nightly scheduled backups to object storage, with download and restore from the settings panel.
 
 ---
 
 ## Engineering practices
 
-- **Layered architecture** with dependencies pointing one way, so each layer is testable and replaceable.
-- **Type safety end to end**, TypeScript on the frontend and Pydantic schemas on the backend.
-- **Security by design**: passwordless authentication, role-based access on every protected endpoint, account isolation, audit record of changes, rate limiting on auth endpoints, and seven security response headers on every response.
-- **Built to ISO/IEC 27001:2022 control principles.** Not currently certified.
-- **A documented commenting standard** applied to every file, so the codebase reads clearly.
-- **Conventional commits** and a phased delivery plan, each phase broken into small, reviewable steps.
-- **British English** throughout the product copy and documentation.
+**Layered architecture.** Dependencies point one way only. Each layer is independently testable and replaceable without changes to the layers above or below it.
+
+**Type safety end to end.** TypeScript on the frontend and Pydantic v2 schemas on the backend, with no untyped boundaries between layers. API contracts are enforced at runtime and at compile time.
+
+**Security by design.** Passwordless authentication, role-based access control on every protected endpoint, account isolation enforced at the query level, a full audit trail of data changes, rate limiting on authentication endpoints, and seven security response headers on every response.
+
+**ISO/IEC 27001:2022 control principles** applied throughout the design and access model. Not currently certified.
+
+**Commenting standard.** A documented standard applied consistently across every file, covering file-level purpose blocks and inline explanation of non-obvious decisions only.
+
+**Conventional commits** and a phased delivery plan, with each phase broken into small, independently reviewable steps.
+
+**British English** throughout all product copy, API responses, emails and documentation.
 
 ---
 
 ## Project status
 
-Complete. Eight phases delivered, from the foundations and the shared design system, through authentication and accounts, vehicles and the dashboard, the record system, the operational modules, reminders and the health score, reports and export, collaboration, and hardening for production deployment.
+Active development. Eight phases delivered, covering the foundations and design system, authentication and accounts, vehicles and the fleet dashboard, the record system, operational modules, reminders and health scoring, reports and export, collaboration, and production hardening. Development is ongoing.
 
 ---
 
 ## Licence
 
-Proprietary. Copyright M H LIKHON. All rights reserved. This repository is published for viewing and evaluation only and may not be cloned, used, copied, modified or redistributed. See [LICENSE](./LICENSE).
+Proprietary. Copyright M H LIKHON. All rights reserved. This repository is published for viewing and evaluation only and may not be cloned, used, copied, modified or redistributed in any form. See [LICENSE](./LICENSE).
