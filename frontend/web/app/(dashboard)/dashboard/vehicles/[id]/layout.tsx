@@ -48,11 +48,11 @@ interface VehicleMinimal {
 // CONSTANTS
 // ==================================================
 
-const BADGE_TONE: Record<VehicleMinimal["lifecycle_state"], "success" | "warning" | "error" | "neutral"> = {
+const BADGE_TONE: Record<VehicleMinimal["lifecycle_state"], "success" | "muted"> = {
   active:   "success",
-  sold:     "warning",
-  scrapped: "error",
-  archived: "neutral",
+  sold:     "muted",
+  scrapped: "muted",
+  archived: "muted",
 };
 
 const BADGE_LABEL: Record<VehicleMinimal["lifecycle_state"], string> = {

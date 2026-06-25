@@ -269,7 +269,7 @@ export default function AlertsPage() {
   ) {
     setForm((prev) => {
       const conditions = [...prev.conditions];
-      conditions[index] = { ...conditions[index], [field]: value };
+      conditions[index] = { ...conditions[index], [field]: value } as ConditionDraft;
       return { ...prev, conditions };
     });
     setSaveError(null);
@@ -300,7 +300,7 @@ export default function AlertsPage() {
 
     const builtConditions: AlertCondition[] = [];
     for (let i = 0; i < form.conditions.length; i++) {
-      const c = buildConditionPayload(form.conditions[i]);
+      const c = buildConditionPayload(form.conditions[i]!);
       if (c === null) {
         setSaveError(`Condition ${i + 1} has missing or invalid fields.`);
         return;

@@ -82,7 +82,7 @@ function formatDate(d: string | null): string {
 }
 
 function formatMonthLabel(ym: string): string {
-  const [y, m] = ym.split("-").map(Number);
+  const [y, m] = ym.split("-").map(Number) as [number, number];
   return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 }
 

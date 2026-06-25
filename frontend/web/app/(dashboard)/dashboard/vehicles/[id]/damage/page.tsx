@@ -84,7 +84,7 @@ const DAMAGE_KINDS: { value: DamageKind; label: string }[] = [
 const EMPTY_FORM: AddForm = {
   kind:        "scratch",
   description: "",
-  date:        new Date().toISOString().split("T")[0],
+  date:        new Date().toISOString().slice(0, 10),
   repair_cost: "",
 };
 

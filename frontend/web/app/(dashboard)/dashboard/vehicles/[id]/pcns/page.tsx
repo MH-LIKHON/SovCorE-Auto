@@ -79,7 +79,7 @@ const STATUSES: { value: PCNStatus; label: string }[] = [
 const EMPTY_FORM: AddForm = {
   reference: "",
   authority: "",
-  date:      new Date().toISOString().split("T")[0],
+  date:      new Date().toISOString().slice(0, 10),
   amount:    "",
   status:    "open",
   notes:     "",

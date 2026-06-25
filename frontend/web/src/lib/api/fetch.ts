@@ -131,7 +131,7 @@ export async function apiUpload(
     ...opts,
     method: "POST",
     credentials: "include",
-    headers: { ...authHeader, ...(opts.headers ?? {}) },
+    headers: { ...authHeader, ...(opts.headers as Record<string, string> | undefined) } as Record<string, string>,
     body,
   });
 
@@ -146,7 +146,7 @@ export async function apiUpload(
     ...opts,
     method: "POST",
     credentials: "include",
-    headers: { ...newAuthHeader, ...(opts.headers ?? {}) },
+    headers: { ...newAuthHeader, ...(opts.headers as Record<string, string> | undefined) } as Record<string, string>,
     body,
   });
 }
