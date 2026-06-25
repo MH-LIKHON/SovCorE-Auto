@@ -58,11 +58,18 @@ if "sslmode=" in _db_url:
 _ssl_ctx = ssl.create_default_context()
 
 # echo=False in production; can be set to True temporarily via debug flag.
+# pool_pre_ping: issues SELECT 1 before reusing a pooled connection; discards
+# it and reconnects if the server has closed it (Neon closes idle connections
+# after ~5 minutes on the serverless tier).
+# pool_recycle: force-retire connections after 4 minutes so they are never
+# handed back to Neon's idle timeout window.
 engine = create_async_engine(
     _db_url,
     echo=settings.app_debug,
     pool_size=10,
     max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=240,
     connect_args={"ssl": _ssl_ctx},
 )
 
