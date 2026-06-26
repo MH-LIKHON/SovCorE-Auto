@@ -177,13 +177,27 @@ export default function VehicleProfilePage() {
 
   // ------------------------------ Info patch ---------------------------------
   const [infoForm, setInfoForm] = useState<Partial<VehicleDetail>>({});
+  const [infoMileageError, setInfoMileageError] = useState<string | null>(null);
+
   function startEditInfo() {
     setInfoForm({ ...vehicle });
     setEditingInfo(true);
     setSaveError(null);
+    setInfoMileageError(null);
   }
+
+  function handleInfoMileageBlur() {
+    if (infoForm.mileage == null || vehicle?.mileage == null) { setInfoMileageError(null); return; }
+    if (infoForm.mileage < vehicle.mileage) {
+      setInfoMileageError(`Current odometer is ${vehicle.mileage.toLocaleString()} mi. Please enter ${vehicle.mileage.toLocaleString()} or higher.`);
+    } else {
+      setInfoMileageError(null);
+    }
+  }
+
   async function saveInfo() {
     if (!accountId || !vehicle) return;
+    if (infoMileageError) { setSaveError("Please correct the odometer reading before saving."); return; }
     setSaving(true);
     setSaveError(null);
     const res = await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${vehicle.id}`, {
@@ -219,6 +233,7 @@ export default function VehicleProfilePage() {
     const updated = await res.json();
     setVehicle(updated);
     setEditingInfo(false);
+    setInfoMileageError(null);
   }
 
   // ------------------------------ Ownership patch -----------------------------
@@ -364,7 +379,7 @@ export default function VehicleProfilePage() {
           <button
             key={t}
             className={t === tab ? "vd-tab vd-tab--active" : "vd-tab"}
-            onClick={() => { setTab(t); setEditingInfo(false); setEditingOwnership(false); setEditingRenewals(false); setSaveError(null); }}
+            onClick={() => { setTab(t); setEditingInfo(false); setEditingOwnership(false); setEditingRenewals(false); setSaveError(null); setInfoMileageError(null); }}
           >
             {t === "overview" ? "Summary" : t === "info" ? "Details" : t === "ownership" ? "Ownership" : "Renewals"}
           </button>
@@ -556,7 +571,10 @@ export default function VehicleProfilePage() {
                 min={0}
                 placeholder="e.g. 52000"
                 value={infoForm.mileage ?? ""}
-                onChange={(e) => setInfoForm((f) => ({ ...f, mileage: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                onChange={(e) => { setInfoForm((f) => ({ ...f, mileage: e.target.value ? parseInt(e.target.value, 10) : null })); setInfoMileageError(null); }}
+                onBlur={handleInfoMileageBlur}
+                onKeyDown={(e) => ["e","E","+","-","."].includes(e.key) && e.preventDefault()}
+                error={infoMileageError ?? undefined}
                 disabled={saving}
               />
               {saveError && <p className="vd-error">{saveError}</p>}
@@ -564,7 +582,7 @@ export default function VehicleProfilePage() {
                 <button className="vd-btn vd-btn--primary" onClick={saveInfo} disabled={saving}>
                   {saving ? "Saving…" : "Save"}
                 </button>
-                <button className="vd-btn vd-btn--ghost" onClick={() => setEditingInfo(false)}>Cancel</button>
+                <button className="vd-btn vd-btn--ghost" onClick={() => { setEditingInfo(false); setInfoMileageError(null); }}>Cancel</button>
               </div>
             </div>
           ) : (

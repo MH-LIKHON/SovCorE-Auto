@@ -85,7 +85,7 @@ function buildMonths(records: RecordItem[], year: number) {
 }
 
 function severityLabel(s: FaultCode["severity"]): string {
-  return { advisory: "Advisory", amber: "Amber", red: "Red", resolved: "Resolved" }[s];
+  return { advisory: "Advisory", amber: "Warning", red: "Red", resolved: "Resolved" }[s];
 }
 
 // ==================================================

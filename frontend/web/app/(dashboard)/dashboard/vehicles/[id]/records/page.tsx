@@ -313,6 +313,13 @@ export default function VehicleRecordsPage() {
   const [diagFaultCodeForm, setDiagFaultCodeForm] = useState<FaultCodeDraft>({ ...EMPTY_FC });
   const [showFaultCodeForm, setShowFaultCodeForm] = useState(false);
 
+  // Inline field errors for odometer validation (blur-triggered)
+  const [mileageError, setMileageError] = useState<string | null>(null);
+  const [triggerMileageError, setTriggerMileageError] = useState<string | null>(null);
+
+  // Index of the draft fault code being edited (null = adding new)
+  const [editingFcIndex, setEditingFcIndex] = useState<number | null>(null);
+
   // Attachment upload (existing record detail panel)
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [attachUploading, setAttachUploading] = useState(false);
@@ -336,6 +343,9 @@ export default function VehicleRecordsPage() {
   const [damages, setDamages] = useState<DamageListItem[]>([]);
   const [warranties, setWarranties] = useState<WarrantyListItem[]>([]);
   const [moduleLoading, setModuleLoading] = useState(true);
+
+  // Vehicle current odometer — used to reject backwards readings
+  const [vehicleMileage, setVehicleMileage] = useState<number | null>(null);
 
   // ==================================================
   // DATA LOADING
@@ -370,14 +380,16 @@ export default function VehicleRecordsPage() {
     if (!accountId || !id) return;
     (async () => {
       setModuleLoading(true);
-      const [pcnRes, dmgRes, warRes] = await Promise.all([
+      const [pcnRes, dmgRes, warRes, vehRes] = await Promise.all([
         apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/pcns?page=1&page_size=100`),
         apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/damage?page=1&page_size=100`),
         apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/warranties?page=1&page_size=50`),
+        apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}`),
       ]);
       if (pcnRes.ok) setPcns((await pcnRes.json()).items ?? []);
       if (dmgRes.ok) setDamages((await dmgRes.json()).items ?? []);
       if (warRes.ok) setWarranties((await warRes.json()).items ?? []);
+      if (vehRes.ok) { const v = await vehRes.json(); setVehicleMileage(v.mileage ?? null); }
       setModuleLoading(false);
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -444,6 +456,27 @@ export default function VehicleRecordsPage() {
   function handleFormChange<K extends keyof AddForm>(field: K, value: AddForm[K]) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setSaveError(null);
+    if (field === "mileage") setMileageError(null);
+  }
+
+  function handleMileageBlur() {
+    if (!form.mileage || vehicleMileage === null) { setMileageError(null); return; }
+    const entered = parseInt(form.mileage, 10);
+    if (!isNaN(entered) && entered < vehicleMileage) {
+      setMileageError(`Last recorded odometer is ${vehicleMileage.toLocaleString()} mi. Please enter ${vehicleMileage.toLocaleString()} or higher.`);
+    } else {
+      setMileageError(null);
+    }
+  }
+
+  function handleTriggerMileageBlur() {
+    if (!diagFaultCodeForm.trigger_mileage || vehicleMileage === null) { setTriggerMileageError(null); return; }
+    const entered = parseInt(diagFaultCodeForm.trigger_mileage, 10);
+    if (!isNaN(entered) && entered < vehicleMileage) {
+      setTriggerMileageError(`Last recorded odometer is ${vehicleMileage.toLocaleString()} mi. Please enter ${vehicleMileage.toLocaleString()} or higher.`);
+    } else {
+      setTriggerMileageError(null);
+    }
   }
 
   function buildPayload() {
@@ -508,6 +541,7 @@ export default function VehicleRecordsPage() {
     if (!form.date) { setSaveError("Date is required."); return; }
     if (form.type === "fuel" && !form.fuel_litres) { setSaveError("Litres is required for a fuel record."); return; }
     if (form.type === "odometer" && !form.mileage) { setSaveError("Odometer reading is required."); return; }
+    if (mileageError) { setSaveError("Please correct the odometer reading before saving."); return; }
     setSaving(true);
     setSaveError(null);
     try {
@@ -536,8 +570,17 @@ export default function VehicleRecordsPage() {
       setDiagFaultCodes([]);
       setDiagFaultCodeForm({ ...EMPTY_FC });
       setShowFaultCodeForm(false);
+      setEditingFcIndex(null);
+      setMileageError(null);
+      setTriggerMileageError(null);
       setNewAttachFiles([]);
       setNewAttachLabel("");
+      if (form.mileage) {
+        const entered = parseInt(form.mileage, 10);
+        if (!isNaN(entered) && (vehicleMileage === null || entered > vehicleMileage)) {
+          setVehicleMileage(entered);
+        }
+      }
       await loadRecords();
     } catch {
       setSaveError("An unexpected error occurred.");
@@ -717,14 +760,19 @@ export default function VehicleRecordsPage() {
                   {isOdometerForm ? "Odometer reading *" : "Odometer"}
                 </span>
                 <input
-                  className="rec-input"
+                  className={`rec-input${mileageError ? " rec-input--error" : ""}`}
                   type="number"
+                  min="0"
+                  step="1"
                   placeholder={isOdometerForm ? "e.g. 52400" : "e.g. 52000"}
                   value={form.mileage}
+                  onKeyDown={(e) => ["e","E","+","-","."].includes(e.key) && e.preventDefault()}
                   onChange={(e) => handleFormChange("mileage", e.target.value)}
+                  onBlur={handleMileageBlur}
                   disabled={saving}
                   required={isOdometerForm}
                 />
+                {mileageError && <span className="rec-field-error">{mileageError}</span>}
               </label>
               {!isOdometerForm && (
                 <label className="rec-label">
@@ -873,9 +921,9 @@ export default function VehicleRecordsPage() {
                   <textarea
                     className="rec-textarea"
                     rows={2}
-                    placeholder="VISUAL OR AUDIO FINDINGS…"
+                    placeholder="Visual or audio findings..."
                     value={form.diag_findings}
-                    onChange={(e) => handleFormChange("diag_findings", e.target.value.toUpperCase())}
+                    onChange={(e) => handleFormChange("diag_findings", e.target.value)}
                     disabled={saving}
                   />
                 </label>
@@ -886,9 +934,21 @@ export default function VehicleRecordsPage() {
                   <div className="diag-fc-draft-list">
                     {diagFaultCodes.map((fc, i) => (
                       <div key={i} className="diag-fc-draft-row">
-                        <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity}</span>
+                        <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity === "amber" ? "Warning" : fc.severity}</span>
                         <span className="diag-fc-draft-code">{fc.code || "—"}</span>
                         <span className="diag-fc-draft-desc">{fc.description}</span>
+                        <button
+                          type="button"
+                          className="sov-action-btn sov-action-btn--view"
+                          onClick={() => {
+                            setDiagFaultCodeForm({ ...fc });
+                            setEditingFcIndex(i);
+                            setShowFaultCodeForm(true);
+                          }}
+                          disabled={saving}
+                        >
+                          Edit
+                        </button>
                         <button
                           type="button"
                           className="sov-action-btn sov-action-btn--delete"
@@ -933,7 +993,7 @@ export default function VehicleRecordsPage() {
                           onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, severity: e.target.value as FaultCodeDraft["severity"] }))}
                         >
                           <option value="advisory">Advisory</option>
-                          <option value="amber">Amber</option>
+                          <option value="amber">Warning</option>
                           <option value="red">Red</option>
                         </select>
                       </label>
@@ -962,12 +1022,17 @@ export default function VehicleRecordsPage() {
                       <label className="rec-label">
                         <span className="rec-label__text">Trigger odometer</span>
                         <input
-                          className="rec-input"
+                          className={`rec-input${triggerMileageError ? " rec-input--error" : ""}`}
                           type="number"
+                          min="0"
+                          step="1"
                           placeholder="e.g. 60000"
                           value={diagFaultCodeForm.trigger_mileage}
-                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, trigger_mileage: e.target.value }))}
+                          onKeyDown={(e) => ["e","E","+","-","."].includes(e.key) && e.preventDefault()}
+                          onChange={(e) => { setDiagFaultCodeForm((p) => ({ ...p, trigger_mileage: e.target.value })); setTriggerMileageError(null); }}
+                          onBlur={handleTriggerMileageBlur}
                         />
+                        {triggerMileageError && <span className="rec-field-error">{triggerMileageError}</span>}
                       </label>
                     </div>
                     <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
@@ -976,17 +1041,23 @@ export default function VehicleRecordsPage() {
                         className="rec-btn rec-btn--ghost rec-btn--sm"
                         onClick={() => {
                           if (!diagFaultCodeForm.description.trim()) return;
-                          setDiagFaultCodes((prev) => [...prev, { ...diagFaultCodeForm }]);
+                          if (editingFcIndex !== null) {
+                            setDiagFaultCodes((prev) => prev.map((item, i) => i === editingFcIndex ? { ...diagFaultCodeForm } : item));
+                            setEditingFcIndex(null);
+                          } else {
+                            setDiagFaultCodes((prev) => [...prev, { ...diagFaultCodeForm }]);
+                          }
                           setDiagFaultCodeForm({ ...EMPTY_FC });
+                          setTriggerMileageError(null);
                           setShowFaultCodeForm(false);
                         }}
                       >
-                        Add
+                        {editingFcIndex !== null ? "Update" : "Add"}
                       </button>
                       <button
                         type="button"
                         className="rec-btn rec-btn--ghost rec-btn--sm"
-                        onClick={() => { setShowFaultCodeForm(false); setDiagFaultCodeForm({ ...EMPTY_FC }); }}
+                        onClick={() => { setShowFaultCodeForm(false); setDiagFaultCodeForm({ ...EMPTY_FC }); setEditingFcIndex(null); setTriggerMileageError(null); }}
                       >
                         Cancel
                       </button>
@@ -1077,7 +1148,7 @@ export default function VehicleRecordsPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAddRecord} disabled={saving}>
                 {saving ? "Saving…" : "Save record"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setNewAttachFiles([]); setNewAttachLabel(""); setDiagFaultCodes([]); setDiagFaultCodeForm({ ...EMPTY_FC }); setShowFaultCodeForm(false); }} disabled={saving}>
+              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setMileageError(null); setTriggerMileageError(null); setNewAttachFiles([]); setNewAttachLabel(""); setDiagFaultCodes([]); setDiagFaultCodeForm({ ...EMPTY_FC }); setShowFaultCodeForm(false); setEditingFcIndex(null); }} disabled={saving}>
                 Cancel
               </button>
             </div>
@@ -1260,7 +1331,7 @@ export default function VehicleRecordsPage() {
                                   .sort((a, b) => a.sort_order - b.sort_order)
                                   .map((fc) => (
                                     <div key={fc.id} className="diag-fc-detail-row">
-                                      <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity}</span>
+                                      <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity === "amber" ? "Warning" : fc.severity}</span>
                                       <span className="diag-fc-draft-code">{fc.code ?? "—"}</span>
                                       <span className="diag-fc-draft-desc">{fc.description}</span>
                                       {fc.notes && <span className="diag-fc-draft-notes">{fc.notes}</span>}
@@ -1589,6 +1660,10 @@ const REC_STYLES = `
   .diag-fc-draft-resolved { font-size: var(--text-xs); color: var(--colour-text-muted); }
   .diag-fc-mini-form { border: 0.5px solid var(--colour-border); border-radius: var(--radius-md); padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-2); background: rgba(255,255,255,0.02); }
   .diag-fc-detail-row { display: flex; align-items: baseline; gap: var(--space-3); padding: 4px 0; flex-wrap: wrap; }
+
+  /* Inline field validation */
+  .rec-field-error { font-size: var(--text-xs); color: var(--colour-error); margin-top: 2px; display: block; }
+  .rec-input--error { border-color: var(--colour-error) !important; }
 
   /* Diagnostic severity small badges */
   .diag-sev-sm { font-size: 10px; font-weight: var(--weight-medium); border-radius: 99px; padding: 1px 7px; white-space: nowrap; border: 1px solid transparent; }
