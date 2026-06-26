@@ -409,7 +409,9 @@ svg {
 .rec-btn--danger-sm { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); padding: 5px 14px; font-size: var(--text-xs); border-radius: var(--radius-sm); transition: background 0.2s, border-color 0.2s, color 0.2s; }
 .rec-btn--danger-sm:hover:not(:disabled) { border-color: var(--colour-error); color: var(--colour-error); background: rgba(239,68,68,0.07); }
 .rec-btn--danger-sm:disabled { opacity: 0.45; }
-.rec-btn--icon { width: 42px; height: 42px; padding: 0; border-radius: var(--radius-sm); font-size: 24px; font-weight: var(--weight-bold); line-height: 1; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+/* Double-class selector (specificity 0,2,0) beats the single-class .rec-btn media-query
+   padding overrides so padding:0 and exact dimensions are never clobbered. */
+.rec-btn.rec-btn--icon { width: 42px; height: 42px; padding: 0; border-radius: var(--radius-sm); font-size: 24px; font-weight: var(--weight-bold); line-height: 42px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 .rec-btn--primary.rec-btn--icon:hover:not(:disabled) { transform: translateY(-1px) scale(1.12); }
 
 @media (max-width: 1023px) {
