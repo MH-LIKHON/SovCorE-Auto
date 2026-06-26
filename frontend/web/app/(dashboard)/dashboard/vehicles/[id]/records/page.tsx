@@ -28,7 +28,7 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
@@ -124,13 +124,15 @@ type AnyEvent =
 type RecordTypeValue =
   | "maintenance" | "repair" | "fuel" | "mot" | "tax" | "insurance"
   | "parking" | "pcn" | "cleaning" | "accessories" | "warranty"
-  | "diagnostics" | "damage" | "roadside" | "custom";
+  | "diagnostics" | "damage" | "roadside" | "custom" | "odometer";
 
 // ==================================================
 // CONSTANTS
 // ==================================================
 
 const RECORD_TYPES: { value: RecordTypeValue; label: string }[] = [
+  // Measurement — first so it sits directly after "All"
+  { value: "odometer",     label: "Odometer log" },
   // Workshop
   { value: "maintenance",  label: "Maintenance" },
   { value: "repair",       label: "Repair" },
@@ -213,7 +215,7 @@ interface AddForm {
 }
 
 const EMPTY_FORM: AddForm = {
-  type:                "maintenance",
+  type:                "odometer",
   date:                new Date().toISOString().slice(0, 10),
   mileage:             "",
   cost:                "",
@@ -237,7 +239,17 @@ const EMPTY_FORM: AddForm = {
 
 export default function VehicleRecordsPage() {
   const { id } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const accountId = getAccountId() ?? "";
+
+  // Pre-select type from URL param (e.g. ?type=odometer from the mileage page link).
+  const typeFromUrl = (searchParams.get("type") ?? "") as RecordTypeValue;
+  const validTypes = new Set<RecordTypeValue>([
+    "maintenance", "repair", "fuel", "mot", "tax", "insurance",
+    "parking", "pcn", "cleaning", "accessories", "warranty",
+    "diagnostics", "damage", "roadside", "custom", "odometer",
+  ]);
+  const initialType: RecordTypeValue = validTypes.has(typeFromUrl) ? typeFromUrl : "odometer";
 
   const [records, setRecords] = useState<RecordListItem[]>([]);
   const [, setTotal] = useState(0);
@@ -247,8 +259,9 @@ export default function VehicleRecordsPage() {
   const [expandedDetail, setExpandedDetail] = useState<RecordDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<AddForm>(EMPTY_FORM);
+  // Auto-open the form and pre-select the type if ?type= is in the URL.
+  const [showForm, setShowForm] = useState(typeFromUrl !== "");
+  const [form, setForm] = useState<AddForm>({ ...EMPTY_FORM, type: initialType });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -428,6 +441,7 @@ export default function VehicleRecordsPage() {
   async function handleAddRecord() {
     if (!form.date) { setSaveError("Date is required."); return; }
     if (form.type === "fuel" && !form.fuel_litres) { setSaveError("Litres is required for a fuel record."); return; }
+    if (form.type === "odometer" && !form.mileage) { setSaveError("Odometer reading is required."); return; }
     setSaving(true);
     setSaveError(null);
     try {
@@ -559,9 +573,10 @@ export default function VehicleRecordsPage() {
   // RENDER HELPERS
   // ==================================================
 
-  const isMaintForm  = form.type === "maintenance" || form.type === "repair";
-  const isFuelForm   = form.type === "fuel";
-  const isDamageForm = form.type === "damage";
+  const isMaintForm    = form.type === "maintenance" || form.type === "repair";
+  const isFuelForm     = form.type === "fuel";
+  const isDamageForm   = form.type === "damage";
+  const isOdometerForm = form.type === "odometer";
 
   // ==================================================
   // RENDER
@@ -576,8 +591,8 @@ export default function VehicleRecordsPage() {
             <h1 className="rec-title">Records</h1>
             <p className="rec-sub">Every action taken on this vehicle, all in one place.</p>
           </div>
-          <button className="rec-btn rec-btn--primary" onClick={() => { setShowForm(!showForm); setSaveError(null); }}>
-            {showForm ? "Cancel" : "Add record"}
+          <button className="rec-btn rec-btn--primary rec-btn--icon" title={showForm ? "Cancel" : "Add record"} onClick={() => { setShowForm(!showForm); setSaveError(null); }}>
+            {showForm ? "×" : "+"}
           </button>
         </div>
       </header>
@@ -593,6 +608,9 @@ export default function VehicleRecordsPage() {
               <label className="rec-label">
                 <span className="rec-label__text">Type</span>
                 <select className="rec-select" value={form.type} onChange={(e) => handleFormChange("type", e.target.value as RecordTypeValue)} disabled={saving}>
+                  <optgroup label="Measurement">
+                    <option value="odometer">Odometer log</option>
+                  </optgroup>
                   <optgroup label="Workshop">
                     <option value="maintenance">Maintenance</option>
                     <option value="repair">Repair</option>
@@ -623,17 +641,36 @@ export default function VehicleRecordsPage() {
                 <input className="rec-input" type="date" value={form.date} onChange={(e) => handleFormChange("date", e.target.value)} disabled={saving} />
               </label>
               <label className="rec-label">
-                <span className="rec-label__text">Mileage</span>
-                <input className="rec-input" type="number" placeholder="e.g. 52000" value={form.mileage} onChange={(e) => handleFormChange("mileage", e.target.value)} disabled={saving} />
+                <span className="rec-label__text">
+                  {isOdometerForm ? "Odometer reading *" : "Odometer"}
+                </span>
+                <input
+                  className="rec-input"
+                  type="number"
+                  placeholder={isOdometerForm ? "e.g. 52400" : "e.g. 52000"}
+                  value={form.mileage}
+                  onChange={(e) => handleFormChange("mileage", e.target.value)}
+                  disabled={saving}
+                  required={isOdometerForm}
+                />
               </label>
-              <label className="rec-label">
-                <span className="rec-label__text">Total cost (£)</span>
-                <input className="rec-input" type="number" step="0.01" placeholder="e.g. 149.99" value={form.cost} onChange={(e) => handleFormChange("cost", e.target.value)} disabled={saving} />
-              </label>
+              {!isOdometerForm && (
+                <label className="rec-label">
+                  <span className="rec-label__text">Total cost (£)</span>
+                  <input className="rec-input" type="number" step="0.01" placeholder="e.g. 149.99" value={form.cost} onChange={(e) => handleFormChange("cost", e.target.value)} disabled={saving} />
+                </label>
+              )}
             </div>
 
-            {/* Garage / Supplier — only shown for types where they are meaningful */}
-            {(SHOW_GARAGE.has(form.type) || SHOW_SUPPLIER.has(form.type)) && (
+            {/* Odometer info strip */}
+            {isOdometerForm && (
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--colour-text-muted)", margin: 0, lineHeight: "var(--leading-normal)" }}>
+                Log your current odometer reading. This updates the vehicle mileage and feeds mileage-based service reminders and alerts.
+              </p>
+            )}
+
+            {/* Garage / Supplier — only shown for types where they are meaningful (not odometer) */}
+            {!isOdometerForm && (SHOW_GARAGE.has(form.type) || SHOW_SUPPLIER.has(form.type)) && (
               <div className="rec-form-row">
                 {SHOW_GARAGE.has(form.type) && (
                   <label className="rec-label rec-label--wide">

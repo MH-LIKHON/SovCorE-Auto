@@ -8,10 +8,13 @@
 //   change, and delete per row.
 //
 // Design:
-//   Tasks are ordered soonest-due first (nulls last). The status
-//   badge uses green for completed, amber for in_progress, and
-//   muted for open. The status dropdown on each row allows
-//   one-click progression through the workflow.
+//   System default tasks (is_system_default=true) show a "Default"
+//   badge and no delete button — they are platform-seeded on vehicle
+//   creation and cannot be removed, only edited or completed.
+//
+//   The Monthly Log Reminder card (account-wide mileage_log_settings)
+//   sits at the top of the page; it fires a prompt email on a chosen
+//   day each month to encourage odometer logging.
 //
 //   Mirrors SovCorE QR card and list patterns exactly — same
 //   rec-shell / Card / rec-btn / rec-row class conventions used
@@ -41,6 +44,7 @@ interface TaskItem {
   due_date: string | null;
   notes: string | null;
   assignee_user_id: string | null;
+  is_system_default: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +60,11 @@ interface AddForm {
   title: string;
   due_date: string;
   notes: string;
+}
+
+interface LogSettings {
+  reminder_day: number;
+  active: boolean;
 }
 
 // ==================================================
@@ -122,6 +131,13 @@ export default function TasksPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Monthly log reminder settings
+  const [logSettings, setLogSettings] = useState<LogSettings | null>(null);
+  const [editingLog, setEditingLog] = useState(false);
+  const [logDay, setLogDay] = useState<string>("1");
+  const [logActive, setLogActive] = useState(true);
+  const [savingLog, setSavingLog] = useState(false);
+
   // ==================================================
   // DATA LOADING
   // ==================================================
@@ -140,7 +156,21 @@ export default function TasksPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadTasks(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  async function loadLogSettings() {
+    if (!accountId) return;
+    const res = await apiFetch(`/api/v1/accounts/${accountId}/mileage-settings`);
+    if (res.ok) {
+      const s: LogSettings = await res.json();
+      setLogSettings(s);
+      setLogDay(String(s.reminder_day));
+      setLogActive(s.active);
+    }
+  }
+
+  useEffect(() => {
+    loadTasks();
+    loadLogSettings();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ==================================================
   // ADD FORM
@@ -212,6 +242,26 @@ export default function TasksPage() {
   }
 
   // ==================================================
+  // MONTHLY LOG REMINDER
+  // ==================================================
+
+  async function handleSaveLog() {
+    const day = parseInt(logDay, 10);
+    if (!day || day < 1 || day > 28) return;
+    setSavingLog(true);
+    const res = await apiFetch(`/api/v1/accounts/${accountId}/mileage-settings`, {
+      method: "PATCH",
+      body: JSON.stringify({ reminder_day: day, active: logActive }),
+    });
+    if (res.ok) {
+      const s: LogSettings = await res.json();
+      setLogSettings(s);
+      setEditingLog(false);
+    }
+    setSavingLog(false);
+  }
+
+  // ==================================================
   // RENDER
   // ==================================================
 
@@ -230,10 +280,11 @@ export default function TasksPage() {
             </p>
           </div>
           <button
-            className="rec-btn rec-btn--primary"
+            className="rec-btn rec-btn--primary rec-btn--icon"
+            title={showForm ? "Cancel" : "Add task"}
             onClick={() => { setShowForm(!showForm); setSaveError(null); }}
           >
-            {showForm ? "Cancel" : "Add task"}
+            {showForm ? "×" : "+"}
           </button>
         </div>
       </header>
@@ -303,7 +354,6 @@ export default function TasksPage() {
         ) : tasks.length === 0 ? (
           <div className="rec-empty">
             <p>No tasks recorded for this vehicle.</p>
-            <button className="rec-btn rec-btn--primary" onClick={() => setShowForm(true)}>Add task</button>
           </div>
         ) : (
           <div className="rec-rows">
@@ -315,13 +365,16 @@ export default function TasksPage() {
                   <span className={statusBadgeClass(t.status)}>
                     {STATUS_LABELS[t.status]}
                   </span>
+                  {t.is_system_default && (
+                    <span className="tsk-badge tsk-badge--default">Default</span>
+                  )}
                   <div className="tsk-row__info">
                     <span className="tsk-row__title">{t.title}</span>
                     {t.notes && <span className="tsk-row__notes">{t.notes}</span>}
                   </div>
                 </div>
 
-                {/* ---- Right: due date + status select + delete ---- */}
+                {/* ---- Right: due date + status select + delete (or lock) ---- */}
                 <div className="tsk-row__right">
                   {t.due_date && (
                     <span className={dueBadgeClass(t.due_date)}>
@@ -340,19 +393,96 @@ export default function TasksPage() {
                     <option value="completed">Completed</option>
                   </select>
 
-                  <button
-                    className="rec-btn rec-btn--danger-sm"
-                    onClick={() => handleDelete(t.id)}
-                    disabled={deletingId === t.id}
-                  >
-                    {deletingId === t.id ? "…" : "Delete"}
-                  </button>
+                  {t.is_system_default ? (
+                    <span className="tsk-lock" title="System task, cannot be deleted">
+                      Locked
+                    </span>
+                  ) : (
+                    <button
+                      className="rec-btn rec-btn--danger-sm"
+                      onClick={() => handleDelete(t.id)}
+                      disabled={deletingId === t.id}
+                    >
+                      {deletingId === t.id ? "…" : "Delete"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </Card>
+
+      {/* ---- Monthly log reminder ---- */}
+      {logSettings !== null && (
+        <Card>
+          <div className="tsk-log-card">
+            <div>
+              <span className="tsk-log-title">Monthly log reminder</span>
+              {!logSettings.active && (
+                <span className="tsk-log-paused">Paused</span>
+              )}
+              {!editingLog && (
+                <p className="tsk-log-desc">
+                  Prompt email fires on day{" "}
+                  <strong>{logSettings.reminder_day}</strong> of each month.
+                  A preview reminder fires the day before.
+                </p>
+              )}
+              {editingLog && (
+                <div className="tsk-log-form">
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
+                    <label className="tsk-log-field-label">
+                      Day of month
+                      <input
+                        className="tsk-log-day-input"
+                        type="number"
+                        min={1}
+                        max={28}
+                        value={logDay}
+                        onChange={(e) => setLogDay(e.target.value)}
+                        disabled={savingLog}
+                      />
+                    </label>
+                    <label className="tsk-log-field-label" style={{ flexDirection: "row", gap: "var(--space-2)", alignItems: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={logActive}
+                        onChange={(e) => setLogActive(e.target.checked)}
+                        disabled={savingLog}
+                        style={{ cursor: "none" }}
+                      />
+                      Active
+                    </label>
+                    <button
+                      className="rec-btn rec-btn--primary"
+                      onClick={handleSaveLog}
+                      disabled={savingLog}
+                    >
+                      {savingLog ? "Saving…" : "Save"}
+                    </button>
+                    <button
+                      className="rec-btn rec-btn--ghost"
+                      onClick={() => { setEditingLog(false); setLogDay(String(logSettings.reminder_day)); setLogActive(logSettings.active); }}
+                      disabled={savingLog}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            {!editingLog && (
+              <button
+                className="rec-btn rec-btn--ghost"
+                onClick={() => setEditingLog(true)}
+              >
+                Edit
+              </button>
+            )}
+          </div>
+        </Card>
+      )}
 
       <style>{TSK_STYLES}</style>
     </div>
@@ -390,9 +520,21 @@ const TSK_STYLES = `
     white-space: nowrap;
     flex-shrink: 0;
   }
-  .tsk-badge--green  { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
-  .tsk-badge--amber  { color: #f59e0b; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
-  .tsk-badge--muted  { color: var(--colour-text-muted); border-color: var(--colour-border); background: none; }
+  .tsk-badge--green   { color: #4ade80; border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
+  .tsk-badge--amber   { color: #f59e0b; border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.08); }
+  .tsk-badge--muted   { color: var(--colour-text-muted); border-color: var(--colour-border); background: none; }
+  .tsk-badge--default { color: rgba(108,99,255,0.9); border-color: rgba(108,99,255,0.3); background: rgba(108,99,255,0.08); }
+
+  /* ---- Locked indicator for system defaults ---- */
+  .tsk-lock {
+    font-size: var(--text-xs);
+    color: var(--colour-text-muted);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    padding: 3px 8px;
+    white-space: nowrap;
+    opacity: 0.6;
+  }
 
   /* ---- Due date display ---- */
   .tsk-due { font-size: var(--text-sm); color: var(--colour-text-muted); white-space: nowrap; }
@@ -412,8 +554,60 @@ const TSK_STYLES = `
   }
   .tsk-select:focus { border-color: var(--colour-accent); }
 
+  /* ---- Monthly log reminder card ---- */
+  .tsk-log-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+  .tsk-log-title {
+    display: block;
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    color: var(--colour-text);
+    margin-bottom: var(--space-2);
+  }
+  .tsk-log-paused {
+    display: inline-block;
+    margin-left: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--colour-text-muted);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-full, 999px);
+    padding: 1px 6px;
+  }
+  .tsk-log-desc {
+    font-size: var(--text-sm);
+    color: var(--colour-text-muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+  .tsk-log-desc strong { color: var(--colour-text); }
+  .tsk-log-form { margin-top: var(--space-3); }
+  .tsk-log-field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: var(--text-xs);
+    color: var(--colour-text-muted);
+  }
+  .tsk-log-day-input {
+    width: 64px;
+    background: var(--colour-surface);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    color: var(--colour-text);
+    font-size: var(--text-sm);
+    padding: 4px 8px;
+    cursor: none;
+    outline: none;
+  }
+  .tsk-log-day-input:focus { border-color: var(--colour-accent); }
+
   @media (max-width: 767px) {
     .tsk-row { flex-direction: column; align-items: flex-start; }
     .tsk-row__right { flex-wrap: wrap; }
+    .tsk-log-card { flex-direction: column; }
   }
 `;

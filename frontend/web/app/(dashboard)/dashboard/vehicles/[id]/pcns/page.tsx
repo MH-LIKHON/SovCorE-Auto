@@ -24,7 +24,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
@@ -128,6 +128,21 @@ export default function PCNsPage() {
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [year, setYear] = useState(new Date().getFullYear());
+
+  const { yearOptions, thisMonth, count, avgCost, annualSpend, totalSpend } = useMemo(() => {
+    const now = new Date();
+    const mm = String(now.getMonth() + 1).padStart(2, "0");
+    const allYears = [...new Set(pcns.map((p) => parseInt(p.date.slice(0, 4), 10)))].sort((a, b) => b - a);
+    const opts = allYears.length > 0 ? allYears : [now.getFullYear()];
+    const ye = pcns.filter((p) => p.date.startsWith(`${year}-`));
+    const tm = ye.filter((p) => p.date.startsWith(`${year}-${mm}`)).reduce((s, p) => s + p.amount, 0);
+    const ann = ye.reduce((s, p) => s + p.amount, 0);
+    const cnt = ye.length;
+    const avg = cnt > 0 ? Math.round(ann / cnt) : 0;
+    const tot = pcns.reduce((s, p) => s + p.amount, 0);
+    return { yearOptions: opts, thisMonth: tm, count: cnt, avgCost: avg, annualSpend: ann, totalSpend: tot };
+  }, [pcns, year]);
 
   // ==================================================
   // DATA LOADING
@@ -240,10 +255,11 @@ export default function PCNsPage() {
             <p className="rec-sub">Council and private parking charges raised against this vehicle.</p>
           </div>
           <button
-            className="rec-btn rec-btn--primary"
+            className="rec-btn rec-btn--primary rec-btn--icon"
+            title={showForm ? "Cancel" : "Add PCN"}
             onClick={() => { setShowForm(!showForm); setSaveError(null); }}
           >
-            {showForm ? "Cancel" : "Add PCN"}
+            {showForm ? "×" : "+"}
           </button>
         </div>
       </header>
@@ -330,6 +346,38 @@ export default function PCNsPage() {
         </Card>
       )}
 
+      {/* ---- Summary ---- */}
+      <Card>
+        <div className="rec-section-head">
+          <h2 className="rec-section-title" style={{ margin: 0 }}>Summary</h2>
+          <select className="rpt-year-select" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <div className="fuel-stats">
+          <div className="fuel-stat">
+            <span className="fuel-stat__value">{formatGBP(thisMonth)}</span>
+            <span className="fuel-stat__label">This month</span>
+          </div>
+          <div className="fuel-stat">
+            <span className="fuel-stat__value">{count}</span>
+            <span className="fuel-stat__label">PCNs ({year})</span>
+          </div>
+          <div className="fuel-stat">
+            <span className="fuel-stat__value">{avgCost > 0 ? formatGBP(avgCost) : "-"}</span>
+            <span className="fuel-stat__label">Avg per PCN</span>
+          </div>
+          <div className="fuel-stat">
+            <span className="fuel-stat__value">{formatGBP(annualSpend)}</span>
+            <span className="fuel-stat__label">Year total</span>
+          </div>
+          <div className="fuel-stat">
+            <span className="fuel-stat__value">{formatGBP(totalSpend)}</span>
+            <span className="fuel-stat__label">Total spend</span>
+          </div>
+        </div>
+      </Card>
+
       {/* ---- PCN list ---- */}
       <Card>
         <div className="rec-list-head">
@@ -341,7 +389,6 @@ export default function PCNsPage() {
         ) : pcns.length === 0 ? (
           <div className="rec-empty">
             <p>No penalty charge notices recorded for this vehicle.</p>
-            <button className="rec-btn rec-btn--primary" onClick={() => setShowForm(true)}>Add a PCN</button>
           </div>
         ) : (
           <div className="rec-rows">
@@ -447,5 +494,52 @@ const PCN_STYLES = `
   @media (max-width: 767px) {
     .pcn-row { flex-direction: column; align-items: flex-start; }
     .pcn-row__right { flex-wrap: wrap; }
+  }
+
+  /* ---- Summary card ---- */
+  .rec-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+  }
+  .fuel-stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--space-3);
+  }
+  .fuel-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.03);
+    border: 0.5px solid var(--colour-border);
+  }
+  .fuel-stat__value {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--colour-text);
+  }
+  .fuel-stat__label {
+    font-size: var(--text-xs);
+    color: var(--colour-text-muted);
+  }
+  .rpt-year-select {
+    background: var(--colour-bg);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    font-size: var(--text-sm);
+    color: var(--colour-text);
+    cursor: none;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .rpt-year-select:focus { border-color: var(--colour-accent); }
+  @media (max-width: 900px) {
+    .fuel-stats { grid-template-columns: repeat(2, 1fr); }
+    .fuel-stats .fuel-stat:last-child { grid-column: 1 / -1; }
   }
 `;

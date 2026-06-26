@@ -1,20 +1,12 @@
 // ============================================================
-// frontend/web/app/(dashboard)/dashboard/vehicles/[id]/insurance/page.tsx
+// frontend/web/app/(dashboard)/dashboard/vehicles/[id]/accessories/page.tsx
 // ============================================================
 //
 // Purpose:
-//   Analytics page for insurance records on a vehicle.
-//   Shows annual spend, monthly bar chart, and a record list
-//   for all records of type "insurance".
-//
-// Design:
-//   Fetches records via the generic records endpoint filtered
-//   by type=insurance. Client-side aggregation builds the monthly
-//   breakdown and stat totals. Mirrors the expenses page pattern.
-//   No inline add form; users add via the Records page.
+//   Analytics page for accessories records on a vehicle.
 //
 // Consumed by:
-//   - Routed at /dashboard/vehicles/[id]/insurance
+//   - Routed at /dashboard/vehicles/[id]/accessories
 // ============================================================
 
 "use client";
@@ -39,11 +31,9 @@ interface RecordItem {
 function formatGBP(pence: number): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
 }
-
 function formatDate(d: string): string {
   return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
-
 function formatMonth(ym: string): string {
   const [y, m] = ym.split("-").map(Number) as [number, number];
   return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
@@ -59,7 +49,7 @@ function buildMonths(records: RecordItem[], year: number) {
   });
 }
 
-export default function InsurancePage() {
+export default function AccessoriesPage() {
   const { id }    = useParams<{ id: string }>();
   const accountId = getAccountId() ?? "";
 
@@ -71,10 +61,8 @@ export default function InsurancePage() {
     if (!accountId || !id) return;
     (async () => {
       setLoading(true);
-      const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${id}/records?type=insurance&page_size=200`
-      );
-      if (res.ok) { const data = await res.json(); setRecords(data.items ?? []); }
+      const res = await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/records?type=accessories&page_size=200`);
+      if (res.ok) setRecords((await res.json()).items ?? []);
       setLoading(false);
     })();
   }, [accountId, id]);
@@ -98,23 +86,21 @@ export default function InsurancePage() {
         <div className="rec-head__row">
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-              <h1 className="rec-title">Insurance</h1>
+              <h1 className="rec-title">Accessories</h1>
               <select className="rpt-year-select" value={year} onChange={(e) => setYear(Number(e.target.value))}>
                 {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
-            <p className="rec-sub">Insurance policy records and costs for this vehicle.</p>
+            <p className="rec-sub">Accessories and add-ons fitted to this vehicle.</p>
           </div>
-          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary rec-btn--icon" title="Add record">+</Link>
+          <Link href={`/dashboard/vehicles/${id}/records?type=accessories`} className="rec-btn rec-btn--primary rec-btn--icon" title="Add record">+</Link>
         </div>
       </header>
 
       {loading && <div className="rec-skeleton" />}
 
       {!loading && !hasData && (
-        <Card><div className="rec-empty">
-          <p>No insurance records yet. Add records via the Records page.</p>
-        </div></Card>
+        <Card><div className="rec-empty"><p>No accessories records yet. Add records via the Records page.</p></div></Card>
       )}
 
       {!loading && hasData && (
@@ -122,11 +108,26 @@ export default function InsurancePage() {
           <Card style={{ overflow: "visible" }}>
             <h2 className="rec-section-title">Summary</h2>
             <div className="fuel-stats">
-              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow"><span className="fuel-stat__value">{formatGBP(thisMonth)}</span><span className="fuel-stat__label">This month</span></Card>
-              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow"><span className="fuel-stat__value">{count}</span><span className="fuel-stat__label">Records ({year})</span></Card>
-              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow"><span className="fuel-stat__value">{count > 0 ? formatGBP(avgCost) : "-"}</span><span className="fuel-stat__label">Avg per record</span></Card>
-              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow"><span className="fuel-stat__value">{formatGBP(annualSpend)}</span><span className="fuel-stat__label">{year}</span></Card>
-              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow"><span className="fuel-stat__value">{formatGBP(totalSpend)}</span><span className="fuel-stat__label">Total spend</span></Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
+                <span className="fuel-stat__value">{formatGBP(thisMonth)}</span>
+                <span className="fuel-stat__label">This month</span>
+              </Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
+                <span className="fuel-stat__value">{count}</span>
+                <span className="fuel-stat__label">Records ({year})</span>
+              </Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
+                <span className="fuel-stat__value">{count > 0 ? formatGBP(avgCost) : "-"}</span>
+                <span className="fuel-stat__label">Avg per record</span>
+              </Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
+                <span className="fuel-stat__value">{formatGBP(annualSpend)}</span>
+                <span className="fuel-stat__label">{year}</span>
+              </Card>
+              <Card className="fuel-stat" padding="var(--space-4)" hoverEffect="glow">
+                <span className="fuel-stat__value">{formatGBP(totalSpend)}</span>
+                <span className="fuel-stat__label">Total spend</span>
+              </Card>
             </div>
           </Card>
 
@@ -136,7 +137,9 @@ export default function InsurancePage() {
               {monthly.map((m) => (
                 <div key={m.month} className="fuel-bar-col">
                   <span className="fuel-bar-amount">{m.total > 0 ? formatGBP(m.total) : ""}</span>
-                  <div className="fuel-bar-track"><div className="fuel-bar-fill" style={{ height: `${Math.round((m.total / maxMonthly) * 100)}%` }} /></div>
+                  <div className="fuel-bar-track">
+                    <div className="fuel-bar-fill" style={{ height: `${Math.round((m.total / maxMonthly) * 100)}%` }} />
+                  </div>
                   <span className="fuel-bar-label">{formatMonth(m.month).split(" ")[0]}</span>
                 </div>
               ))}
@@ -153,7 +156,7 @@ export default function InsurancePage() {
               {yearRecords.map((r) => (
                 <div key={r.id} className="an-rec-row">
                   <span className="an-rec-date">{formatDate(r.date)}</span>
-                  <span className="an-rec-meta">{r.supplier ?? r.garage ?? "-"}</span>
+                  <span className="an-rec-meta">{r.garage ?? r.supplier ?? "-"}</span>
                   <span className="an-rec-cost">{r.cost !== null ? formatGBP(r.cost) : "-"}</span>
                   {r.notes && <span className="an-rec-notes">{r.notes}</span>}
                 </div>
@@ -162,6 +165,7 @@ export default function InsurancePage() {
           </Card>
         </>
       )}
+
       <style>{AN_STYLES}</style>
     </div>
   );

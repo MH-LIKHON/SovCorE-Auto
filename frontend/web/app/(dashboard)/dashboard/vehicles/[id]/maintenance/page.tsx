@@ -134,8 +134,8 @@ export default function MaintenancePage() {
             </div>
             <p className="rec-sub">Scheduled and preventive maintenance records and costs.</p>
           </div>
-          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">
-            Add record
+          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary rec-btn--icon" title="Add record">
+            +
           </Link>
         </div>
       </header>
@@ -146,9 +146,6 @@ export default function MaintenancePage() {
         <Card>
           <div className="rec-empty">
             <p>No maintenance records yet. Add records via the Records page.</p>
-            <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">
-              Add record
-            </Link>
           </div>
         </Card>
       )}

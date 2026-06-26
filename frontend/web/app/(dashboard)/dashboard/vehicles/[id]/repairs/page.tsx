@@ -128,8 +128,8 @@ export default function RepairsPage() {
             </div>
             <p className="rec-sub">Repair work records and costs for this vehicle.</p>
           </div>
-          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">
-            Add record
+          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary rec-btn--icon" title="Add record">
+            +
           </Link>
         </div>
       </header>
@@ -140,7 +140,6 @@ export default function RepairsPage() {
         <Card>
           <div className="rec-empty">
             <p>No repair records yet. Add records via the Records page.</p>
-            <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">Add record</Link>
           </div>
         </Card>
       )}

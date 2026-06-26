@@ -63,6 +63,7 @@ interface AlertItem {
   active: boolean;
   last_notified_at: string | null;
   notes: string | null;
+  is_system_default: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -384,10 +385,11 @@ export default function AlertsPage() {
             <p className="rec-sub">{active} active · {total} total</p>
           </div>
           <button
-            className="rec-btn rec-btn--primary"
+            className="rec-btn rec-btn--primary rec-btn--icon"
+            title={showForm ? "Cancel" : "Add alert"}
             onClick={() => { setShowForm(!showForm); setSaveError(null); }}
           >
-            {showForm ? "Cancel" : "Add alert"}
+            {showForm ? "×" : "+"}
           </button>
         </div>
       </header>
@@ -635,9 +637,12 @@ export default function AlertsPage() {
                   </div>
                 </div>
 
-                {/* ---- Right: active toggle + delete ---- */}
+                {/* ---- Right: active toggle + delete (locked for system defaults) ---- */}
                 <div className="rem-row__right">
                   {!a.active && <span className="rem-inactive-label">Paused</span>}
+                  {a.is_system_default && (
+                    <span className="al-default-badge">Default</span>
+                  )}
                   <button
                     className={`rem-toggle${a.active ? " rem-toggle--on" : ""}`}
                     onClick={() => handleToggleActive(a)}
@@ -646,13 +651,15 @@ export default function AlertsPage() {
                   >
                     {togglingId === a.id ? "…" : a.active ? "Pause" : "Resume"}
                   </button>
-                  <button
-                    className="rec-btn rec-btn--danger-sm"
-                    onClick={() => handleDelete(a.id)}
-                    disabled={deletingId === a.id}
-                  >
-                    {deletingId === a.id ? "…" : "Delete"}
-                  </button>
+                  {!a.is_system_default && (
+                    <button
+                      className="rec-btn rec-btn--danger-sm"
+                      onClick={() => handleDelete(a.id)}
+                      disabled={deletingId === a.id}
+                    >
+                      {deletingId === a.id ? "…" : "Delete"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -670,6 +677,18 @@ export default function AlertsPage() {
 // ==================================================
 
 const AL_STYLES = `
+  /* ---- System default badge ---- */
+  .al-default-badge {
+    font-size: var(--text-xs);
+    padding: 2px 8px;
+    border-radius: var(--radius-full, 999px);
+    border: 1px solid rgba(108,99,255,0.3);
+    background: rgba(108,99,255,0.08);
+    color: rgba(108,99,255,0.9);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
   /* ---- Condition builder ---- */
   .al-cond-list { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4); }
   .al-cond-label { font-size: var(--text-sm); color: var(--colour-text-muted); margin: 0 0 2px; }

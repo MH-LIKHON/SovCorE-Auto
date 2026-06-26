@@ -252,10 +252,11 @@ export default function RemindersPage() {
             </p>
           </div>
           <button
-            className="rec-btn rec-btn--primary"
+            className="rec-btn rec-btn--primary rec-btn--icon"
+            title={showForm ? "Cancel" : "Add reminder"}
             onClick={() => { setShowForm(!showForm); setSaveError(null); }}
           >
-            {showForm ? "Cancel" : "Add reminder"}
+            {showForm ? "×" : "+"}
           </button>
         </div>
       </header>

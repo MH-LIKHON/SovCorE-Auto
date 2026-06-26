@@ -105,7 +105,7 @@ export default function MiscellaneousPage() {
             </div>
             <p className="rec-sub">Miscellaneous records and costs not covered by other categories.</p>
           </div>
-          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">Add record</Link>
+          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary rec-btn--icon" title="Add record">+</Link>
         </div>
       </header>
 
@@ -114,7 +114,6 @@ export default function MiscellaneousPage() {
       {!loading && !hasData && (
         <Card><div className="rec-empty">
           <p>No miscellaneous records yet. Add records via the Records page.</p>
-          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">Add record</Link>
         </div></Card>
       )}
 

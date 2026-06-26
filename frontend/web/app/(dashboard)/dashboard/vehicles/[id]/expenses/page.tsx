@@ -153,8 +153,8 @@ export default function ExpensesPage() {
             </div>
             <p className="rec-sub">Running costs by category for this vehicle. Fuel is tracked separately.</p>
           </div>
-          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">
-            Add expense record
+          <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary rec-btn--icon" title="Add expense">
+            +
           </Link>
         </div>
       </header>
@@ -165,9 +165,6 @@ export default function ExpensesPage() {
         <Card>
           <div className="rec-empty">
             <p>No expense records yet. Add insurance, tax, parking or other cost records to see a breakdown here.</p>
-            <Link href={`/dashboard/vehicles/${id}/records`} className="rec-btn rec-btn--primary">
-              Add expense record
-            </Link>
           </div>
         </Card>
       )}

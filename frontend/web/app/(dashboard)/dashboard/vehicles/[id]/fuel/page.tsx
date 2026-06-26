@@ -164,8 +164,8 @@ export default function FuelPage() {
             </div>
             <p className="rec-sub">Fill history, economy, and running fuel costs for this vehicle.</p>
           </div>
-          <Link href={`/dashboard/vehicles/${id}/records?type=fuel`} className="rec-btn rec-btn--primary">
-            Add fuel record
+          <Link href={`/dashboard/vehicles/${id}/records?type=fuel`} className="rec-btn rec-btn--primary rec-btn--icon" title="Add fill-up">
+            +
           </Link>
         </div>
       </header>
@@ -176,9 +176,6 @@ export default function FuelPage() {
         <Card>
           <div className="rec-empty">
             <p>No fuel records yet. Add a fuel record to see analytics here.</p>
-            <Link href={`/dashboard/vehicles/${id}/records?type=fuel`} className="rec-btn rec-btn--primary">
-              Add fuel record
-            </Link>
           </div>
         </Card>
       )}
