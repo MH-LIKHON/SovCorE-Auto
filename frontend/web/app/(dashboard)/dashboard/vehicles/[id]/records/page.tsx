@@ -945,6 +945,7 @@ export default function VehicleRecordsPage() {
                           className="rec-input"
                           type="text"
                           placeholder="Additional notes"
+                          style={{ textTransform: "none" }}
                           value={diagFaultCodeForm.notes}
                           onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, notes: e.target.value }))}
                         />
