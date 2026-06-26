@@ -18,10 +18,10 @@
 #   rather than the generic PATCH so the intent is unambiguous
 #   in the audit log.
 #
-#   Cover photo flow (GAP-2):
-#     1. POST /accounts/{id}/vehicles/{vid}/photo/sign → presigned PUT URL + key.
-#     2. Browser PUTs the image directly to R2.
-#     3. Browser calls PATCH /accounts/{id}/vehicles/{vid} with { image_key }.
+#   Cover photo flow:
+#     POST /accounts/{id}/vehicles/{vid}/photo/upload (multipart/form-data)
+#     → backend calls r2.put_object() → patches image_key → returns VehicleOut.
+#     Browser never connects to R2 directly (EU-jurisdiction CORS blocks that).
 #
 # Consumed by:
 #   - backend/app/app/api/v1/router.py
@@ -29,7 +29,7 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
@@ -269,3 +269,38 @@ async def sign_cover_photo(
         ExpiresIn=_PHOTO_URL_EXPIRY,
     )
     return VehiclePhotoSignOut(upload_url=upload_url, key=key)
+
+
+@router.post(
+    "/accounts/{account_id}/vehicles/{vehicle_id}/photo/upload",
+    response_model=VehicleOut,
+    summary="Upload the vehicle cover photo via the backend to R2 (avoids browser CORS)",
+)
+async def upload_cover_photo(
+    account_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    file: UploadFile = File(...),
+    _: User = Depends(require_editor),
+    db: AsyncSession = Depends(get_db),
+) -> VehicleOut:
+    ext = (file.filename or "file").rsplit(".", 1)[-1].lower()
+    if ext not in _ALLOWED_PHOTO_EXTS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Extension '{ext}' is not allowed. Use jpg, png, or webp.",
+        )
+    content_type = file.content_type or f"image/{ext}"
+    settings = get_settings()
+    r2 = get_r2_client()
+    key = f"{account_id}/vehicles/{vehicle_id}/cover/{uuid.uuid4()}.{ext}"
+    data = await file.read()
+    try:
+        r2.put_object(Bucket=settings.r2_bucket_name, Key=key, Body=data, ContentType=content_type)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"R2 storage upload failed: {exc}",
+        ) from exc
+    return await VehicleService(db).patch_vehicle(
+        vehicle_id, account_id, VehiclePatchIn(image_key=key)
+    )

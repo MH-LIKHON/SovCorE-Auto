@@ -33,7 +33,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card } from "@/src/components/ui/card";
 import { TextField, WholeNumberField } from "@/src/components/ui/input";
 import { BodyTypeIcon } from "@/src/components/vehicles/body-type-icon";
-import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
 // TYPES
@@ -316,26 +316,19 @@ export default function VehicleProfilePage() {
     if (!accountId || !vehicle) return;
     setPhotoUploading(true);
     setPhotoError(null);
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
     try {
-      const signRes = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}/photo/sign`,
-        { method: "POST", body: JSON.stringify({ ext }) }
+      const form = new FormData();
+      form.append("file", file);
+      const res = await apiUpload(
+        `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}/photo/upload`,
+        form,
       );
-      if (!signRes.ok) { setPhotoError("Could not generate upload URL."); return; }
-      const { upload_url, key } = await signRes.json();
-      const putRes = await fetch(upload_url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "image/jpeg" },
-        body: file,
-      });
-      if (!putRes.ok) { setPhotoError("Upload to storage failed."); return; }
-      const patchRes = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}`,
-        { method: "PATCH", body: JSON.stringify({ image_key: key }) }
-      );
-      if (!patchRes.ok) { setPhotoError("Could not save photo key."); return; }
-      const updated = await patchRes.json();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setPhotoError(data.detail ?? "Upload failed. Please try again.");
+        return;
+      }
+      const updated = await res.json();
       setVehicle(updated);
     } catch {
       setPhotoError("An unexpected error occurred.");
