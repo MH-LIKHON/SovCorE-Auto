@@ -934,7 +934,7 @@ export default function VehicleRecordsPage() {
                   <div className="diag-fc-draft-list">
                     {diagFaultCodes.map((fc, i) => (
                       <div key={i} className="diag-fc-draft-row">
-                        <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity === "amber" ? "Warning" : fc.severity}</span>
+                        <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity === "amber" ? "Warning" : fc.severity === "red" ? "Urgent" : fc.severity}</span>
                         <span className="diag-fc-draft-code">{fc.code || "—"}</span>
                         <span className="diag-fc-draft-desc">{fc.description}</span>
                         <button
@@ -994,7 +994,7 @@ export default function VehicleRecordsPage() {
                         >
                           <option value="advisory">Advisory</option>
                           <option value="amber">Warning</option>
-                          <option value="red">Red</option>
+                          <option value="red">Urgent</option>
                         </select>
                       </label>
                     </div>
@@ -1331,7 +1331,7 @@ export default function VehicleRecordsPage() {
                                   .sort((a, b) => a.sort_order - b.sort_order)
                                   .map((fc) => (
                                     <div key={fc.id} className="diag-fc-detail-row">
-                                      <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity === "amber" ? "Warning" : fc.severity}</span>
+                                      <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity === "amber" ? "Warning" : fc.severity === "red" ? "Urgent" : fc.severity}</span>
                                       <span className="diag-fc-draft-code">{fc.code ?? "—"}</span>
                                       <span className="diag-fc-draft-desc">{fc.description}</span>
                                       {fc.notes && <span className="diag-fc-draft-notes">{fc.notes}</span>}
