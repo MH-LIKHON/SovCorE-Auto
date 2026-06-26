@@ -41,10 +41,20 @@ if [[ "$TARGET" == "all" || "$TARGET" == "backend" ]]; then
   ok
 
   step "Backend: run Alembic migrations"
-  # Credentials are loaded by _load_credentials() at import time in settings.py,
-  # so the migration env picks up DATABASE_URL from the systemd credential files
-  # without needing an explicit export here.
+  # _load_credentials() in settings.py reads from CREDENTIALS_DIRECTORY.
+  # That variable is only set by systemd when the service starts — it is not
+  # set in a manual shell session, so alembic fails with missing-field errors.
+  # Fix: point CREDENTIALS_DIRECTORY at the running service's decrypted tmpfs
+  # path (/run/credentials/<service>.service/), which systemd populates at
+  # startup and which svc_sovcore_auto can read (mode 0500, files 0400).
+  CRED_DIR="/run/credentials/${BACKEND_SVC}.service"
+  if [ ! -d "$CRED_DIR" ]; then
+    echo "    WARNING: $CRED_DIR not found — backend not running yet, starting it first"
+    sudo systemctl start "$BACKEND_SVC"
+    sleep 4
+  fi
   sudo -u "$SVC" bash -c "
+    export CREDENTIALS_DIRECTORY='$CRED_DIR'
     source $VENV/bin/activate
     cd $REPO/backend/app
     alembic upgrade head
