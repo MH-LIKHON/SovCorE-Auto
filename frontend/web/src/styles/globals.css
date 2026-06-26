@@ -411,7 +411,7 @@ svg {
 .rec-btn--danger-sm:disabled { opacity: 0.45; }
 /* Double-class selector (specificity 0,2,0) beats the single-class .rec-btn media-query
    padding overrides so padding:0 and exact dimensions are never clobbered. */
-.rec-btn.rec-btn--icon { width: 42px; height: 42px; padding: 0; border-radius: var(--radius-sm); font-size: 24px; font-weight: var(--weight-bold); line-height: 42px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.rec-btn.rec-btn--icon { width: 42px; height: 42px; padding: 0; border-radius: var(--radius-sm); font-size: 24px; font-weight: var(--weight-bold); line-height: 1; letter-spacing: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 .rec-btn--primary.rec-btn--icon:hover:not(:disabled) { transform: translateY(-1px) scale(1.12); }
 
 @media (max-width: 1023px) {
