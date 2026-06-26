@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     template: "%s | SovCorE Auto",
   },
   description:
-    "Self-hosted vehicle management for individuals, families and small fleets. Track every service, MOT, expense, and document in one place.",
+    "Fleet management for multi-tenant organisations. Vehicles, maintenance, MOT, insurance, fuel, expenses, documents, reminders, and tasks.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   applicationName: "SovCorE Auto",
   authors: [{ name: "VelVadY LTD trading as SovCorE" }],
@@ -58,14 +58,14 @@ export const metadata: Metadata = {
     siteName: "SovCorE Auto",
     title: "SovCorE Auto | Vehicle management",
     description:
-      "Self-hosted vehicle management for individuals, families and small fleets.",
+      "Fleet management for multi-tenant organisations. Maintenance, MOT, insurance, fuel, expenses, and documents.",
     locale: "en_GB",
   },
   twitter: {
     card: "summary_large_image",
     title: "SovCorE Auto | Vehicle management",
     description:
-      "Self-hosted vehicle management for individuals, families and small fleets.",
+      "Fleet management for multi-tenant organisations. Maintenance, MOT, insurance, fuel, expenses, and documents.",
   },
   robots: { index: false, follow: false },
 };

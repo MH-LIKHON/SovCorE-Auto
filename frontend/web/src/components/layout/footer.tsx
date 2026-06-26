@@ -49,8 +49,8 @@ export function Footer() {
           <div className="sov-foot__col">
             <h4 className="sov-foot__heading">SovCorE Auto</h4>
             <p className="sov-foot__body">
-              Vehicle management for individuals, families and small fleets. Track
-              every service, MOT, expense, and document for every vehicle in one place.
+              Fleet management for multi-tenant organisations. Vehicles, maintenance,
+              MOT, insurance, fuel, expenses, documents, reminders, and tasks.
             </p>
           </div>
 
