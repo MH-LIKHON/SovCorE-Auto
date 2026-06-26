@@ -243,13 +243,15 @@ export default function VehicleRecordsPage() {
   const accountId = getAccountId() ?? "";
 
   // Pre-select type from URL param (e.g. ?type=odometer from the mileage page link).
-  const typeFromUrl = (searchParams.get("type") ?? "") as RecordTypeValue;
+  const rawTypeParam = searchParams.get("type") ?? "";
   const validTypes = new Set<RecordTypeValue>([
     "maintenance", "repair", "fuel", "mot", "tax", "insurance",
     "parking", "pcn", "cleaning", "accessories", "warranty",
     "diagnostics", "damage", "roadside", "custom", "odometer",
   ]);
-  const initialType: RecordTypeValue = validTypes.has(typeFromUrl) ? typeFromUrl : "odometer";
+  const initialType: RecordTypeValue = validTypes.has(rawTypeParam as RecordTypeValue)
+    ? (rawTypeParam as RecordTypeValue)
+    : "odometer";
 
   const [records, setRecords] = useState<RecordListItem[]>([]);
   const [, setTotal] = useState(0);
@@ -260,7 +262,7 @@ export default function VehicleRecordsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   // Auto-open the form and pre-select the type if ?type= is in the URL.
-  const [showForm, setShowForm] = useState(typeFromUrl !== "");
+  const [showForm, setShowForm] = useState(rawTypeParam !== "");
   const [form, setForm] = useState<AddForm>({ ...EMPTY_FORM, type: initialType });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
