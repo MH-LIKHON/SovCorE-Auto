@@ -80,17 +80,24 @@ const NAV_GROUPS: readonly NavGroup[] = [
     { label: "Tasks",     segment: "tasks" },
     { label: "Reminders", segment: "reminders" },
     { label: "Alerts",    segment: "alerts" },
-    { label: "PCNs",      segment: "pcns" },
   ]},
   { label: "Analytics", defaultSegment: "expenses", subTabs: [
     { label: "Expenses",      segment: "expenses" },
-    { label: "Fuel",          segment: "fuel" },
+    { label: "Odometer",      segment: "mileage" },
     { label: "Maintenance",   segment: "maintenance" },
     { label: "Repairs",       segment: "repairs" },
     { label: "Damage",        segment: "damage" },
+    { label: "Diagnostics",   segment: "diagnostics" },
     { label: "Insurance",     segment: "insurance" },
     { label: "Warranty",      segment: "warranty" },
     { label: "Roadside",      segment: "roadside" },
+    { label: "MOT",           segment: "mot" },
+    { label: "Tax",           segment: "tax" },
+    { label: "Fuel",          segment: "fuel" },
+    { label: "Parking",       segment: "parking" },
+    { label: "PCNs",          segment: "pcns" },
+    { label: "Cleaning",      segment: "cleaning" },
+    { label: "Accessories",   segment: "accessories" },
     { label: "Miscellaneous", segment: "miscellaneous" },
   ]},
   { label: "History",   defaultSegment: "timeline", subTabs: [
@@ -275,12 +282,12 @@ const VL_STYLES = `
   /* Registration plate (reused from page.tsx) */
   .vd-plate {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 1px 6px;
     background: #f5c842;
     color: #000;
-    font-size: var(--text-xs);
+    font-size: 11px;
     font-weight: var(--weight-bold);
-    border-radius: 3px;
+    border-radius: 2px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
