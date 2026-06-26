@@ -22,8 +22,9 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 
 from app.api.v1.router import v1_router
@@ -71,6 +72,27 @@ app = FastAPI(
     redoc_url="/api/redoc" if settings.app_debug else None,
     lifespan=lifespan,
 )
+
+# ------------------------------ Global unhandled exception handler -----------
+# Starlette's ServerErrorMiddleware returns PlainTextResponse for unhandled
+# exceptions, which breaks JSON clients. This handler catches everything that
+# is not an HTTPException or RequestValidationError and returns JSON so the
+# frontend can always call res.json() safely.
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error(
+        "unhandled_exception",
+        exc_type=type(exc).__name__,
+        exc_msg=str(exc),
+        path=request.url.path,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"{type(exc).__name__}: {exc}"},
+    )
+
 
 # ------------------------------ Rate limiter --------------------------------
 # Attach the limiter to app.state so slowapi can find it at request time.

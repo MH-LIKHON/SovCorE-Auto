@@ -375,8 +375,11 @@ class DiagnosticDetail(Base):
     )
 
     # ------------------------------ Inspection fields -----------------------
+    # values_callable is required because InspectionType.self_ has name "self_"
+    # but value "self" — without it SQLAlchemy sends the name, not the value.
     inspection_type: Mapped[InspectionType] = mapped_column(
-        SAEnum(InspectionType, name="inspectiontype"), nullable=False
+        SAEnum(InspectionType, name="inspectiontype", values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False
     )
     # Free-text findings; stored uppercase by convention.
     findings: Mapped[str | None] = mapped_column(Text, nullable=True)
