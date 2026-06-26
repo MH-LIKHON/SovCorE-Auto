@@ -591,9 +591,11 @@ export default function VehicleRecordsPage() {
             <h1 className="rec-title">Records</h1>
             <p className="rec-sub">Every action taken on this vehicle, all in one place.</p>
           </div>
-          <button className="rec-btn rec-btn--primary rec-btn--icon" title={showForm ? "Cancel" : "Add record"} onClick={() => { setShowForm(!showForm); setSaveError(null); }}>
-            {showForm ? "×" : "+"}
-          </button>
+          {showForm ? (
+            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+          ) : (
+            <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add record" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
+          )}
         </div>
       </header>
 

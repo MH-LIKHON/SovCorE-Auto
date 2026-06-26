@@ -14,6 +14,10 @@
 //   button per row. email_days_before and miles_warning are
 //   shared across all conditions on the alert.
 //
+//   The Monthly Odometer Log Reminder (account-wide mileage_log_settings)
+//   is pinned as the first row — fires a prompt email on a chosen
+//   day each month and uses the same rem-row / Pause / Edit UI.
+//
 //   Mirrors the reminders page layout exactly (rec-shell, Card,
 //   rem-row pattern).
 //
@@ -73,6 +77,11 @@ interface AlertPage {
   total: number;
   page: number;
   page_size: number;
+}
+
+interface LogSettings {
+  reminder_day: number;
+  active: boolean;
 }
 
 // A blank draft condition row in the form.
@@ -226,6 +235,12 @@ export default function AlertsPage() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Monthly log reminder settings
+  const [logSettings, setLogSettings] = useState<LogSettings | null>(null);
+  const [editingLog, setEditingLog] = useState(false);
+  const [logDay, setLogDay] = useState<string>("1");
+  const [savingLog, setSavingLog] = useState(false);
+
   // Check whether any condition in the form is mileage-based.
   const hasMileageCond = form.conditions.some(
     (c) => c.type === "mileage" || c.type === "mileage_recurring"
@@ -249,7 +264,17 @@ export default function AlertsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadAlerts(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  async function loadLogSettings() {
+    if (!accountId) return;
+    const res = await apiFetch(`/api/v1/accounts/${accountId}/mileage-settings`);
+    if (res.ok) {
+      const s: LogSettings = await res.json();
+      setLogSettings(s);
+      setLogDay(String(s.reminder_day));
+    }
+  }
+
+  useEffect(() => { loadAlerts(); loadLogSettings(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ==================================================
   // FORM HELPERS
@@ -370,6 +395,40 @@ export default function AlertsPage() {
   }
 
   // ==================================================
+  // MONTHLY LOG REMINDER
+  // ==================================================
+
+  async function handleToggleLog() {
+    if (!logSettings) return;
+    setSavingLog(true);
+    const res = await apiFetch(`/api/v1/accounts/${accountId}/mileage-settings`, {
+      method: "PATCH",
+      body: JSON.stringify({ active: !logSettings.active }),
+    });
+    if (res.ok) {
+      const s: LogSettings = await res.json();
+      setLogSettings(s);
+    }
+    setSavingLog(false);
+  }
+
+  async function handleSaveLog() {
+    const day = parseInt(logDay, 10);
+    if (!day || day < 1 || day > 28) return;
+    setSavingLog(true);
+    const res = await apiFetch(`/api/v1/accounts/${accountId}/mileage-settings`, {
+      method: "PATCH",
+      body: JSON.stringify({ reminder_day: day }),
+    });
+    if (res.ok) {
+      const s: LogSettings = await res.json();
+      setLogSettings(s);
+      setEditingLog(false);
+    }
+    setSavingLog(false);
+  }
+
+  // ==================================================
   // RENDER
   // ==================================================
 
@@ -384,13 +443,11 @@ export default function AlertsPage() {
             <h1 className="rec-title">Alerts</h1>
             <p className="rec-sub">{active} active · {total} total</p>
           </div>
-          <button
-            className="rec-btn rec-btn--primary rec-btn--icon"
-            title={showForm ? "Cancel" : "Add alert"}
-            onClick={() => { setShowForm(!showForm); setSaveError(null); }}
-          >
-            {showForm ? "×" : "+"}
-          </button>
+          {showForm ? (
+            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+          ) : (
+            <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add alert" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
+          )}
         </div>
       </header>
 
@@ -610,7 +667,7 @@ export default function AlertsPage() {
 
         {loading ? (
           <div className="rec-skeleton" />
-        ) : alerts.length === 0 ? (
+        ) : alerts.length === 0 && logSettings === null ? (
           <div className="rec-empty">
             <p>No custom alerts for this vehicle.</p>
             <button className="rec-btn rec-btn--primary" onClick={() => setShowForm(true)}>
@@ -619,6 +676,65 @@ export default function AlertsPage() {
           </div>
         ) : (
           <div className="rec-rows">
+
+            {/* ---- Monthly log reminder — pinned first ---- */}
+            {logSettings !== null && (
+              <div className={`rem-row${!logSettings.active ? " rem-row--inactive" : ""}`}>
+                <div className="rem-row__left">
+                  <div className="rem-row__info">
+                    <span className="rem-row__type">MONTHLY ODOMETER LOG REMINDER</span>
+                    {editingLog ? (
+                      <div className="al-log-edit">
+                        <label className="al-log-field-label">
+                          Day (1–28)
+                          <input
+                            className="al-log-day-input"
+                            type="number"
+                            min={1}
+                            max={28}
+                            value={logDay}
+                            onChange={(e) => setLogDay(e.target.value)}
+                            disabled={savingLog}
+                          />
+                        </label>
+                        <button className="rec-btn rec-btn--primary" onClick={handleSaveLog} disabled={savingLog}>
+                          {savingLog ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          className="rec-btn rec-btn--ghost"
+                          onClick={() => { setEditingLog(false); setLogDay(String(logSettings.reminder_day)); }}
+                          disabled={savingLog}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="rem-row__intervals">
+                        Fires day <strong style={{ color: "var(--colour-text)" }}>{logSettings.reminder_day}</strong> of each month. A preview reminder fires the day before.
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="rem-row__right">
+                  {!logSettings.active && <span className="rem-inactive-label">Paused</span>}
+                  <span className="al-default-badge">Default</span>
+                  <button
+                    className={`rem-toggle${logSettings.active ? " rem-toggle--on" : ""}`}
+                    onClick={handleToggleLog}
+                    disabled={savingLog}
+                    title={logSettings.active ? "Pause this reminder" : "Reactivate this reminder"}
+                  >
+                    {savingLog ? "…" : logSettings.active ? "Pause" : "Resume"}
+                  </button>
+                  {!editingLog && (
+                    <button className="rec-btn rec-btn--ghost" onClick={() => setEditingLog(true)}>
+                      Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {alerts.map((a) => (
               <div key={a.id} className={`rem-row${a.active ? "" : " rem-row--inactive"}`}>
 
@@ -677,6 +793,34 @@ export default function AlertsPage() {
 // ==================================================
 
 const AL_STYLES = `
+  /* ---- Monthly log reminder inline edit ---- */
+  .al-log-edit {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .al-log-field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: var(--text-xs);
+    color: var(--colour-text-muted);
+  }
+  .al-log-day-input {
+    width: 64px;
+    background: var(--colour-surface);
+    border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm);
+    color: var(--colour-text);
+    font-size: var(--text-sm);
+    padding: 4px 8px;
+    cursor: none;
+    outline: none;
+  }
+  .al-log-day-input:focus { border-color: var(--colour-accent); }
+
   /* ---- System default badge ---- */
   .al-default-badge {
     font-size: var(--text-xs);

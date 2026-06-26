@@ -254,13 +254,11 @@ export default function PCNsPage() {
             <h1 className="rec-title">Penalty charge notices</h1>
             <p className="rec-sub">Council and private parking charges raised against this vehicle.</p>
           </div>
-          <button
-            className="rec-btn rec-btn--primary rec-btn--icon"
-            title={showForm ? "Cancel" : "Add PCN"}
-            onClick={() => { setShowForm(!showForm); setSaveError(null); }}
-          >
-            {showForm ? "×" : "+"}
-          </button>
+          {showForm ? (
+            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+          ) : (
+            <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add PCN" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
+          )}
         </div>
       </header>
 

@@ -253,13 +253,11 @@ export default function WarrantyPage() {
             <h1 className="rec-title">Warranty</h1>
             <p className="rec-sub">Component warranties for this vehicle, ordered by earliest expiry.</p>
           </div>
-          <button
-            className="rec-btn rec-btn--primary rec-btn--icon"
-            title={showForm ? "Cancel" : "Add warranty"}
-            onClick={() => { setShowForm(!showForm); setSaveError(null); }}
-          >
-            {showForm ? "×" : "+"}
-          </button>
+          {showForm ? (
+            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+          ) : (
+            <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add warranty" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
+          )}
         </div>
       </header>
 
