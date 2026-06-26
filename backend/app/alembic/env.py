@@ -23,12 +23,18 @@
 # ============================================================
 
 import asyncio
+import os
+import sys
 from logging.config import fileConfig
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
+
+# Ensure the backend/app package root is on sys.path so `import app.*`
+# works regardless of the working directory alembic is invoked from.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # ------------------------------ Application imports -------------------------
 # Import Base so Alembic can read metadata. Domain model imports
