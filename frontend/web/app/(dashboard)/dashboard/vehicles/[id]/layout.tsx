@@ -282,10 +282,10 @@ const VL_STYLES = `
   /* Registration plate (reused from page.tsx) */
   .vd-plate {
     display: inline-block;
-    padding: 1px 6px;
+    padding: 2px 8px;
     background: #f5c842;
     color: #000;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: var(--weight-bold);
     border-radius: 2px;
     letter-spacing: 0.08em;
