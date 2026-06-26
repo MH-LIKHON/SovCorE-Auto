@@ -3,19 +3,22 @@
 # ============================================================
 #
 # Purpose:
-#   SQLAlchemy ORM models for the records domain. Five tables:
+#   SQLAlchemy ORM models for the records domain. Seven tables:
 #   records (the central action row per vehicle), record_attachments
 #   (R2 file references attached to a record), record_tags (free-text
 #   tags for search), maintenance_details (taxonomy fields for
-#   maintenance and repair records), and fuel_details (volume and price
-#   fields that power fuel analytics).
+#   maintenance and repair records), fuel_details (volume and price
+#   fields that power fuel analytics), diagnostic_details (inspection
+#   type and findings for diagnostics records), and
+#   diagnostic_fault_codes (one-to-many fault code rows per
+#   diagnostics record).
 #
 # Design:
 #   Every user action (maintenance job, fuel fill, MOT, tax payment,
-#   parking charge, PCN, cleaning) lands as a row in records. The
-#   record_type determines which detail table, if any, is joined.
-#   The timeline, expense totals and health score read from these rows;
-#   they are never stored twice.
+#   parking charge, PCN, cleaning, diagnostics) lands as a row in
+#   records. The record_type determines which detail table, if any,
+#   is joined. The timeline, expense totals and health score read
+#   from these rows; they are never stored twice.
 #
 #   Money columns (cost, labour_cost, parts_cost, price_per_litre) are
 #   stored in minor units (pence) as integers so floating-point rounding
@@ -27,6 +30,8 @@
 #   maintenance_details and fuel_details are one-to-one with the owning
 #   record; unique constraints on record_id enforce this at the database
 #   level rather than relying on application enforcement alone.
+#   diagnostic_details is also one-to-one. diagnostic_fault_codes is
+#   one-to-many (multiple fault codes per diagnostics record).
 #
 # Consumed by:
 #   - backend/app/app/records/models/__init__.py (re-export)
@@ -194,6 +199,12 @@ class Record(Base):
     fuel_detail: Mapped["FuelDetail | None"] = relationship(
         back_populates="record", uselist=False, cascade="all, delete-orphan"
     )
+    diagnostic_detail: Mapped["DiagnosticDetail | None"] = relationship(
+        back_populates="record", uselist=False, cascade="all, delete-orphan"
+    )
+    diagnostic_fault_codes: Mapped[list["DiagnosticFaultCode"]] = relationship(
+        back_populates="record", cascade="all, delete-orphan"
+    )
 
 
 # ==================================================
@@ -322,3 +333,107 @@ class FuelDetail(Base):
 
     # ------------------------------ Relationships ---------------------------
     record: Mapped["Record"] = relationship(back_populates="fuel_detail")
+
+
+# ==================================================
+# FAULT CODE SEVERITY + INSPECTION TYPE
+# ==================================================
+
+
+class FaultCodeSeverity(str, Enum):
+    advisory = "advisory"   # watch, no immediate action
+    amber = "amber"         # attention needed soon
+    red = "red"             # urgent
+    resolved = "resolved"   # fault has been addressed
+
+
+class InspectionType(str, Enum):
+    # self_ attribute avoids conflict with Python's built-in `self`.
+    # The stored value in the database is "self".
+    self_ = "self"
+    garage = "garage"
+
+
+# ==================================================
+# DIAGNOSTIC DETAILS
+# ==================================================
+
+
+class DiagnosticDetail(Base):
+    __tablename__ = "diagnostic_details"
+
+    # ------------------------------ Identity --------------------------------
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    # unique=True: one detail row per diagnostics record.
+    record_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("records.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+
+    # ------------------------------ Inspection fields -----------------------
+    inspection_type: Mapped[InspectionType] = mapped_column(
+        SAEnum(InspectionType, name="inspectiontype"), nullable=False
+    )
+    # Free-text findings; stored uppercase by convention.
+    findings: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ------------------------------ Costs (pence) ---------------------------
+    labour_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    parts_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # ------------------------------ Relationships ---------------------------
+    record: Mapped["Record"] = relationship(back_populates="diagnostic_detail")
+
+
+# ==================================================
+# DIAGNOSTIC FAULT CODES
+# ==================================================
+
+
+class DiagnosticFaultCode(Base):
+    __tablename__ = "diagnostic_fault_codes"
+
+    # ------------------------------ Identity --------------------------------
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    # No unique constraint: one record can have many fault codes.
+    record_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("records.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    # ------------------------------ Fault fields ----------------------------
+    # code is nullable: non-coded findings (sounds, visual) have no OBD code.
+    code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    severity: Mapped[FaultCodeSeverity] = mapped_column(
+        SAEnum(FaultCodeSeverity, name="faultcodeseverity"),
+        nullable=False,
+        default=FaultCodeSeverity.advisory,
+    )
+
+    # ------------------------------ Trigger fields --------------------------
+    # When set, a trigger fires email + dashboard attention at that date/mileage.
+    trigger_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    trigger_mileage: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    resolved_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # ------------------------------ Display order ---------------------------
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # ------------------------------ Timestamps ------------------------------
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    # ------------------------------ Relationships ---------------------------
+    record: Mapped["Record"] = relationship(back_populates="diagnostic_fault_codes")

@@ -78,6 +78,23 @@ interface RecordDetail extends RecordListItem {
     station: string | null;
     full_tank: boolean;
   } | null;
+  diagnostic: {
+    inspection_type: string;
+    findings: string | null;
+    labour_cost: number | null;
+    parts_cost: number | null;
+  } | null;
+  diagnostic_fault_codes: {
+    id: string;
+    code: string | null;
+    description: string;
+    notes: string | null;
+    severity: string;
+    trigger_date: string | null;
+    trigger_mileage: number | null;
+    resolved_at: string | null;
+    sort_order: number;
+  }[];
 }
 
 interface RecordPage {
@@ -212,25 +229,47 @@ interface AddForm {
   fuel_price_per_litre: string;
   fuel_station: string;
   fuel_full_tank: boolean;
+  // Diagnostic fields
+  diag_inspection_type: "self" | "garage";
+  diag_findings: string;
+  diag_labour_cost: string;
+  diag_parts_cost: string;
 }
 
+interface FaultCodeDraft {
+  code: string;
+  description: string;
+  notes: string;
+  severity: "advisory" | "amber" | "red";
+  trigger_date: string;
+  trigger_mileage: string;
+}
+
+const EMPTY_FC: FaultCodeDraft = {
+  code: "", description: "", notes: "", severity: "advisory", trigger_date: "", trigger_mileage: "",
+};
+
 const EMPTY_FORM: AddForm = {
-  type:                "odometer",
-  date:                new Date().toISOString().slice(0, 10),
-  mileage:             "",
-  cost:                "",
-  supplier:            "",
-  garage:              "",
-  notes:               "",
-  maint_category:      "engine",
-  maint_item:          "",
-  maint_part_number:   "",
-  maint_labour_cost:   "",
-  maint_parts_cost:    "",
-  fuel_litres:         "",
-  fuel_price_per_litre:"",
-  fuel_station:        "",
-  fuel_full_tank:      true,
+  type:                    "odometer",
+  date:                    new Date().toISOString().slice(0, 10),
+  mileage:                 "",
+  cost:                    "",
+  supplier:                "",
+  garage:                  "",
+  notes:                   "",
+  maint_category:          "engine",
+  maint_item:              "",
+  maint_part_number:       "",
+  maint_labour_cost:       "",
+  maint_parts_cost:        "",
+  fuel_litres:             "",
+  fuel_price_per_litre:    "",
+  fuel_station:            "",
+  fuel_full_tank:          true,
+  diag_inspection_type:    "self",
+  diag_findings:           "",
+  diag_labour_cost:        "",
+  diag_parts_cost:         "",
 };
 
 // ==================================================
@@ -268,6 +307,11 @@ export default function VehicleRecordsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Diagnostic fault code builder state (for the add record form)
+  const [diagFaultCodes, setDiagFaultCodes] = useState<FaultCodeDraft[]>([]);
+  const [diagFaultCodeForm, setDiagFaultCodeForm] = useState<FaultCodeDraft>({ ...EMPTY_FC });
+  const [showFaultCodeForm, setShowFaultCodeForm] = useState(false);
 
   // Attachment upload (existing record detail panel)
   const attachInputRef = useRef<HTMLInputElement | null>(null);
@@ -405,6 +449,7 @@ export default function VehicleRecordsPage() {
   function buildPayload() {
     const isMaint = form.type === "maintenance" || form.type === "repair";
     const isFuel  = form.type === "fuel";
+    const isDiag  = form.type === "diagnostics";
 
     const body: Record<string, unknown> = {
       type:     form.type,
@@ -434,6 +479,25 @@ export default function VehicleRecordsPage() {
         price_per_litre: form.fuel_price_per_litre ? Math.round(parseFloat(form.fuel_price_per_litre)) : 0,
         station:         form.fuel_station || null,
         full_tank:       form.fuel_full_tank,
+      };
+    }
+
+    if (isDiag) {
+      body.diagnostic = {
+        inspection_type: form.diag_inspection_type,
+        findings:        form.diag_findings || null,
+        labour_cost:     form.diag_labour_cost ? Math.round(parseFloat(form.diag_labour_cost) * 100) : null,
+        parts_cost:      form.diag_parts_cost  ? Math.round(parseFloat(form.diag_parts_cost)  * 100) : null,
+        fault_codes: diagFaultCodes.map((fc, i) => ({
+          code:            fc.code || null,
+          description:     fc.description,
+          notes:           fc.notes || null,
+          severity:        fc.severity,
+          trigger_date:    fc.trigger_date || null,
+          trigger_mileage: fc.trigger_mileage ? parseInt(fc.trigger_mileage, 10) : null,
+          resolved_at:     null,
+          sort_order:      i,
+        })),
       };
     }
 
@@ -469,6 +533,9 @@ export default function VehicleRecordsPage() {
       }
       setShowForm(false);
       setForm(EMPTY_FORM);
+      setDiagFaultCodes([]);
+      setDiagFaultCodeForm({ ...EMPTY_FC });
+      setShowFaultCodeForm(false);
       setNewAttachFiles([]);
       setNewAttachLabel("");
       await loadRecords();
@@ -575,10 +642,11 @@ export default function VehicleRecordsPage() {
   // RENDER HELPERS
   // ==================================================
 
-  const isMaintForm    = form.type === "maintenance" || form.type === "repair";
-  const isFuelForm     = form.type === "fuel";
-  const isDamageForm   = form.type === "damage";
-  const isOdometerForm = form.type === "odometer";
+  const isMaintForm       = form.type === "maintenance" || form.type === "repair";
+  const isFuelForm        = form.type === "fuel";
+  const isDamageForm      = form.type === "damage";
+  const isOdometerForm    = form.type === "odometer";
+  const isDiagnosticsForm = form.type === "diagnostics";
 
   // ==================================================
   // RENDER
@@ -774,6 +842,171 @@ export default function VehicleRecordsPage() {
               </div>
             )}
 
+            {/* ---- Diagnostic detail fields ---- */}
+            {isDiagnosticsForm && (
+              <div className="rec-detail-block">
+                <p className="rec-detail-heading">Diagnostic detail</p>
+                <div className="rec-form-row">
+                  <label className="rec-label">
+                    <span className="rec-label__text">Inspection type</span>
+                    <select
+                      className="rec-select"
+                      value={form.diag_inspection_type}
+                      onChange={(e) => handleFormChange("diag_inspection_type", e.target.value as "self" | "garage")}
+                      disabled={saving}
+                    >
+                      <option value="self">Self</option>
+                      <option value="garage">Garage</option>
+                    </select>
+                  </label>
+                  <label className="rec-label">
+                    <span className="rec-label__text">Labour cost (£)</span>
+                    <input className="rec-input" type="number" step="0.01" placeholder="e.g. 80.00" value={form.diag_labour_cost} onChange={(e) => handleFormChange("diag_labour_cost", e.target.value)} disabled={saving} />
+                  </label>
+                  <label className="rec-label">
+                    <span className="rec-label__text">Parts cost (£)</span>
+                    <input className="rec-input" type="number" step="0.01" placeholder="e.g. 45.00" value={form.diag_parts_cost} onChange={(e) => handleFormChange("diag_parts_cost", e.target.value)} disabled={saving} />
+                  </label>
+                </div>
+                <label className="rec-label rec-label--full">
+                  <span className="rec-label__text">Findings</span>
+                  <textarea
+                    className="rec-textarea"
+                    rows={2}
+                    placeholder="VISUAL OR AUDIO FINDINGS…"
+                    value={form.diag_findings}
+                    onChange={(e) => handleFormChange("diag_findings", e.target.value.toUpperCase())}
+                    disabled={saving}
+                  />
+                </label>
+
+                {/* ---- Fault code builder ---- */}
+                <p className="rec-detail-heading" style={{ marginTop: "var(--space-4)" }}>Fault codes</p>
+                {diagFaultCodes.length > 0 && (
+                  <div className="diag-fc-draft-list">
+                    {diagFaultCodes.map((fc, i) => (
+                      <div key={i} className="diag-fc-draft-row">
+                        <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity}</span>
+                        <span className="diag-fc-draft-code">{fc.code || "—"}</span>
+                        <span className="diag-fc-draft-desc">{fc.description}</span>
+                        <button
+                          type="button"
+                          className="sov-action-btn sov-action-btn--delete"
+                          onClick={() => setDiagFaultCodes((prev) => prev.filter((_, idx) => idx !== i))}
+                          disabled={saving}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {showFaultCodeForm && (
+                  <div className="diag-fc-mini-form">
+                    <div className="rec-form-row">
+                      <label className="rec-label">
+                        <span className="rec-label__text">Code</span>
+                        <input
+                          className="rec-input"
+                          type="text"
+                          placeholder="P0300"
+                          value={diagFaultCodeForm.code}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
+                        />
+                      </label>
+                      <label className="rec-label rec-label--wide">
+                        <span className="rec-label__text">Description *</span>
+                        <input
+                          className="rec-input"
+                          type="text"
+                          placeholder="RANDOM MISFIRE DETECTED"
+                          value={diagFaultCodeForm.description}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, description: e.target.value.toUpperCase() }))}
+                        />
+                      </label>
+                      <label className="rec-label">
+                        <span className="rec-label__text">Severity</span>
+                        <select
+                          className="rec-select"
+                          value={diagFaultCodeForm.severity}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, severity: e.target.value as FaultCodeDraft["severity"] }))}
+                        >
+                          <option value="advisory">Advisory</option>
+                          <option value="amber">Amber</option>
+                          <option value="red">Red</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="rec-form-row">
+                      <label className="rec-label rec-label--wide">
+                        <span className="rec-label__text">Notes</span>
+                        <input
+                          className="rec-input"
+                          type="text"
+                          placeholder="Additional notes"
+                          value={diagFaultCodeForm.notes}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, notes: e.target.value }))}
+                        />
+                      </label>
+                      <label className="rec-label">
+                        <span className="rec-label__text">Trigger date</span>
+                        <input
+                          className="rec-input"
+                          type="date"
+                          value={diagFaultCodeForm.trigger_date}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, trigger_date: e.target.value }))}
+                        />
+                      </label>
+                      <label className="rec-label">
+                        <span className="rec-label__text">Trigger odometer</span>
+                        <input
+                          className="rec-input"
+                          type="number"
+                          placeholder="e.g. 60000"
+                          value={diagFaultCodeForm.trigger_mileage}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, trigger_mileage: e.target.value }))}
+                        />
+                      </label>
+                    </div>
+                    <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+                      <button
+                        type="button"
+                        className="rec-btn rec-btn--ghost rec-btn--sm"
+                        onClick={() => {
+                          if (!diagFaultCodeForm.description.trim()) return;
+                          setDiagFaultCodes((prev) => [...prev, { ...diagFaultCodeForm }]);
+                          setDiagFaultCodeForm({ ...EMPTY_FC });
+                          setShowFaultCodeForm(false);
+                        }}
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        className="rec-btn rec-btn--ghost rec-btn--sm"
+                        onClick={() => { setShowFaultCodeForm(false); setDiagFaultCodeForm({ ...EMPTY_FC }); }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!showFaultCodeForm && (
+                  <button
+                    type="button"
+                    className="rec-btn rec-btn--ghost rec-btn--sm"
+                    style={{ marginTop: "var(--space-2)" }}
+                    onClick={() => setShowFaultCodeForm(true)}
+                    disabled={saving}
+                  >
+                    + Add fault code
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Optional file attachments — supports multiple */}
             <div className="rec-form-attach-row" style={{ alignItems: "flex-start" }}>
               <span className="rec-label__text" style={{ paddingTop: "5px", whiteSpace: "nowrap" }}>Attach files</span>
@@ -843,7 +1076,7 @@ export default function VehicleRecordsPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAddRecord} disabled={saving}>
                 {saving ? "Saving…" : "Save record"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setNewAttachFiles([]); setNewAttachLabel(""); }} disabled={saving}>
+              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setNewAttachFiles([]); setNewAttachLabel(""); setDiagFaultCodes([]); setDiagFaultCodeForm({ ...EMPTY_FC }); setShowFaultCodeForm(false); }} disabled={saving}>
                 Cancel
               </button>
             </div>
@@ -1000,6 +1233,40 @@ export default function VehicleRecordsPage() {
                                 {expandedDetail.fuel.station && <div><dt>Station</dt><dd>{expandedDetail.fuel.station}</dd></div>}
                                 <div><dt>Full tank</dt><dd>{expandedDetail.fuel.full_tank ? "Yes" : "No"}</dd></div>
                               </dl>
+                            </div>
+                          )}
+
+                          {/* Diagnostic detail */}
+                          {expandedDetail.diagnostic && (
+                            <div className="rec-detail-sub">
+                              <p className="rec-detail-heading">Diagnostic detail</p>
+                              <dl className="rec-dl">
+                                <div><dt>Inspection</dt><dd>{expandedDetail.diagnostic.inspection_type === "self" ? "Self" : "Garage"}</dd></div>
+                                {expandedDetail.diagnostic.findings && <div><dt>Findings</dt><dd>{expandedDetail.diagnostic.findings}</dd></div>}
+                                {expandedDetail.diagnostic.labour_cost !== null && <div><dt>Labour</dt><dd>{formatGBP(expandedDetail.diagnostic.labour_cost)}</dd></div>}
+                                {expandedDetail.diagnostic.parts_cost !== null && <div><dt>Parts</dt><dd>{formatGBP(expandedDetail.diagnostic.parts_cost)}</dd></div>}
+                              </dl>
+                            </div>
+                          )}
+
+                          {/* Diagnostic fault codes */}
+                          {expandedDetail.diagnostic_fault_codes && expandedDetail.diagnostic_fault_codes.length > 0 && (
+                            <div className="rec-detail-sub">
+                              <p className="rec-detail-heading">Fault codes</p>
+                              <div className="diag-fc-draft-list">
+                                {expandedDetail.diagnostic_fault_codes
+                                  .slice()
+                                  .sort((a, b) => a.sort_order - b.sort_order)
+                                  .map((fc) => (
+                                    <div key={fc.id} className="diag-fc-detail-row">
+                                      <span className={`diag-sev-sm diag-sev-sm--${fc.severity}`}>{fc.severity}</span>
+                                      <span className="diag-fc-draft-code">{fc.code ?? "—"}</span>
+                                      <span className="diag-fc-draft-desc">{fc.description}</span>
+                                      {fc.notes && <span className="diag-fc-draft-notes">{fc.notes}</span>}
+                                      {fc.resolved_at && <span className="diag-fc-draft-resolved">Resolved {formatDate(fc.resolved_at)}</span>}
+                                    </div>
+                                  ))}
+                              </div>
                             </div>
                           )}
 
@@ -1310,6 +1577,24 @@ const REC_STYLES = `
 
   /* Skeleton */
   .rec-skeleton { height: 160px; background: rgba(255,255,255,0.04); border-radius: var(--radius-md); animation: shimmer 1.6s infinite; }
+
+  /* Diagnostic fault code builder (add form) */
+  .diag-fc-draft-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-2); }
+  .diag-fc-draft-row { display: flex; align-items: center; gap: var(--space-3); padding: 6px 0; border-bottom: 0.5px solid var(--colour-border); }
+  .diag-fc-draft-row:last-child { border-bottom: none; }
+  .diag-fc-draft-code { font-size: var(--text-xs); font-family: monospace; color: var(--colour-text-muted); min-width: 60px; }
+  .diag-fc-draft-desc { font-size: var(--text-sm); color: var(--colour-text); flex: 1; }
+  .diag-fc-draft-notes { font-size: var(--text-xs); color: var(--colour-text-muted); }
+  .diag-fc-draft-resolved { font-size: var(--text-xs); color: var(--colour-text-muted); }
+  .diag-fc-mini-form { border: 0.5px solid var(--colour-border); border-radius: var(--radius-md); padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-2); background: rgba(255,255,255,0.02); }
+  .diag-fc-detail-row { display: flex; align-items: baseline; gap: var(--space-3); padding: 4px 0; flex-wrap: wrap; }
+
+  /* Diagnostic severity small badges */
+  .diag-sev-sm { font-size: 10px; font-weight: var(--weight-medium); border-radius: 99px; padding: 1px 7px; white-space: nowrap; border: 1px solid transparent; }
+  .diag-sev-sm--advisory { background: rgba(255,255,255,0.06); color: var(--colour-text-muted); border-color: rgba(255,255,255,0.1); }
+  .diag-sev-sm--amber { background: rgba(245,158,11,0.12); color: #f59e0b; border-color: rgba(245,158,11,0.25); }
+  .diag-sev-sm--red { background: rgba(239,68,68,0.12); color: #ef4444; border-color: rgba(239,68,68,0.25); }
+  .diag-sev-sm--resolved { background: rgba(255,255,255,0.04); color: var(--colour-text-muted); border-color: rgba(255,255,255,0.08); opacity: 0.6; }
 
   /* Responsive */
   @media (max-width: 767px) {

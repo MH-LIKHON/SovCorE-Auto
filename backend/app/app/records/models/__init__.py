@@ -12,7 +12,11 @@
 
 from app.records.models.record import (  # noqa: F401
     AttachmentKind,
+    DiagnosticDetail,
+    DiagnosticFaultCode,
+    FaultCodeSeverity,
     FuelDetail,
+    InspectionType,
     MaintenanceCategory,
     MaintenanceDetail,
     Record,

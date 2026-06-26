@@ -31,6 +31,8 @@ from app.core.database import get_db
 from app.core.permissions import require_editor, require_viewer
 from app.records.models.record import RecordType
 from app.records.schemas.record_schemas import (
+    DiagnosticFaultCodeOut,
+    DiagnosticFaultCodePatchIn,
     RecordCreateIn,
     RecordOut,
     RecordPage,
@@ -119,6 +121,35 @@ async def patch_record(
     return await RecordService(db).patch_record(
         record_id, account_id, current_user.id, body
     )
+
+
+@router.get(
+    "/accounts/{account_id}/vehicles/{vehicle_id}/diagnostic-fault-codes",
+    response_model=list[DiagnosticFaultCodeOut],
+    summary="List all diagnostic fault codes for a vehicle",
+)
+async def list_diagnostic_fault_codes(
+    account_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    _: User = Depends(require_viewer),
+    db: AsyncSession = Depends(get_db),
+) -> list[DiagnosticFaultCodeOut]:
+    return await RecordService(db).list_fault_codes(vehicle_id, account_id)
+
+
+@router.patch(
+    "/accounts/{account_id}/diagnostic-fault-codes/{fault_code_id}",
+    response_model=DiagnosticFaultCodeOut,
+    summary="Update severity or resolved status of a single fault code",
+)
+async def patch_diagnostic_fault_code(
+    account_id: uuid.UUID,
+    fault_code_id: uuid.UUID,
+    body: DiagnosticFaultCodePatchIn,
+    _: User = Depends(require_editor),
+    db: AsyncSession = Depends(get_db),
+) -> DiagnosticFaultCodeOut:
+    return await RecordService(db).patch_fault_code(fault_code_id, account_id, body)
 
 
 @router.delete(

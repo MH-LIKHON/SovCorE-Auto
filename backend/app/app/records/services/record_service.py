@@ -39,6 +39,8 @@ from app.records.models.record import RecordType
 from app.records.models.timeline_event import TimelineEvent
 from app.records.repositories.record_repository import RecordRepository
 from app.records.schemas.record_schemas import (
+    DiagnosticFaultCodeOut,
+    DiagnosticFaultCodePatchIn,
     RecordCreateIn,
     RecordListOut,
     RecordOut,
@@ -57,6 +59,9 @@ _MAINTENANCE_TYPES = {RecordType.maintenance, RecordType.repair}
 
 # ------------------------------ Types that accept a fuel block --------------
 _FUEL_TYPES = {RecordType.fuel}
+
+# ------------------------------ Types that accept a diagnostic block --------
+_DIAGNOSTIC_TYPES = {RecordType.diagnostics}
 
 # ==================================================
 # RECORD → AUTO-REMINDER MAP
@@ -108,6 +113,8 @@ class RecordService:
             clean = clean.model_copy(update={"maintenance": None})
         if clean.fuel is not None and clean.type not in _FUEL_TYPES:
             clean = clean.model_copy(update={"fuel": None})
+        if clean.diagnostic is not None and clean.type not in _DIAGNOSTIC_TYPES:
+            clean = clean.model_copy(update={"diagnostic": None})
 
         record = await self._repo.create(account_id, vehicle_id, created_by, clean)
 
@@ -185,6 +192,30 @@ class RecordService:
         record.updated_by = updated_by
         updated = await self._repo.patch(record, data)
         return self._to_out(updated)
+
+    # ------------------------------ Diagnostic fault code list --------------
+
+    async def list_fault_codes(
+        self, vehicle_id: uuid.UUID, account_id: uuid.UUID
+    ) -> list[DiagnosticFaultCodeOut]:
+        codes = await self._repo.list_fault_codes_by_vehicle(vehicle_id, account_id)
+        return [DiagnosticFaultCodeOut.model_validate(c) for c in codes]
+
+    # ------------------------------ Diagnostic fault code patch -------------
+
+    async def patch_fault_code(
+        self,
+        fault_code_id: uuid.UUID,
+        account_id: uuid.UUID,
+        data: DiagnosticFaultCodePatchIn,
+    ) -> DiagnosticFaultCodeOut:
+        fc = await self._repo.get_fault_code_by_id(fault_code_id, account_id)
+        if fc is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Fault code not found."
+            )
+        updated = await self._repo.patch_fault_code(fc, data)
+        return DiagnosticFaultCodeOut.model_validate(updated)
 
     # ------------------------------ Delete ----------------------------------
 

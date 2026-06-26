@@ -9,9 +9,9 @@
 #
 # Design:
 #   create() accepts the full RecordCreateIn payload and creates
-#   the base record row plus any applicable detail rows (maintenance
-#   or fuel) and attachment rows in a single flush. The caller
-#   (record_service) commits the transaction.
+#   the base record row plus any applicable detail rows (maintenance,
+#   fuel, or diagnostic) and attachment rows in a single flush. The
+#   caller (record_service) commits the transaction.
 #
 #   list_by_vehicle returns lightweight rows only (no relations
 #   loaded) because the list view does not need attachments or tags.
@@ -22,6 +22,15 @@
 #   patch() uses model_dump(exclude_unset=True) so only the fields
 #   the caller explicitly set are written.
 #
+#   Diagnostic fault codes use a replace strategy on patch: if the
+#   diagnostic block is present in the payload, all existing fault
+#   codes for the record are deleted and reinserted from the payload.
+#   This keeps the patch semantics simple for the caller.
+#
+#   list_fault_codes_by_vehicle returns all DiagnosticFaultCode rows
+#   across all diagnostics records on a vehicle in a single query.
+#   The analytics page uses this to show fault codes without N+1 calls.
+#
 # Consumed by:
 #   - backend/app/app/records/services/record_service.py
 # ============================================================
@@ -29,11 +38,13 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.records.models.record import (
+    DiagnosticDetail,
+    DiagnosticFaultCode,
     FuelDetail,
     MaintenanceDetail,
     Record,
@@ -43,6 +54,8 @@ from app.records.models.record import (
 )
 from app.records.schemas.record_schemas import (
     AttachmentCreateIn,
+    DiagnosticDetailIn,
+    DiagnosticFaultCodePatchIn,
     FuelDetailIn,
     MaintenanceDetailIn,
     RecordCreateIn,
@@ -102,6 +115,10 @@ class RecordRepository:
 
         if data.fuel is not None:
             await self._create_fuel_detail(record.id, data.fuel)
+
+        if data.diagnostic is not None:
+            await self._create_diagnostic_detail(record.id, data.diagnostic)
+            await self._create_diagnostic_fault_codes(record.id, data.diagnostic.fault_codes)
 
         # ~~~~~~~~~ Attachments ~~~~~~~~~
         for att in data.attachments:
@@ -178,7 +195,7 @@ class RecordRepository:
     async def patch(self, record: Record, data: RecordPatchIn) -> Record:
         # ~~~~~~~~~ Base fields ~~~~~~~~~
         update = data.model_dump(
-            exclude_unset=True, exclude={"maintenance", "fuel"}
+            exclude_unset=True, exclude={"maintenance", "fuel", "diagnostic"}
         )
         for field, value in update.items():
             setattr(record, field, value)
@@ -213,7 +230,70 @@ class RecordRepository:
                 await self._create_fuel_detail(record.id, data.fuel)
             await self._db.flush()
 
+        # ~~~~~~~~~ Diagnostic detail (upsert) and fault codes (replace) ~~~~~~~~~
+        if data.diagnostic is not None:
+            if record.diagnostic_detail is not None:
+                dd = record.diagnostic_detail
+                dd.inspection_type = data.diagnostic.inspection_type
+                dd.findings = data.diagnostic.findings
+                dd.labour_cost = data.diagnostic.labour_cost
+                dd.parts_cost = data.diagnostic.parts_cost
+                self._db.add(dd)
+            else:
+                await self._create_diagnostic_detail(record.id, data.diagnostic)
+            # Replace all fault codes: delete existing then reinsert.
+            await self._db.execute(
+                delete(DiagnosticFaultCode).where(DiagnosticFaultCode.record_id == record.id)
+            )
+            await self._create_diagnostic_fault_codes(record.id, data.diagnostic.fault_codes)
+            await self._db.flush()
+
         return await self._get_with_relations(record.id)  # type: ignore[return-value]
+
+    # ------------------------------ List fault codes by vehicle -------------
+
+    async def list_fault_codes_by_vehicle(
+        self, vehicle_id: uuid.UUID, account_id: uuid.UUID
+    ) -> list[DiagnosticFaultCode]:
+        # Single JOIN query: only returns fault codes for records belonging
+        # to this vehicle and account. No pagination — diagnostics are
+        # infrequent and the analytics page needs all codes to compute counts.
+        stmt = (
+            select(DiagnosticFaultCode)
+            .join(Record, Record.id == DiagnosticFaultCode.record_id)
+            .where(Record.vehicle_id == vehicle_id)
+            .where(Record.account_id == account_id)
+            .order_by(DiagnosticFaultCode.sort_order, DiagnosticFaultCode.created_at)
+        )
+        result = await self._db.execute(stmt)
+        return list(result.scalars().all())
+
+    # ------------------------------ Patch single fault code -----------------
+
+    async def get_fault_code_by_id(
+        self, fault_code_id: uuid.UUID, account_id: uuid.UUID
+    ) -> DiagnosticFaultCode | None:
+        stmt = (
+            select(DiagnosticFaultCode)
+            .join(Record, Record.id == DiagnosticFaultCode.record_id)
+            .where(DiagnosticFaultCode.id == fault_code_id)
+            .where(Record.account_id == account_id)
+        )
+        result = await self._db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def patch_fault_code(
+        self, fault_code: DiagnosticFaultCode, data: DiagnosticFaultCodePatchIn
+    ) -> DiagnosticFaultCode:
+        if data.severity is not None:
+            fault_code.severity = data.severity
+        if data.resolved_at is not None:
+            fault_code.resolved_at = data.resolved_at
+        if data.notes is not None:
+            fault_code.notes = data.notes
+        self._db.add(fault_code)
+        await self._db.flush()
+        return fault_code
 
     # ------------------------------ Delete ----------------------------------
 
@@ -236,6 +316,8 @@ class RecordRepository:
                 selectinload(Record.tags),
                 selectinload(Record.maintenance_detail),
                 selectinload(Record.fuel_detail),
+                selectinload(Record.diagnostic_detail),
+                selectinload(Record.diagnostic_fault_codes),
             )
         )
         if account_id is not None:
@@ -283,3 +365,34 @@ class RecordRepository:
                 size_bytes=data.size_bytes,
             )
         )
+
+    async def _create_diagnostic_detail(
+        self, record_id: uuid.UUID, data: DiagnosticDetailIn
+    ) -> None:
+        self._db.add(
+            DiagnosticDetail(
+                record_id=record_id,
+                inspection_type=data.inspection_type,
+                findings=data.findings,
+                labour_cost=data.labour_cost,
+                parts_cost=data.parts_cost,
+            )
+        )
+
+    async def _create_diagnostic_fault_codes(
+        self, record_id: uuid.UUID, codes: list
+    ) -> None:
+        for fc in codes:
+            self._db.add(
+                DiagnosticFaultCode(
+                    record_id=record_id,
+                    code=fc.code,
+                    description=fc.description,
+                    notes=fc.notes,
+                    severity=fc.severity,
+                    trigger_date=fc.trigger_date,
+                    trigger_mileage=fc.trigger_mileage,
+                    resolved_at=fc.resolved_at,
+                    sort_order=fc.sort_order,
+                )
+            )

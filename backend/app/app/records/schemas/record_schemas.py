@@ -12,13 +12,17 @@
 #   are always integers (pence) on the wire. The frontend converts
 #   to pounds for display. Fuel volume (litres) is a Decimal.
 #
-#   RecordCreateIn includes optional maintenance and fuel detail
-#   blocks. The service creates detail rows only when the relevant
-#   block is present and the type matches.
+#   RecordCreateIn includes optional maintenance, fuel, and diagnostic
+#   detail blocks. The service creates detail rows only when the
+#   relevant block is present and the type matches.
 #
 #   RecordListOut is a lighter projection for the list view;
 #   RecordOut is the full detail including attachments, tags and
 #   type-specific detail.
+#
+#   DiagnosticDetailIn wraps both the inspection-level fields and
+#   the list of fault code rows. On PATCH, fault_codes replaces the
+#   entire set for that record (delete + reinsert).
 #
 #   The page envelope (RecordPage) matches the convention from
 #   BLUEPRINT/04-routes-and-api.md: items, total, page, page_size.
@@ -35,7 +39,12 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.records.models.record import MaintenanceCategory, RecordType
+from app.records.models.record import (
+    FaultCodeSeverity,
+    InspectionType,
+    MaintenanceCategory,
+    RecordType,
+)
 
 # ==================================================
 # ATTACHMENT SCHEMAS
@@ -151,6 +160,80 @@ class FuelDetailOut(BaseModel):
 
 
 # ==================================================
+# DIAGNOSTIC DETAIL SCHEMAS
+# ==================================================
+
+# ------------------------------ Fault code input ----------------------------
+
+
+class DiagnosticFaultCodeIn(BaseModel):
+    # OBD/manufacturer code; nullable for non-coded findings.
+    code: str | None = None
+    description: str                                  # uppercase by convention
+    notes: str | None = None                          # normal case; the notes exception
+    severity: FaultCodeSeverity = FaultCodeSeverity.advisory
+    trigger_date: _Date | None = None
+    trigger_mileage: int | None = None
+    resolved_at: _Date | None = None
+    sort_order: int = 0
+
+
+# ------------------------------ Diagnostic detail input ---------------------
+
+
+class DiagnosticDetailIn(BaseModel):
+    inspection_type: InspectionType = InspectionType.self_
+    findings: str | None = None   # uppercase by convention
+    labour_cost: int | None = None  # pence
+    parts_cost: int | None = None   # pence
+    # On create: the initial set. On patch: replaces all existing fault codes.
+    fault_codes: list[DiagnosticFaultCodeIn] = []
+
+
+# ------------------------------ Fault code output ---------------------------
+
+
+class DiagnosticFaultCodeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    record_id: uuid.UUID
+    code: str | None
+    description: str
+    notes: str | None
+    severity: FaultCodeSeverity
+    trigger_date: _Date | None
+    trigger_mileage: int | None
+    resolved_at: _Date | None
+    sort_order: int
+    created_at: datetime
+
+
+# ------------------------------ Diagnostic detail output --------------------
+
+
+class DiagnosticDetailOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    record_id: uuid.UUID
+    inspection_type: InspectionType
+    findings: str | None
+    labour_cost: int | None
+    parts_cost: int | None
+
+
+# ------------------------------ Fault code patch input ----------------------
+# Used by the targeted PATCH endpoint for a single fault code row.
+
+
+class DiagnosticFaultCodePatchIn(BaseModel):
+    severity: FaultCodeSeverity | None = None
+    resolved_at: _Date | None = None
+    notes: str | None = None
+
+
+# ==================================================
 # RECORD SCHEMAS
 # ==================================================
 
@@ -173,6 +256,7 @@ class RecordCreateIn(BaseModel):
     # Type-specific detail blocks — service ignores if type does not match
     maintenance: MaintenanceDetailIn | None = None
     fuel: FuelDetailIn | None = None
+    diagnostic: DiagnosticDetailIn | None = None
     # User-defined key/value pairs; only stored for custom type records.
     custom_fields: list[dict[str, str]] | None = None
     # Attachments known at creation time (pre-uploaded to R2)
@@ -198,6 +282,7 @@ class RecordPatchIn(BaseModel):
     # Allow updating the type-specific detail in the same PATCH call
     maintenance: MaintenanceDetailIn | None = None
     fuel: FuelDetailIn | None = None
+    diagnostic: DiagnosticDetailIn | None = None
     custom_fields: list[dict[str, str]] | None = None
 
 
@@ -254,15 +339,30 @@ class RecordOut(BaseModel):
     # ORM relationship is `tags` (list[RecordTag]); validator flattens to strings.
     tags: list[str]
     custom_fields: list[dict[str, str]] | None
-    # ORM relationships are `maintenance_detail` and `fuel_detail`; aliases map them.
+    # ORM relationships are `maintenance_detail`, `fuel_detail`, and
+    # `diagnostic_detail`; aliases map them to the wire field names.
     maintenance: MaintenanceDetailOut | None = Field(None, alias="maintenance_detail")
     fuel: FuelDetailOut | None = Field(None, alias="fuel_detail")
+    diagnostic: DiagnosticDetailOut | None = Field(None, alias="diagnostic_detail")
+    # Fault codes are top-level: they live on Record, not on DiagnosticDetail.
+    diagnostic_fault_codes: list[DiagnosticFaultCodeOut] = []
 
     @field_validator("tags", mode="before")
     @classmethod
     def _flatten_tags(cls, v: Any) -> list[str]:
         # ORM gives list[RecordTag]; direct assignment gives list[str].
         return [item.tag if hasattr(item, "tag") else str(item) for item in (v or [])]
+
+    @field_validator("diagnostic_fault_codes", mode="before")
+    @classmethod
+    def _coerce_fault_codes(cls, v: Any) -> list:
+        # ORM gives InstrumentedList; direct assignment gives a plain list.
+        # Accessing an unloaded lazy relationship in an async context raises
+        # MissingGreenlet, so catch any error and return an empty list.
+        try:
+            return list(v) if v is not None else []
+        except Exception:
+            return []
 
 
 # ------------------------------ Page envelope -------------------------------

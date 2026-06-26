@@ -288,7 +288,7 @@ export default function NewVehiclePage() {
             />
 
             <TextField
-              label="Current mileage"
+              label="Current odometer"
               type="number"
               value={form.mileage}
               onChange={(e) => set("mileage", e.target.value)}

@@ -551,7 +551,7 @@ export default function VehicleProfilePage() {
                 />
               ))}
               <TextField
-                label="Mileage"
+                label="Odometer"
                 type="number"
                 min={0}
                 placeholder="e.g. 52000"
