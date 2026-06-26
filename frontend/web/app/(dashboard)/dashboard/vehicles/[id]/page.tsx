@@ -31,7 +31,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
-import { TextField } from "@/src/components/ui/input";
+import { TextField, WholeNumberField } from "@/src/components/ui/input";
 import { BodyTypeIcon } from "@/src/components/vehicles/body-type-icon";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
@@ -565,17 +565,15 @@ export default function VehicleProfilePage() {
                   disabled={saving}
                 />
               ))}
-              <TextField
+              <WholeNumberField
                 label="Odometer"
-                type="number"
-                min={0}
                 placeholder="e.g. 52000"
                 value={infoForm.mileage ?? ""}
-                onChange={(e) => { setInfoForm((f) => ({ ...f, mileage: e.target.value ? parseInt(e.target.value, 10) : null })); setInfoMileageError(null); }}
+                onChange={(v) => { setInfoForm((f) => ({ ...f, mileage: v ? parseInt(v, 10) : null })); setInfoMileageError(null); }}
                 onBlur={handleInfoMileageBlur}
-                onKeyDown={(e) => ["e","E","+","-","."].includes(e.key) && e.preventDefault()}
                 error={infoMileageError ?? undefined}
                 disabled={saving}
+                maxLength={7}
               />
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">
@@ -698,13 +696,13 @@ export default function VehicleProfilePage() {
                   disabled={saving}
                 />
               ))}
-              <TextField
+              <WholeNumberField
                 label="Service due mileage"
-                type="number"
                 value={renewalForm.service_due_mileage ?? ""}
-                onChange={(e) => setRenewalForm((f) => ({ ...f, service_due_mileage: e.target.value ? parseInt(e.target.value, 10) : null }))}
+                onChange={(v) => { setRenewalForm((f) => ({ ...f, service_due_mileage: v ? parseInt(v, 10) : null })); }}
                 placeholder="e.g. 50000"
                 disabled={saving}
+                maxLength={7}
               />
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">

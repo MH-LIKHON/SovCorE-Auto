@@ -31,7 +31,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
-import { TextArea, TextField } from "@/src/components/ui/input";
+import { TextArea, TextField, WholeNumberField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -514,13 +514,11 @@ export default function AlertsPage() {
                         onChange={(e) => setConditionField(i, "start", e.target.value)}
                         disabled={saving}
                       />
-                      <TextField
+                      <WholeNumberField
                         className="al-cond-field al-cond-field--narrow"
                         label="Repeat every"
-                        type="number"
-                        min={1}
                         value={cond.every}
-                        onChange={(e) => setConditionField(i, "every", e.target.value)}
+                        onChange={(v) => setConditionField(i, "every", v)}
                         disabled={saving}
                       />
                       <div className="al-cond-field sov-field">
@@ -543,39 +541,36 @@ export default function AlertsPage() {
                   )}
 
                   {cond.type === "mileage" && (
-                    <TextField
+                    <WholeNumberField
                       className="al-cond-field"
                       label="At mileage"
-                      type="number"
-                      min={1}
                       placeholder="e.g. 60000"
                       value={cond.at}
-                      onChange={(e) => setConditionField(i, "at", e.target.value)}
+                      onChange={(v) => setConditionField(i, "at", v)}
                       disabled={saving}
+                      maxLength={7}
                     />
                   )}
 
                   {cond.type === "mileage_recurring" && (
                     <>
-                      <TextField
+                      <WholeNumberField
                         className="al-cond-field"
                         label="Start mileage"
-                        type="number"
-                        min={0}
                         placeholder="e.g. 40000"
                         value={cond.start_mileage}
-                        onChange={(e) => setConditionField(i, "start_mileage", e.target.value)}
+                        onChange={(v) => setConditionField(i, "start_mileage", v)}
                         disabled={saving}
+                        maxLength={7}
                       />
-                      <TextField
+                      <WholeNumberField
                         className="al-cond-field al-cond-field--narrow"
                         label="Repeat every (miles)"
-                        type="number"
-                        min={1}
                         placeholder="e.g. 5000"
                         value={cond.every_miles}
-                        onChange={(e) => setConditionField(i, "every_miles", e.target.value)}
+                        onChange={(v) => setConditionField(i, "every_miles", v)}
                         disabled={saving}
+                        maxLength={6}
                       />
                     </>
                   )}
@@ -616,14 +611,13 @@ export default function AlertsPage() {
                 disabled={saving}
               />
               {hasMileageCond && (
-                <TextField
+                <WholeNumberField
                   className="rec-label"
                   label="Notify within N miles (mileage conditions)"
-                  type="number"
-                  min={1}
                   value={form.miles_warning}
-                  onChange={(e) => setField("miles_warning", e.target.value)}
+                  onChange={(v) => setField("miles_warning", v)}
                   disabled={saving}
+                  maxLength={5}
                 />
               )}
             </div>

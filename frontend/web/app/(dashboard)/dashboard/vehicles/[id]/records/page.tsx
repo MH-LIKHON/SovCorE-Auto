@@ -32,6 +32,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { WholeNumberInput } from "@/src/components/ui/input";
 import { RecordTypeBadge } from "@/src/components/records/record-type-badge";
 import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
@@ -759,18 +760,15 @@ export default function VehicleRecordsPage() {
                 <span className="rec-label__text">
                   {isOdometerForm ? "Odometer reading *" : "Odometer"}
                 </span>
-                <input
+                <WholeNumberInput
                   className={`rec-input${mileageError ? " rec-input--error" : ""}`}
-                  type="number"
-                  min="0"
-                  step="1"
                   placeholder={isOdometerForm ? "e.g. 52400" : "e.g. 52000"}
                   value={form.mileage}
-                  onKeyDown={(e) => ["e","E","+","-","."].includes(e.key) && e.preventDefault()}
-                  onChange={(e) => handleFormChange("mileage", e.target.value)}
+                  onChange={(v) => handleFormChange("mileage", v)}
                   onBlur={handleMileageBlur}
                   disabled={saving}
                   required={isOdometerForm}
+                  maxLength={7}
                 />
                 {mileageError && <span className="rec-field-error">{mileageError}</span>}
               </label>
@@ -1021,16 +1019,13 @@ export default function VehicleRecordsPage() {
                       </label>
                       <label className="rec-label">
                         <span className="rec-label__text">Trigger odometer</span>
-                        <input
+                        <WholeNumberInput
                           className={`rec-input${triggerMileageError ? " rec-input--error" : ""}`}
-                          type="number"
-                          min="0"
-                          step="1"
                           placeholder="e.g. 60000"
                           value={diagFaultCodeForm.trigger_mileage}
-                          onKeyDown={(e) => ["e","E","+","-","."].includes(e.key) && e.preventDefault()}
-                          onChange={(e) => { setDiagFaultCodeForm((p) => ({ ...p, trigger_mileage: e.target.value })); setTriggerMileageError(null); }}
+                          onChange={(v) => { setDiagFaultCodeForm((p) => ({ ...p, trigger_mileage: v })); setTriggerMileageError(null); }}
                           onBlur={handleTriggerMileageBlur}
+                          maxLength={7}
                         />
                         {triggerMileageError && <span className="rec-field-error">{triggerMileageError}</span>}
                       </label>

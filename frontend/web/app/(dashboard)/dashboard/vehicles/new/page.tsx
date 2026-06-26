@@ -25,7 +25,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
-import { TextField } from "@/src/components/ui/input";
+import { TextField, WholeNumberField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
@@ -204,14 +204,12 @@ export default function NewVehiclePage() {
               disabled={saving}
             />
 
-            <TextField
+            <WholeNumberField
               label="Year"
-              type="number"
               value={form.year}
-              onChange={(e) => set("year", e.target.value)}
+              onChange={(v) => set("year", v)}
               placeholder="e.g. 2021"
-              min="1900"
-              max={String(new Date().getFullYear() + 2)}
+              maxLength={4}
               disabled={saving}
             />
 
@@ -287,14 +285,13 @@ export default function NewVehiclePage() {
               disabled={saving}
             />
 
-            <TextField
+            <WholeNumberField
               label="Current odometer"
-              type="number"
               value={form.mileage}
-              onChange={(e) => set("mileage", e.target.value)}
+              onChange={(v) => set("mileage", v)}
               placeholder="e.g. 34500"
-              min="0"
               disabled={saving}
+              maxLength={7}
             />
 
           </div>

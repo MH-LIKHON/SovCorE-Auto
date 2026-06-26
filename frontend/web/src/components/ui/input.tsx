@@ -3,12 +3,15 @@
 // ============================================================
 //
 // Purpose:
-//   Text input and textarea primitives used by every form in
-//   the application. Wraps a labelled control with a consistent
-//   focus-ring, error state, and helper-text treatment.
+//   Text input, textarea, and whole-number-input primitives used
+//   by every form in the application. Wraps a labelled control
+//   with a consistent focus-ring, error state, and helper-text
+//   treatment. WholeNumberInput / WholeNumberField strip non-digit
+//   characters so numeric fields never accept garbage from paste.
 //
 // Origin:
-//   Copied verbatim from SovCorE QR src/components/ui/input.tsx.
+//   Copied verbatim from SovCorE QR src/components/ui/input.tsx;
+//   WholeNumberInput / WholeNumberField are Auto additions.
 //
 // Design:
 //   Label above, input below, helper or error text below that.
@@ -16,10 +19,7 @@
 //   scatters coloured dots on each character typed.
 //
 // Consumed by:
-//   - app/(auth)/login/page.tsx
-//   - app/(auth)/register/page.tsx
-//   - app/(app)/vehicles/new/page.tsx
-//   - any form that needs a labelled text control
+//   - any form that needs a labelled text, date, or integer control
 // ============================================================
 
 "use client";
@@ -84,6 +84,61 @@ export function TextField({ label, helper, error, className, id, onChange, ...re
           className="sov-field__control"
           onChange={(e) => { fire(); onChange?.(e); }}
           {...rest}
+        />
+        <div ref={ringRef} aria-hidden="true" style={PULSE_RING_STYLE} />
+      </div>
+      {(error || helper) && <p className="sov-field__hint">{error ?? helper}</p>}
+      <style>{FIELD_STYLES}</style>
+    </div>
+  );
+}
+
+// ==================================================
+// WHOLE NUMBER INPUT — raw <input> for non-negative integers
+// ==================================================
+
+// onChange delivers a cleaned string (digits only) instead of a ChangeEvent,
+// so callers never need to run .replace(/[^0-9]/g, "") themselves.
+type WholeNumberInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "inputMode" | "onChange"> & {
+  onChange?: (value: string) => void;
+};
+
+export function WholeNumberInput({ onChange, ...props }: WholeNumberInputProps) {
+  return (
+    <input
+      {...props}
+      type="text"
+      inputMode="numeric"
+      onChange={(e) => onChange?.(e.target.value.replace(/[^0-9]/g, ""))}
+    />
+  );
+}
+
+// ==================================================
+// WHOLE NUMBER FIELD — labelled field wrapping WholeNumberInput
+// ==================================================
+
+type WholeNumberFieldProps = {
+  label: string;
+  helper?: string;
+  error?: string;
+  className?: string;
+} & Omit<WholeNumberInputProps, "className">;
+
+export function WholeNumberField({ label, helper, error, className, id, onChange, ...rest }: WholeNumberFieldProps) {
+  const inputId = id ?? `field-${label.replace(/\s+/g, "-").toLowerCase()}`;
+  const { ringRef, fire } = usePulse();
+  return (
+    <div className={clsx("sov-field", error && "sov-field--error", className)}>
+      <label htmlFor={inputId} className="sov-field__label">
+        {label}
+      </label>
+      <div className="sov-input-wrap">
+        <WholeNumberInput
+          {...rest}
+          id={inputId}
+          className="sov-field__control"
+          onChange={(v) => { fire(); onChange?.(v); }}
         />
         <div ref={ringRef} aria-hidden="true" style={PULSE_RING_STYLE} />
       </div>
