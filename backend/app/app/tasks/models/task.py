@@ -86,6 +86,9 @@ class Task(Base):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Set True for platform-seeded tasks; the delete endpoint rejects these.
+    is_system_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     # ------------------------------ Timestamps ------------------------------
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

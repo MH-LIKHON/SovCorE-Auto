@@ -94,6 +94,14 @@ class Reminder(Base):
     # Tracks the last interval sent to prevent duplicate notifications.
     last_sent_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Mileage-based trigger (optional). When set, the scheduler also fires
+    # when vehicle.mileage reaches (due_mileage - miles_warning).
+    # Only meaningful for types: service, tyres, brake_fluid, battery, finance, custom.
+    due_mileage: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    miles_warning: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=500, server_default="500"
+    )
+
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

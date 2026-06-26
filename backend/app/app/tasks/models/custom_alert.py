@@ -93,6 +93,9 @@ class CustomAlert(Base):
 
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Set True for platform-seeded alerts (e.g. "Service (mileage)"); delete blocked.
+    is_system_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     # ------------------------------ Timestamps ------------------------------
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

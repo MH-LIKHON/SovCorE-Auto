@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.health.services.health_service import score_for_card
 from app.tasks.repositories.custom_alert_repository import CustomAlertRepository
 from app.tasks.repositories.reminder_repository import ReminderRepository
+from app.tasks.repositories.task_repository import DEFAULT_TASK_TITLES, TaskRepository
 from app.vehicles.models.vehicle import Vehicle, VehicleRenewal
 from app.vehicles.repositories.vehicle_repository import VehicleRepository
 from app.vehicles.schemas.vehicle_schemas import (
@@ -80,6 +81,7 @@ class VehicleService:
         self._repo = VehicleRepository(db)
         self._reminder_repo = ReminderRepository(db)
         self._alert_repo = CustomAlertRepository(db)
+        self._task_repo = TaskRepository(db)
 
     # ==================================================
     # VEHICLE CRUD
@@ -91,6 +93,7 @@ class VehicleService:
         self, account_id: uuid.UUID, data: VehicleCreateIn
     ) -> VehicleOut:
         vehicle = await self._repo.create(account_id, data)
+        await self._create_default_tasks(vehicle.id, account_id)
         return VehicleOut.model_validate(vehicle)
 
     # ------------------------------ List ------------------------------------
@@ -203,6 +206,20 @@ class VehicleService:
         updated = await self._repo.put_renewal(renewal, data)
         await self._sync_renewal_reminders(vehicle_id, account_id, data)
         return VehicleRenewalOut.model_validate(updated)
+
+    # ==================================================
+    # DEFAULT TASK SEED
+    # ==================================================
+
+    async def _create_default_tasks(
+        self, vehicle_id: uuid.UUID, account_id: uuid.UUID
+    ) -> None:
+        # ~~~~~~~~~ Seed five mandatory setup tasks for every new vehicle ~~~~~~~~~
+        # These guide the user through the initial setup. They are marked
+        # is_system_default=True so the delete endpoint rejects removal.
+        # Users can edit titles, add due dates, or mark completed.
+        for title in DEFAULT_TASK_TITLES:
+            await self._task_repo.create_system_default(vehicle_id, account_id, title)
 
     # ==================================================
     # RENEWAL AUTO-LINK

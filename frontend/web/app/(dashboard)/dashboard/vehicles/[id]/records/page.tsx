@@ -132,7 +132,7 @@ type RecordTypeValue =
 
 const RECORD_TYPES: { value: RecordTypeValue; label: string }[] = [
   // Measurement — first so it sits directly after "All"
-  { value: "odometer",     label: "Odometer log" },
+  { value: "odometer",     label: "Odometer" },
   // Workshop
   { value: "maintenance",  label: "Maintenance" },
   { value: "repair",       label: "Repair" },
@@ -611,7 +611,7 @@ export default function VehicleRecordsPage() {
                 <span className="rec-label__text">Type</span>
                 <select className="rec-select" value={form.type} onChange={(e) => handleFormChange("type", e.target.value as RecordTypeValue)} disabled={saving}>
                   <optgroup label="Measurement">
-                    <option value="odometer">Odometer log</option>
+                    <option value="odometer">Odometer</option>
                   </optgroup>
                   <optgroup label="Workshop">
                     <option value="maintenance">Maintenance</option>

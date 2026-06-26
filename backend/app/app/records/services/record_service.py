@@ -29,9 +29,10 @@
 # ============================================================
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.records.models.record import RecordType
@@ -44,6 +45,8 @@ from app.records.schemas.record_schemas import (
     RecordPage,
     RecordPatchIn,
 )
+from app.tasks.repositories.custom_alert_repository import CustomAlertRepository
+from app.tasks.repositories.reminder_repository import ReminderRepository
 
 # ==================================================
 # TYPE-DETAIL MAPPING
@@ -56,6 +59,23 @@ _MAINTENANCE_TYPES = {RecordType.maintenance, RecordType.repair}
 _FUEL_TYPES = {RecordType.fuel}
 
 # ==================================================
+# RECORD → AUTO-REMINDER MAP
+# ==================================================
+
+# Maps a record type to the reminder type it creates and days until due.
+# When the user logs a service/MOT/insurance/etc. record the platform
+# automatically upserts the matching reminder so they don't have to
+# manually set it from the renewals page.
+_RECORD_REMINDER_MAP: dict[RecordType, tuple[str, int]] = {
+    RecordType.maintenance: ("service", 365),
+    RecordType.mot: ("mot", 365),
+    RecordType.tax: ("tax", 365),
+    RecordType.insurance: ("insurance", 365),
+    RecordType.warranty: ("warranty", 365),
+    RecordType.roadside: ("breakdown_cover", 365),
+}
+
+# ==================================================
 # SERVICE
 # ==================================================
 
@@ -64,6 +84,8 @@ class RecordService:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
         self._repo = RecordRepository(db)
+        self._reminder_repo = ReminderRepository(db)
+        self._alert_repo = CustomAlertRepository(db)
 
     # ==================================================
     # RECORD CRUD
@@ -88,6 +110,16 @@ class RecordService:
             clean = clean.model_copy(update={"fuel": None})
 
         record = await self._repo.create(account_id, vehicle_id, created_by, clean)
+
+        # ~~~~~~~~~ Any record with a mileage reading advances vehicle.mileage ~~~~~~~~~
+        # Odometer records are the authoritative monthly log, but a fuel fill
+        # or repair logged at 52,000 mi is equally valid evidence of current mileage.
+        # Advance silently — only when the new reading is strictly higher.
+        if record.mileage is not None:
+            await self._advance_vehicle_mileage(vehicle_id, record.mileage)
+
+        # ~~~~~~~~~ Auto-create/update reminder when a service/MOT/etc. is logged ~~~~~~~~~
+        await self._maybe_auto_remind(record, vehicle_id, account_id)
 
         # ~~~~~~~~~ Write timeline event ~~~~~~~~~
         await self._write_timeline_event(
@@ -182,6 +214,47 @@ class RecordService:
     # ==================================================
     # PRIVATE HELPERS
     # ==================================================
+
+    # ------------------------------ Auto-remind from record -----------------
+
+    async def _maybe_auto_remind(
+        self, record: object, vehicle_id: uuid.UUID, account_id: uuid.UUID
+    ) -> None:
+        record_type = getattr(record, "type", None)
+        record_date: date | None = getattr(record, "date", None)
+        record_mileage: int | None = getattr(record, "mileage", None)
+
+        # ~~~~~~~~~ Date-based reminder upsert ~~~~~~~~~
+        mapping = _RECORD_REMINDER_MAP.get(record_type)
+        if mapping and record_date is not None:
+            reminder_type, days_ahead = mapping
+            due_date = record_date + timedelta(days=days_ahead)
+            await self._reminder_repo.upsert_by_type(
+                vehicle_id, account_id, reminder_type, due_date
+            )
+
+        # ~~~~~~~~~ Service mileage alert when maintenance record has mileage ~~~~~~~~~
+        # Advances the mileage threshold so the service-due alert fires at
+        # current_reading + 10,000 mi, matching the new service baseline.
+        if record_type == RecordType.maintenance and record_mileage is not None:
+            await self._alert_repo.upsert_service_mileage(
+                vehicle_id, account_id, record_mileage + 10_000
+            )
+
+    # ------------------------------ Vehicle mileage advance -----------------
+
+    async def _advance_vehicle_mileage(
+        self, vehicle_id: uuid.UUID, new_reading: int
+    ) -> None:
+        from app.vehicles.models.vehicle import Vehicle
+
+        result = await self._db.execute(
+            select(Vehicle).where(Vehicle.id == vehicle_id)
+        )
+        vehicle = result.scalar_one_or_none()
+        if vehicle is not None and (vehicle.mileage is None or new_reading > vehicle.mileage):
+            vehicle.mileage = new_reading
+            await self._db.flush()
 
     # ------------------------------ Timeline write --------------------------
 

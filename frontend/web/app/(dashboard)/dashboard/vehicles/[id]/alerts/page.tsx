@@ -682,7 +682,7 @@ export default function AlertsPage() {
               <div className={`rem-row${!logSettings.active ? " rem-row--inactive" : ""}`}>
                 <div className="rem-row__left">
                   <div className="rem-row__info">
-                    <span className="rem-row__type">MONTHLY ODOMETER LOG REMINDER</span>
+                    <span className="rem-row__type">Monthly Odometer Log Reminder</span>
                     {editingLog ? (
                       <div className="al-log-edit">
                         <label className="al-log-field-label">

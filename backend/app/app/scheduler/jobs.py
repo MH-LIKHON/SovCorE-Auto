@@ -99,6 +99,7 @@ async def dispatch_reminders() -> None:
     from app.integrations.resend_client import send_reminder_email
     from app.tasks.models.reminder import Reminder
     from app.tasks.repositories.reminder_repository import ReminderRepository
+    from app.vehicles.models.vehicle import Vehicle
 
     settings = get_settings()
     today = date.today()
@@ -106,9 +107,24 @@ async def dispatch_reminders() -> None:
     log = logger.bind(job="dispatch_reminders", date=today.isoformat())
     log.info("reminder_dispatch_started")
 
+    # Reminder types where mileage-based triggers are not meaningful.
+    _DATE_ONLY_TYPES = {"mot", "tax", "insurance", "warranty", "breakdown_cover"}
+
     async with async_session_factory() as db:
         repo = ReminderRepository(db)
         reminders = await repo.list_due_today(today)
+
+        # ~~~~~~~~~ Batch-load vehicle mileage for mileage-capable reminders ~~~~~~~~~
+        mileage_vehicle_ids = list({
+            r.vehicle_id for r in reminders
+            if r.type not in _DATE_ONLY_TYPES and r.due_mileage is not None
+        })
+        mileage_map: dict = {}
+        if mileage_vehicle_ids:
+            veh_result = await db.execute(
+                select(Vehicle.id, Vehicle.mileage).where(Vehicle.id.in_(mileage_vehicle_ids))
+            )
+            mileage_map = {row.id: row.mileage for row in veh_result.all()}
 
         sent_count = 0
         for reminder in reminders:
@@ -121,19 +137,34 @@ async def dispatch_reminders() -> None:
                 and (reminder.last_sent_interval is None or iv < reminder.last_sent_interval)
             ]
 
-            if days_remaining not in reminder.intervals:
-                continue
+            date_fired = days_remaining in reminder.intervals and days_remaining in pending_intervals
 
-            if days_remaining in pending_intervals:
-                # ~~~~~~~~~ Look up the account email for notification ~~~~~~~~~
+            # ~~~~~~~~~ Mileage-based trigger (dual-trigger types only) ~~~~~~~~~
+            mileage_fired = False
+            if (
+                reminder.type not in _DATE_ONLY_TYPES
+                and reminder.due_mileage is not None
+                and not date_fired
+            ):
+                current_mileage = mileage_map.get(reminder.vehicle_id)
+                if current_mileage is not None:
+                    gap = reminder.due_mileage - current_mileage
+                    if 0 <= gap <= reminder.miles_warning:
+                        mileage_fired = True
+
+            if date_fired or mileage_fired:
                 try:
                     await _send_reminder(
                         db=db,
                         reminder=reminder,
-                        days_remaining=days_remaining,
+                        days_remaining=days_remaining if date_fired else None,
+                        miles_remaining=None if date_fired else (
+                            reminder.due_mileage - (mileage_map.get(reminder.vehicle_id) or 0)
+                        ),
                         settings=settings,
                     )
-                    await repo.mark_sent(reminder, days_remaining)
+                    if date_fired:
+                        await repo.mark_sent(reminder, days_remaining)
                     sent_count += 1
                 except Exception:
                     log.exception("reminder_send_failed", reminder_id=str(reminder.id))
@@ -312,7 +343,8 @@ async def _send_reminder(
     *,
     db: Any,
     reminder: Any,
-    days_remaining: int,
+    days_remaining: int | None,
+    miles_remaining: int | None = None,
     settings: Any,
 ) -> None:
     from sqlalchemy import select
@@ -322,6 +354,7 @@ async def _send_reminder(
     from app.integrations.resend_client import (
         build_email_html,
         build_reminder_content,
+        build_custom_alert_content,
         send_notification_email,
     )
     from app.vehicles.models.vehicle import Vehicle
@@ -346,22 +379,131 @@ async def _send_reminder(
     )
 
     reminder_type = reminder.type.replace("_", " ").title()
-    due_date_str = reminder.due_date.strftime("%d %B %Y")
-    d = days_remaining
-    subject = (
-        f"SovCorE Auto — {reminder_type} reminder: "
-        f"{d} day{'s' if d != 1 else ''} remaining"
-    )
 
-    content = build_reminder_content(
-        reminder_type=reminder_type,
-        days_remaining=days_remaining,
-        due_date_str=due_date_str,
-        vehicle_reg=vehicle_reg,
-        vehicle_label=vehicle_label,
-    )
+    if days_remaining is not None:
+        # Date-based trigger — standard reminder email.
+        due_date_str = reminder.due_date.strftime("%d %B %Y")
+        d = days_remaining
+        subject = (
+            f"SovCorE Auto — {reminder_type} reminder: "
+            f"{d} day{'s' if d != 1 else ''} remaining"
+        )
+        content = build_reminder_content(
+            reminder_type=reminder_type,
+            days_remaining=days_remaining,
+            due_date_str=due_date_str,
+            vehicle_reg=vehicle_reg,
+            vehicle_label=vehicle_label,
+        )
+    else:
+        # Mileage-based trigger — reuse custom-alert email style.
+        gap = miles_remaining if miles_remaining is not None else 0
+        subject = (
+            f"SovCorE Auto — {reminder_type}: "
+            f"{gap:,} mile{'s' if gap != 1 else ''} until due"
+        )
+        content = build_custom_alert_content(
+            alert_name=f"{reminder_type} (mileage)",
+            days_remaining=None,
+            miles_remaining=miles_remaining,
+            vehicle_reg=vehicle_reg,
+            vehicle_label=vehicle_label,
+        )
+
     await send_notification_email(
         to=user.email,
         subject=subject,
         html=build_email_html(content),
     )
+
+
+# ==================================================
+# MILEAGE LOG REMINDER JOB
+# ==================================================
+
+
+async def dispatch_mileage_log_reminders() -> None:
+    """
+    Sends a monthly prompt email asking fleet managers to log their mileage.
+    Runs daily at 09:00 UTC and checks each account's configured reminder_day.
+    The prompt fires on the configured day (default: 1st of the month) and a
+    preview reminder fires the day before.
+    Duplicate sends within the same calendar month are prevented by
+    last_sent_month ("YYYY-MM").
+    """
+    from sqlalchemy import select, update as sa_update
+
+    from app.accounts.models.account import Account
+    from app.accounts.models.user import User
+    from app.core.database import async_session_factory
+    from app.integrations.resend_client import (
+        build_email_html,
+        build_mileage_log_reminder_content,
+        send_notification_email,
+    )
+    from app.tasks.models.mileage_log_settings import MileageLogSettings
+
+    today = date.today()
+    current_month = today.strftime("%Y-%m")
+    log = logger.bind(job="dispatch_mileage_log_reminders", date=today.isoformat())
+    log.info("mileage_log_reminder_dispatch_started")
+
+    async with async_session_factory() as db:
+        result = await db.execute(
+            select(MileageLogSettings).where(MileageLogSettings.active.is_(True))
+        )
+        settings_rows = list(result.scalars().all())
+
+        sent_count = 0
+        for settings in settings_rows:
+            # Skip if already sent this month.
+            if settings.last_sent_month == current_month:
+                continue
+
+            # Fire on the configured day OR the day before (advance notice).
+            if today.day not in (settings.reminder_day, settings.reminder_day - 1):
+                continue
+
+            try:
+                # Look up account owner email.
+                user_result = await db.execute(
+                    select(User)
+                    .join(Account, Account.id == settings.account_id)
+                    .limit(1)
+                )
+                user = user_result.scalar_one_or_none()
+                if user is None:
+                    continue
+
+                is_day_before = today.day == settings.reminder_day - 1
+                content = build_mileage_log_reminder_content(
+                    month_label=today.strftime("%B %Y"),
+                    is_preview=is_day_before,
+                )
+                subject = (
+                    f"SovCorE Auto — Log your mileage tomorrow ({today.strftime('%B %Y')})"
+                    if is_day_before
+                    else f"SovCorE Auto — Log your mileage for {today.strftime('%B %Y')}"
+                )
+                await send_notification_email(
+                    to=user.email,
+                    subject=subject,
+                    html=build_email_html(content),
+                )
+
+                # Only mark as sent on the actual reminder day, not the preview.
+                if not is_day_before:
+                    await db.execute(
+                        sa_update(MileageLogSettings)
+                        .where(MileageLogSettings.id == settings.id)
+                        .values(last_sent_month=current_month)
+                    )
+                sent_count += 1
+            except Exception:
+                log.exception(
+                    "mileage_log_reminder_send_failed",
+                    account_id=str(settings.account_id),
+                )
+
+        await db.commit()
+        log.info("mileage_log_reminder_dispatch_complete", sent=sent_count, scanned=len(settings_rows))

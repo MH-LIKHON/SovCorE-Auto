@@ -12,7 +12,8 @@
 # ============================================================
 
 from app.tasks.models.custom_alert import CustomAlert
+from app.tasks.models.mileage_log_settings import MileageLogSettings
 from app.tasks.models.reminder import Reminder, ReminderType
 from app.tasks.models.task import Task, TaskStatus
 
-__all__ = ["Task", "TaskStatus", "Reminder", "ReminderType", "CustomAlert"]
+__all__ = ["Task", "TaskStatus", "Reminder", "ReminderType", "CustomAlert", "MileageLogSettings"]

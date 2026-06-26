@@ -53,6 +53,7 @@ class TaskService:
         page_size: int = 50,
         status_filter: str | None = None,
     ) -> TaskPage:
+        await self._repo.ensure_defaults(vehicle_id, account_id)
         return await self._repo.list_by_vehicle(
             vehicle_id, account_id,
             page=page,
@@ -105,5 +106,10 @@ class TaskService:
         if task is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Task not found."
+            )
+        if task.is_system_default:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="System tasks cannot be deleted. You can edit or mark them completed.",
             )
         await self._repo.delete(task)

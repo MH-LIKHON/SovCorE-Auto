@@ -58,6 +58,7 @@ class TaskOut(BaseModel):
     status: str
     due_date: Optional[date]
     notes: Optional[str]
+    is_system_default: bool = False
     created_at: datetime
     updated_at: datetime
 

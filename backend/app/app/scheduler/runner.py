@@ -31,7 +31,12 @@ import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from app.scheduler.jobs import dispatch_custom_alerts, dispatch_reminders, run_scheduled_backups
+from app.scheduler.jobs import (
+    dispatch_custom_alerts,
+    dispatch_mileage_log_reminders,
+    dispatch_reminders,
+    run_scheduled_backups,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -61,6 +66,14 @@ def start_scheduler() -> None:
         dispatch_custom_alerts,
         trigger=CronTrigger(hour=9, minute=0, timezone="UTC"),
         id="dispatch_custom_alerts",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+    # ~~~~~~~~~ Register the daily mileage log prompt job ~~~~~~~~~
+    _scheduler.add_job(
+        dispatch_mileage_log_reminders,
+        trigger=CronTrigger(hour=9, minute=0, timezone="UTC"),
+        id="dispatch_mileage_log_reminders",
         replace_existing=True,
         misfire_grace_time=3600,
     )

@@ -26,6 +26,20 @@ from app.tasks.models.task import Task
 from app.tasks.schemas.task_schemas import TaskCreateIn, TaskPatchIn, TaskPage, TaskOut
 
 # ==================================================
+# DEFAULTS
+# ==================================================
+
+# Titles for the five mandatory setup tasks seeded on every vehicle.
+# Defined here so vehicle_service and ensure_defaults share one source.
+DEFAULT_TASK_TITLES: tuple[str, ...] = (
+    "Log Initial Odometer Reading",
+    "Add MOT Renewal Date",
+    "Add Insurance Renewal Date",
+    "Add Road Tax Renewal Date",
+    "Add Service Date and Interval",
+)
+
+# ==================================================
 # TASK REPOSITORY
 # ==================================================
 
@@ -65,7 +79,11 @@ class TaskRepository:
         stmt = (
             select(Task)
             .where(*predicates)
-            .order_by(Task.due_date.asc().nulls_last(), Task.created_at.desc())
+            .order_by(
+                Task.is_system_default.desc(),  # defaults always first
+                Task.due_date.asc().nulls_last(),
+                Task.created_at.desc(),
+            )
             .offset(offset)
             .limit(page_size)
         )
@@ -113,6 +131,64 @@ class TaskRepository:
             status="open",
             due_date=data.due_date,
             notes=data.notes,
+        )
+        self._db.add(task)
+        await self._db.flush()
+        return task
+
+    async def ensure_defaults(
+        self,
+        vehicle_id: uuid.UUID,
+        account_id: uuid.UUID,
+    ) -> None:
+        # ~~~~~~~~~ Idempotent seed + title normalisation ~~~~~~~~~
+        # Fetches existing system defaults so we can both guard against
+        # re-seeding and normalise any stale titles (e.g. ALL-CAPS → title case)
+        # in the same pass without a separate migration.
+        result = await self._db.execute(
+            select(Task).where(
+                Task.vehicle_id == vehicle_id,
+                Task.account_id == account_id,
+                Task.is_system_default.is_(True),
+            )
+        )
+        existing = list(result.scalars().all())
+
+        if existing:
+            canonical_map = {t.upper(): t for t in DEFAULT_TASK_TITLES}
+            for task in existing:
+                canonical = canonical_map.get(task.title.upper())
+                if canonical and task.title != canonical:
+                    task.title = canonical
+            await self._db.flush()
+            return
+
+        for title in DEFAULT_TASK_TITLES:
+            self._db.add(Task(
+                vehicle_id=vehicle_id,
+                account_id=account_id,
+                created_by=None,
+                title=title,
+                status="open",
+                is_system_default=True,
+            ))
+        await self._db.flush()
+
+    async def create_system_default(
+        self,
+        vehicle_id: uuid.UUID,
+        account_id: uuid.UUID,
+        title: str,
+        notes: str | None = None,
+    ) -> Task:
+        task = Task(
+            vehicle_id=vehicle_id,
+            account_id=account_id,
+            created_by=None,
+            title=title,
+            status="open",
+            notes=notes,
+            is_system_default=True,
         )
         self._db.add(task)
         await self._db.flush()

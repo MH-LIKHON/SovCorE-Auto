@@ -35,6 +35,7 @@ from app.api.v1.erasure import router as erasure_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.expenses import router as expenses_router
 from app.api.v1.fuel import router as fuel_router
+from app.api.v1.mileage import router as mileage_router
 from app.api.v1.health import router as health_router
 from app.api.v1.operational import router as operational_router
 from app.api.v1.records import router as records_router
@@ -65,6 +66,7 @@ v1_router.include_router(timeline_router, tags=["timeline"])
 v1_router.include_router(audit_router, tags=["audit"])
 # Phase 4 — operational modules
 v1_router.include_router(fuel_router, tags=["fuel"])
+v1_router.include_router(mileage_router, tags=["mileage"])
 v1_router.include_router(expenses_router, tags=["expenses"])
 v1_router.include_router(operational_router, tags=["operational"])
 # Phase 5 — health score, tasks and reminders

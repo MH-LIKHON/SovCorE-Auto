@@ -221,6 +221,7 @@ class CustomAlertRepository:
                 email_days_before=[],
                 miles_warning=500,
                 active=True,
+                is_system_default=True,
             )
             self._db.add(alert)
 

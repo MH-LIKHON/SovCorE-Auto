@@ -35,7 +35,9 @@ const TYPE_COLOURS: Record<string, string> = {
   warranty:     "#10b981",
   diagnostics:  "#f97316",
   damage:       "#ef4444",
+  roadside:     "#fb923c",
   custom:       "#94a3b8",
+  odometer:     "var(--colour-teal, #00d4aa)",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -52,7 +54,9 @@ const TYPE_LABELS: Record<string, string> = {
   warranty:     "Warranty",
   diagnostics:  "Diagnostics",
   damage:       "Damage",
-  custom:       "Custom",
+  roadside:     "Roadside",
+  custom:       "Miscellaneous",
+  odometer:     "Odometer",
 };
 
 // ==================================================

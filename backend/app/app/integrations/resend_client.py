@@ -377,6 +377,59 @@ def build_custom_alert_content(
     """
 
 
+def build_mileage_log_reminder_content(
+    month_label: str,
+    is_preview: bool = False,
+) -> str:
+    """
+    Monthly prompt email asking users to log their vehicle mileage.
+    is_preview=True produces the day-before advance notice variant.
+    """
+    headline = (
+        f"Log your mileage tomorrow"
+        if is_preview
+        else f"Time to log your mileage"
+    )
+    body_text = (
+        f"Your mileage log reminder is due <strong style='color:#c0c0d8;'>tomorrow</strong> "
+        f"({month_label}). Log in now to record your odometer reading before the prompt fires."
+        if is_preview
+        else
+        f"It's time to record your odometer reading for <strong style='color:#c0c0d8;'>{month_label}</strong>. "
+        f"Keeping monthly mileage up to date ensures your service reminders and mileage-based alerts "
+        f"stay accurate."
+    )
+
+    return f"""
+      <p style="margin:0 0 6px;font-size:11px;font-weight:600;letter-spacing:0.1em;
+                text-transform:uppercase;color:#66667a;text-align:center;">
+        Mileage Log
+      </p>
+      <p style="margin:0 0 24px;font-size:21px;font-weight:600;color:#e0e0f0;
+                text-align:center;line-height:1.3;">
+        {headline}
+      </p>
+
+      <hr style="border:none;border-top:1px solid rgba(255,255,255,0.07);margin:0 0 20px;">
+
+      <p style="margin:0 0 24px;font-size:14px;color:#8888aa;text-align:center;line-height:1.65;">
+        {body_text}
+      </p>
+
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+        <tr>
+          <td style="background:#6c63ff;border-radius:8px;">
+            <a href="https://app.sovcore.co.uk/login"
+               style="display:inline-block;padding:11px 28px;font-size:14px;font-weight:600;
+                      color:#ffffff;text-decoration:none;letter-spacing:0.02em;">
+              Log Mileage
+            </a>
+          </td>
+        </tr>
+      </table>
+    """
+
+
 # ==================================================
 # CONFIGURATION
 # ==================================================

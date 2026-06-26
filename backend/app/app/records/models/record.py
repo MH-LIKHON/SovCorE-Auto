@@ -78,6 +78,7 @@ class RecordType(str, Enum):
     damage = "damage"
     roadside = "roadside"
     custom = "custom"
+    odometer = "odometer"
 
 
 # ------------------------------ Attachment Kind -----------------------------

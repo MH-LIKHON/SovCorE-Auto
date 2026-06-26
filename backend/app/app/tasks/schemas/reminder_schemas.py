@@ -34,6 +34,11 @@ class ReminderCreateIn(BaseModel):
     type: str                            # ReminderType enum value
     due_date: date
     intervals: list[int] = Field(default_factory=lambda: list(_DEFAULT_INTERVALS))
+    # Optional mileage-based trigger. Set for dual-trigger types (service,
+    # tyres, brake_fluid, battery, finance, custom). Not used for mot, tax,
+    # insurance, warranty, breakdown_cover.
+    due_mileage: Optional[int] = None
+    miles_warning: int = 500
     notes: Optional[str] = None
 
 
@@ -45,6 +50,8 @@ class ReminderCreateIn(BaseModel):
 class ReminderPatchIn(BaseModel):
     due_date: Optional[date] = None
     intervals: Optional[list[int]] = None
+    due_mileage: Optional[int] = None
+    miles_warning: Optional[int] = None
     active: Optional[bool] = None
     notes: Optional[str] = None
 
@@ -62,6 +69,8 @@ class ReminderOut(BaseModel):
     due_date: date
     intervals: list[int]
     last_sent_interval: Optional[int]
+    due_mileage: Optional[int]
+    miles_warning: int
     active: bool
     notes: Optional[str]
     created_at: datetime
