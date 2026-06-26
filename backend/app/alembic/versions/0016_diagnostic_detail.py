@@ -43,13 +43,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ------------------------------ Enum types ------------------------------
-    op.execute("CREATE TYPE inspectiontype AS ENUM ('self', 'garage')")
-    op.execute(
-        "CREATE TYPE faultcodeseverity AS ENUM ('advisory', 'amber', 'red', 'resolved')"
-    )
-
-    # ------------------------------ diagnostic_details ----------------------
+    # diagnostic_details — SQLAlchemy creates the inspectiontype enum as part of this
     op.create_table(
         "diagnostic_details",
         sa.Column(
@@ -67,7 +61,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "inspection_type",
-            sa.Enum("self", "garage", name="inspectiontype", create_type=False),
+            sa.Enum("self", "garage", name="inspectiontype"),
             nullable=False,
         ),
         sa.Column("findings", sa.Text, nullable=True),
@@ -75,7 +69,7 @@ def upgrade() -> None:
         sa.Column("parts_cost", sa.Integer, nullable=True),
     )
 
-    # ------------------------------ diagnostic_fault_codes ------------------
+    # diagnostic_fault_codes — SQLAlchemy creates the faultcodeseverity enum as part of this
     op.create_table(
         "diagnostic_fault_codes",
         sa.Column(
@@ -95,11 +89,7 @@ def upgrade() -> None:
         sa.Column("notes", sa.Text, nullable=True),
         sa.Column(
             "severity",
-            sa.Enum(
-                "advisory", "amber", "red", "resolved",
-                name="faultcodeseverity",
-                create_type=False,
-            ),
+            sa.Enum("advisory", "amber", "red", "resolved", name="faultcodeseverity"),
             nullable=False,
             server_default="advisory",
         ),
