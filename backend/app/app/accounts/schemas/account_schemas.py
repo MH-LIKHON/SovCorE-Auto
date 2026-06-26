@@ -157,6 +157,9 @@ class DashboardSummaryOut(BaseModel):
     custom_alert_count: int
     # Sum of record costs for the current calendar month, in pence.
     monthly_spend_pence: int
+    # Unresolved diagnostic fault codes by severity group.
+    urgent_fault_count: int
+    advisory_fault_count: int
 
 
 # ==================================================

@@ -147,7 +147,7 @@ class AccountRepository:
         Returns five aggregated counts for the dashboard overview panel.
         All queries run against already-indexed account_id columns.
         """
-        from app.records.models.record import Record
+        from app.records.models.record import DiagnosticFaultCode, Record
         from app.tasks.models.custom_alert import CustomAlert
         from app.tasks.models.reminder import Reminder
         from app.tasks.models.task import Task
@@ -208,6 +208,26 @@ class AccountRepository:
         )
         monthly_spend_pence: int = spend_res.scalar_one() or 0
 
+        # ~~~~~~~~~ Unresolved urgent fault codes (red severity) ~~~~~~~~~
+        urgent_res = await self._session.execute(
+            select(func.count(DiagnosticFaultCode.id))
+            .join(Record, DiagnosticFaultCode.record_id == Record.id)
+            .where(Record.account_id == account_id)
+            .where(DiagnosticFaultCode.severity == "red")
+            .where(DiagnosticFaultCode.resolved_at.is_(None))
+        )
+        urgent_fault_count: int = urgent_res.scalar_one() or 0
+
+        # ~~~~~~~~~ Unresolved advisory fault codes (advisory + amber) ~~~~~~~~~
+        advisory_res = await self._session.execute(
+            select(func.count(DiagnosticFaultCode.id))
+            .join(Record, DiagnosticFaultCode.record_id == Record.id)
+            .where(Record.account_id == account_id)
+            .where(DiagnosticFaultCode.severity.in_(["advisory", "amber"]))
+            .where(DiagnosticFaultCode.resolved_at.is_(None))
+        )
+        advisory_fault_count: int = advisory_res.scalar_one() or 0
+
         return {
             "active_vehicle_count": active_vehicle_count,
             "member_count": member_count,
@@ -215,4 +235,6 @@ class AccountRepository:
             "due_soon_reminder_count": due_soon_reminder_count,
             "custom_alert_count": custom_alert_count,
             "monthly_spend_pence": monthly_spend_pence,
+            "urgent_fault_count": urgent_fault_count,
+            "advisory_fault_count": advisory_fault_count,
         }

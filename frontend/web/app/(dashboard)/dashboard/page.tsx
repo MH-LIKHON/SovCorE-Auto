@@ -52,6 +52,8 @@ interface DashboardSummary {
   due_soon_reminder_count: number;
   custom_alert_count: number;
   monthly_spend_pence: number;
+  urgent_fault_count: number;
+  advisory_fault_count: number;
 }
 
 interface DashData {
@@ -305,6 +307,24 @@ export default function DashboardPage() {
             <section className="db-panel db-panel--attention">
               <h2 className="db-panel__title">Attention needed</h2>
               <div className="db-attn-rows">
+                <div className="db-attn-row">
+                  <span className="db-attn-row__label">Urgent faults</span>
+                  <span
+                    className="db-attn-row__val"
+                    style={{ color: summary.urgent_fault_count > 0 ? "var(--colour-error)" : undefined }}
+                  >
+                    {summary.urgent_fault_count}
+                  </span>
+                </div>
+                <div className="db-attn-row">
+                  <span className="db-attn-row__label">Advisory faults</span>
+                  <span
+                    className="db-attn-row__val"
+                    style={{ color: summary.advisory_fault_count > 0 ? "var(--colour-amber)" : undefined }}
+                  >
+                    {summary.advisory_fault_count}
+                  </span>
+                </div>
                 <div className="db-attn-row">
                   <span className="db-attn-row__label">Open tasks</span>
                   <span
