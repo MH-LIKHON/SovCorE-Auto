@@ -787,6 +787,14 @@ const PH_STYLES = `
   .ph-modal-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
   .ph-modal-outer-err { font-size: var(--text-xs); color: var(--colour-error); }
 
+  /* Danger button (full-size variant — danger-sm exists globally but not danger) */
+  .rec-btn--danger {
+    background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.45); color: #f87171;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+  }
+  .rec-btn--danger:hover:not(:disabled) { background: rgba(239,68,68,0.22); border-color: #f87171; color: #fff; transform: translateY(-1px); }
+  .rec-btn--danger:disabled { opacity: 0.35; }
+
   /* Misc */
   .ph-empty { font-size: var(--text-sm); color: var(--colour-text-muted); max-width: 480px; line-height: var(--leading-normal); }
   .ph-err { font-size: var(--text-xs); color: var(--colour-error); margin: 0; }
