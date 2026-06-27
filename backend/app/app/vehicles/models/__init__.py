@@ -19,3 +19,4 @@ from app.vehicles.models.vehicle import (  # noqa: F401
     VehiclePreviousOwner,
     VehicleRenewal,
 )
+from app.vehicles.models.vehicle_media import VehicleMedia  # noqa: F401

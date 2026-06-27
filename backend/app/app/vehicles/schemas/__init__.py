@@ -23,3 +23,7 @@ from app.vehicles.schemas.vehicle_schemas import (  # noqa: F401
     VehicleRenewalOut,
     VehicleRenewalPutIn,
 )
+from app.vehicles.schemas.vehicle_media_schemas import (  # noqa: F401
+    VehicleMediaOut,
+    VehicleMediaPage,
+)

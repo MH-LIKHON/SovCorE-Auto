@@ -137,6 +137,8 @@ class VehicleCardOut(BaseModel):
     body_type: BodyType | None
     lifecycle_state: LifecycleState
     image_key: str | None
+    # Signed GET URL — populated by the API endpoint, not the ORM.
+    cover_url: str | None = None
     renewals: RenewalRag
     # Placeholder until Phase 5 defines the health-score algorithm.
     health_score: int
@@ -173,6 +175,8 @@ class VehicleOut(BaseModel):
     wheel_sizes: str | None
     mileage: int | None
     image_key: str | None
+    # Signed GET URL — populated by the API endpoint, not the ORM.
+    cover_url: str | None = None
     lifecycle_state: LifecycleState
     created_at: datetime
     updated_at: datetime

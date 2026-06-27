@@ -4,13 +4,16 @@
 #
 # Purpose:
 #   SQLAlchemy ORM model for the damage_entries table. Records
-#   damage events on a vehicle: kind, description, repair cost,
-#   before and after images stored in R2, and the date.
+#   damage events on a vehicle: kind, status, description, repair
+#   cost, before and after images stored in R2, and the date.
 #
 # Design:
 #   before_key and after_key are R2 object keys, nullable because
 #   images are optional (not every damage entry has photos).
 #   repair_cost is in pence; nullable when cost is unknown.
+#   status drives photo-deletion gate: photos can only be deleted
+#   when status is "resolved". Active entries (urgent/in_progress/
+#   deferred) block deletion to preserve evidence.
 #   There is no soft-delete: a damage entry is a permanent record
 #   of a physical event.
 #
@@ -44,6 +47,13 @@ class DamageKind(str, Enum):
     stone_chip = "stone_chip"
 
 
+class DamageStatus(str, Enum):
+    urgent      = "urgent"
+    in_progress = "in_progress"
+    deferred    = "deferred"
+    resolved    = "resolved"
+
+
 # ==================================================
 # MODEL
 # ==================================================
@@ -70,6 +80,11 @@ class DamageEntry(Base):
     # ------------------------------ Damage fields ---------------------------
     kind: Mapped[DamageKind] = mapped_column(
         SAEnum(DamageKind, name="damagekind", native_enum=False), nullable=False
+    )
+    status: Mapped[DamageStatus] = mapped_column(
+        SAEnum(DamageStatus, name="damagestatus", native_enum=True),
+        nullable=False,
+        default=DamageStatus.in_progress,
     )
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)

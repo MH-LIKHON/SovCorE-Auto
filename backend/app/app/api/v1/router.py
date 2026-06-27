@@ -44,6 +44,7 @@ from app.api.v1.exports import router as exports_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.search import router as search_router
 from app.api.v1.tasks import router as tasks_router
+from app.api.v1.media import router as media_router
 from app.api.v1.vehicle_health import router as vehicle_health_router
 from app.api.v1.vehicles import router as vehicles_router
 
@@ -80,6 +81,7 @@ v1_router.include_router(search_router, tags=["search"])
 # Phase 7 — backups and erasure
 v1_router.include_router(backups_router, tags=["backups"])
 v1_router.include_router(erasure_router, tags=["erasure"])
-# Phase 8 — record attachments, photos and entity attachments
+# Phase 8 — record attachments, photos, entity attachments and vehicle media
 v1_router.include_router(attachments_router, tags=["attachments"])
 v1_router.include_router(entity_attachments_router, tags=["entity-attachments"])
+v1_router.include_router(media_router, tags=["media"])

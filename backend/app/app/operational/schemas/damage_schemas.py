@@ -4,7 +4,7 @@
 #
 # Purpose:
 #   Pydantic schemas for the damage history module. Covers CRUD
-#   schemas for damage entries and the presigned photo upload flow
+#   schemas for damage entries and the proxy photo upload flow
 #   for before and after images.
 #
 # Consumed by:
@@ -18,7 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.operational.models.damage import DamageKind
+from app.operational.models.damage import DamageKind, DamageStatus
 
 # ==================================================
 # CREATE
@@ -27,6 +27,7 @@ from app.operational.models.damage import DamageKind
 
 class DamageCreateIn(BaseModel):
     kind: DamageKind
+    status: DamageStatus = DamageStatus.in_progress
     description: str | None = None
     date: _Date
     repair_cost: int | None = None     # pence
@@ -41,6 +42,7 @@ class DamageCreateIn(BaseModel):
 
 class DamagePatchIn(BaseModel):
     kind: DamageKind | None = None
+    status: DamageStatus | None = None
     description: str | None = None
     date: _Date | None = None
     repair_cost: int | None = None     # pence
@@ -58,11 +60,15 @@ class DamageOut(BaseModel):
     account_id: uuid.UUID
     vehicle_id: uuid.UUID
     kind: DamageKind
+    status: DamageStatus
     description: str | None
     date: _Date
     repair_cost: int | None
     before_key: str | None
     after_key: str | None
+    # Signed GET URLs — populated by the API endpoint, not the ORM.
+    before_url: str | None = None
+    after_url: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -82,7 +88,7 @@ class DamagePage(BaseModel):
 
 
 # ==================================================
-# PHOTO SIGN
+# PHOTO SIGN (legacy presigned flow — kept for reference)
 # ==================================================
 
 # ------------------------------ Sign In -------------------------------------

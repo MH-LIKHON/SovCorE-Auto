@@ -151,7 +151,7 @@ export default function VehicleLayout({ children }: { children: ReactNode }) {
         {/* Row 1: back · registration (centre) · name + badge (right) */}
         <div className="vl-bar">
           <div className="vl-bar-left">
-            <Link href="/dashboard/vehicles" className="vl-back">← Vehicles</Link>
+            <Link href="/dashboard/vehicles" className="vl-back sov-link">← Vehicles</Link>
           </div>
           <div className="vl-bar-center">
             {vehicle?.registration && (
@@ -269,10 +269,8 @@ const VL_STYLES = `
     font-size: var(--text-sm);
     color: var(--colour-text-muted);
     text-decoration: none;
-    transition: color 0.2s;
     white-space: nowrap;
   }
-  .vl-back:hover { color: #00d4ff; }
   .vl-title {
     font-size: var(--text-md);
     font-weight: var(--weight-semibold);

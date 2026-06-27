@@ -12,7 +12,8 @@
 # ============================================================
 
 from app.operational.models.pcn import PCN, PCNStatus
-from app.operational.models.damage import DamageEntry, DamageKind
+from app.operational.models.damage import DamageEntry, DamageKind, DamageStatus
+from app.operational.models.damage_audit import DamagePhotoAuditLog
 from app.operational.models.warranty import Warranty
 
 __all__ = [
@@ -20,5 +21,7 @@ __all__ = [
     "PCNStatus",
     "DamageEntry",
     "DamageKind",
+    "DamageStatus",
+    "DamagePhotoAuditLog",
     "Warranty",
 ]

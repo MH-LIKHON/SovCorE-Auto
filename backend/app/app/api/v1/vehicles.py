@@ -20,8 +20,15 @@
 #
 #   Cover photo flow:
 #     POST /accounts/{id}/vehicles/{vid}/photo/upload (multipart/form-data)
-#     → backend calls r2.put_object() → patches image_key → returns VehicleOut.
+#     → backend calls r2.put_object() → deletes old key if present
+#       → patches image_key → returns VehicleOut with signed cover_url.
+#     DELETE /accounts/{id}/vehicles/{vid}/photo removes the image.
 #     Browser never connects to R2 directly (EU-jurisdiction CORS blocks that).
+#
+#   Signed GET URLs:
+#     All endpoints that return VehicleOut or VehicleCardOut populate
+#     cover_url with a 1-hour presigned GET URL. The bucket is private;
+#     cover_url is the only way to display images.
 #
 # Consumed by:
 #   - backend/app/app/api/v1/router.py
@@ -36,7 +43,7 @@ from app.accounts.models.user import User
 from app.core.database import get_db
 from app.core.permissions import require_admin, require_editor, require_viewer
 from app.core.settings import get_settings
-from app.integrations.r2 import get_r2_client
+from app.integrations.r2 import get_r2_client, sign_r2_get
 from app.vehicles.repositories.vehicle_repository import VehicleRepository
 from app.vehicles.schemas.vehicle_schemas import (
     VehicleCardOut,
@@ -60,6 +67,16 @@ from app.vehicles.services.vehicle_service import VehicleService
 router = APIRouter()
 
 # ==================================================
+# HELPERS
+# ==================================================
+
+
+def _sign_vehicle(out: VehicleOut) -> VehicleOut:
+    out.cover_url = sign_r2_get(out.image_key)
+    return out
+
+
+# ==================================================
 # VEHICLE ENDPOINTS
 # ==================================================
 
@@ -75,9 +92,12 @@ async def list_vehicles(
     _: User = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> list[VehicleCardOut]:
-    return await VehicleService(db).list_vehicles(
+    cards = await VehicleService(db).list_vehicles(
         account_id, include_inactive=include_inactive
     )
+    for card in cards:
+        card.cover_url = sign_r2_get(card.image_key)
+    return cards
 
 
 @router.post(
@@ -92,7 +112,7 @@ async def create_vehicle(
     _: User = Depends(require_editor),
     db: AsyncSession = Depends(get_db),
 ) -> VehicleOut:
-    return await VehicleService(db).create_vehicle(account_id, body)
+    return _sign_vehicle(await VehicleService(db).create_vehicle(account_id, body))
 
 
 @router.get(
@@ -106,7 +126,7 @@ async def get_vehicle(
     _: User = Depends(require_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> VehicleOut:
-    return await VehicleService(db).get_vehicle(vehicle_id, account_id)
+    return _sign_vehicle(await VehicleService(db).get_vehicle(vehicle_id, account_id))
 
 
 @router.patch(
@@ -121,7 +141,9 @@ async def patch_vehicle(
     _: User = Depends(require_editor),
     db: AsyncSession = Depends(get_db),
 ) -> VehicleOut:
-    return await VehicleService(db).patch_vehicle(vehicle_id, account_id, body)
+    return _sign_vehicle(
+        await VehicleService(db).patch_vehicle(vehicle_id, account_id, body)
+    )
 
 
 @router.delete(
@@ -155,7 +177,9 @@ async def set_lifecycle(
     _: User = Depends(require_editor),
     db: AsyncSession = Depends(get_db),
 ) -> VehicleOut:
-    return await VehicleService(db).set_lifecycle(vehicle_id, account_id, body)
+    return _sign_vehicle(
+        await VehicleService(db).set_lifecycle(vehicle_id, account_id, body)
+    )
 
 
 # ==================================================
@@ -292,6 +316,13 @@ async def upload_cover_photo(
     content_type = file.content_type or f"image/{ext}"
     settings = get_settings()
     r2 = get_r2_client()
+
+    # Fetch vehicle to capture old key for orphan cleanup after upload.
+    vehicle = await VehicleRepository(db).get_by_id(vehicle_id, account_id)
+    if vehicle is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
+    old_key = vehicle.image_key
+
     key = f"{account_id}/vehicles/{vehicle_id}/cover/{uuid.uuid4()}.{ext}"
     data = await file.read()
     try:
@@ -301,6 +332,42 @@ async def upload_cover_photo(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"R2 storage upload failed: {exc}",
         ) from exc
-    return await VehicleService(db).patch_vehicle(
+
+    # Delete the previous cover photo from R2 after a successful upload.
+    if old_key:
+        try:
+            r2.delete_object(Bucket=settings.r2_bucket_name, Key=old_key)
+        except Exception:
+            pass
+
+    out = await VehicleService(db).patch_vehicle(
         vehicle_id, account_id, VehiclePatchIn(image_key=key)
     )
+    out.cover_url = sign_r2_get(key)
+    return out
+
+
+@router.delete(
+    "/accounts/{account_id}/vehicles/{vehicle_id}/photo",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete the vehicle cover photo from R2 and clear the image_key",
+)
+async def delete_cover_photo(
+    account_id: uuid.UUID,
+    vehicle_id: uuid.UUID,
+    _: User = Depends(require_editor),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    repo = VehicleRepository(db)
+    vehicle = await repo.get_by_id(vehicle_id, account_id)
+    if vehicle is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
+    if vehicle.image_key:
+        try:
+            settings = get_settings()
+            r2 = get_r2_client()
+            r2.delete_object(Bucket=settings.r2_bucket_name, Key=vehicle.image_key)
+        except Exception:
+            pass
+    vehicle.image_key = None
+    await db.flush()

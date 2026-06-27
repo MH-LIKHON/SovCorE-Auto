@@ -17,6 +17,7 @@ from app.operational.schemas.damage_schemas import (
     DamagePage,
     DamagePhotoSignIn,
     DamagePhotoSignOut,
+    DamageStatus,
 )
 from app.operational.schemas.warranty_schemas import (
     WarrantyCreateIn,
@@ -36,6 +37,7 @@ __all__ = [
     "DamagePage",
     "DamagePhotoSignIn",
     "DamagePhotoSignOut",
+    "DamageStatus",
     "WarrantyCreateIn",
     "WarrantyOut",
     "WarrantyPatchIn",
