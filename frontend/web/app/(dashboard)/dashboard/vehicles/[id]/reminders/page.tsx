@@ -595,13 +595,6 @@ const REM_STYLES = `
   .rem-toggle:hover { border-color: var(--colour-accent); color: var(--colour-text); }
   .rem-toggle--on:hover { border-color: #f59e0b; color: #f59e0b; }
 
-  /* ---- Select in add form ---- */
-  .rec-select {
-    background: var(--colour-bg);
-    cursor: none;
-    appearance: auto;
-  }
-
   @media (max-width: 767px) {
     .rem-row { flex-direction: column; align-items: flex-start; }
     .rem-row__right { flex-wrap: wrap; }
