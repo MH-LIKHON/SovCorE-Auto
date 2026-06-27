@@ -249,6 +249,7 @@ class RecordCreateIn(BaseModel):
     supplier: str | None = None
     garage: str | None = None
     notes: str | None = None
+    label: str | None = None
     reminder_date: _Date | None = None
     warranty_expiry: _Date | None = None
     next_due_mileage: int | None = None
@@ -275,6 +276,7 @@ class RecordPatchIn(BaseModel):
     supplier: str | None = None
     garage: str | None = None
     notes: str | None = None
+    label: str | None = None
     reminder_date: _Date | None = None
     warranty_expiry: _Date | None = None
     next_due_mileage: int | None = None
@@ -302,6 +304,7 @@ class RecordListOut(BaseModel):
     supplier: str | None
     garage: str | None
     notes: str | None
+    label: str | None
     created_at: datetime
     # Populated by the repository via a batch count query; defaults to 0
     # so the field is safe even when the ORM object has no attribute set.
@@ -327,6 +330,7 @@ class RecordOut(BaseModel):
     supplier: str | None
     garage: str | None
     notes: str | None
+    label: str | None
     reminder_date: _Date | None
     warranty_expiry: _Date | None
     next_due_mileage: int | None

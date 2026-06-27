@@ -95,6 +95,7 @@ class RecordRepository:
             supplier=data.supplier,
             garage=data.garage,
             notes=data.notes,
+            label=data.label,
             reminder_date=data.reminder_date,
             warranty_expiry=data.warranty_expiry,
             next_due_mileage=data.next_due_mileage,

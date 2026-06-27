@@ -151,6 +151,8 @@ class Record(Base):
     supplier: Mapped[str | None] = mapped_column(String(300), nullable=True)
     garage: Mapped[str | None] = mapped_column(String(300), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # User-defined label for custom record types (type == "custom").
+    label: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # ------------------------------ Scheduling fields -----------------------
     reminder_date: Mapped[date | None] = mapped_column(Date, nullable=True)

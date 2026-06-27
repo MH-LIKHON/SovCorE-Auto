@@ -47,6 +47,7 @@ interface RecordListItem {
   id: string;
   vehicle_id: string;
   type: string;
+  label: string | null;
   date: string;
   mileage: number | null;
   cost: number | null;
@@ -205,6 +206,7 @@ function locationText(supplier: string | null, garage: string | null): string {
 
 interface AddForm {
   type: RecordTypeValue;
+  label: string;
   date: string;
   mileage: string;
   cost: string;
@@ -244,6 +246,7 @@ const EMPTY_FC: FaultCodeDraft = {
 
 const EMPTY_FORM: AddForm = {
   type:                    "odometer",
+  label:                   "",
   date:                    new Date().toISOString().slice(0, 10),
   mileage:                 "",
   cost:                    "",
@@ -479,6 +482,7 @@ export default function VehicleRecordsPage() {
 
     const body: Record<string, unknown> = {
       type:     form.type,
+      label:    form.type === "custom" ? form.label.trim() || null : null,
       date:     form.date,
       mileage:  form.mileage ? parseInt(form.mileage, 10) : null,
       // Cost is entered in pounds; convert to pence for the API.
@@ -715,7 +719,7 @@ export default function VehicleRecordsPage() {
             <div className="rec-form-row">
               <label className="rec-label">
                 <span className="rec-label__text">Type</span>
-                <select className="rec-select" value={form.type} onChange={(e) => handleFormChange("type", e.target.value as RecordTypeValue)} disabled={saving}>
+                <select className="rec-select" value={form.type} onChange={(e) => { handleFormChange("type", e.target.value as RecordTypeValue); if (e.target.value !== "custom") handleFormChange("label", ""); }} disabled={saving}>
                   <optgroup label="Measurement">
                     <option value="odometer">Odometer</option>
                   </optgroup>
@@ -744,6 +748,19 @@ export default function VehicleRecordsPage() {
                   </optgroup>
                 </select>
               </label>
+              {form.type === "custom" && (
+                <label className="rec-label">
+                  <span className="rec-label__text">Label</span>
+                  <input
+                    className="rec-input"
+                    type="text"
+                    placeholder="e.g. Dash cam fitting"
+                    value={form.label}
+                    onChange={(e) => handleFormChange("label", toTitleCase(e.target.value))}
+                    disabled={saving}
+                  />
+                </label>
+              )}
               <label className="rec-label">
                 <span className="rec-label__text">Date</span>
                 <input className="rec-input" type="date" value={form.date} onChange={(e) => handleFormChange("date", e.target.value)} disabled={saving} />
@@ -1238,6 +1255,9 @@ export default function VehicleRecordsPage() {
                   >
                     <div className="rec-row__left">
                       <RecordTypeBadge type={rec.type} />
+                      {rec.type === "custom" && rec.label && (
+                        <span className="rec-row__label">{rec.label}</span>
+                      )}
                       <span className="rec-row__date">{formatDate(rec.date)}</span>
                       <span className="rec-row__location">{locationText(rec.supplier, rec.garage)}</span>
                     </div>
@@ -1257,6 +1277,7 @@ export default function VehicleRecordsPage() {
                           {/* Core fields */}
                           <dl className="rec-dl">
                             <div><dt>Date</dt><dd>{formatDate(expandedDetail.date)}</dd></div>
+                            {expandedDetail.type === "custom" && expandedDetail.label && <div><dt>Label</dt><dd>{expandedDetail.label}</dd></div>}
                             {expandedDetail.mileage !== null && <div><dt>Mileage</dt><dd>{expandedDetail.mileage.toLocaleString("en-GB")} mi</dd></div>}
                             {expandedDetail.cost !== null && <div><dt>Total cost</dt><dd>{formatGBP(expandedDetail.cost)}</dd></div>}
                             {expandedDetail.garage && <div><dt>Garage</dt><dd>{expandedDetail.garage}</dd></div>}
@@ -1549,6 +1570,7 @@ const REC_STYLES = `
   .rec-row__left { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; min-width: 0; }
   .rec-row__right { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
   .rec-row__date { font-size: var(--text-sm); color: var(--colour-text-muted); white-space: nowrap; }
+  .rec-row__label { font-size: var(--text-sm); color: var(--colour-text); font-weight: var(--weight-medium); }
   .rec-row__location { font-size: var(--text-sm); color: var(--colour-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
   .rec-row__cost { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text); white-space: nowrap; }
   .rec-row__chevron { font-size: 10px; color: var(--colour-text-muted); }
