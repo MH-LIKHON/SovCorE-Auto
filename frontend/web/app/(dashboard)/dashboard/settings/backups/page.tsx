@@ -286,7 +286,7 @@ export default function BackupsPage() {
                     </td>
                     <td className="bkp-col--size set-muted">{formatBytes(b.size_bytes)}</td>
                     <td className="set-muted">{formatDateTime(b.created_at)}</td>
-                    <td className="bkp-col--completed set-muted">{formatDateTime(b.completed_at)}</td>
+                    <td className="bkp-col--completed set-muted">{b.completed_at ? formatDateTime(b.completed_at) : "—"}</td>
                     <td>
                       {b.status === "complete" && (
                         <div className="bkp-actions">
