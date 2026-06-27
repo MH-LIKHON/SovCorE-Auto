@@ -3,18 +3,21 @@
 // ============================================================
 //
 // Purpose:
-//   Damage history page for a vehicle. Lists damage events with
-//   kind badge, date, description, and repair cost. Provides an
-//   inline add form and per-entry entity attachments.
+//   Damage history page for a vehicle. One place for everything
+//   damage-related: stats, entry management, and inline before/
+//   after photo galleries per entry.
 //
 // Design:
 //   Damage kind values: scratch, dent, paintwork, accident,
 //   glass, stone_chip. Each kind has a distinct colour badge.
+//   Each entry has a status badge (urgent/in_progress/deferred/
+//   resolved). Status gates photo deletion: photos on active
+//   entries cannot be deleted; resolved entries allow deletion
+//   with a typed DELETE confirmation modal.
 //
-//   Before/after photo galleries live on the Photos page (see
-//   /dashboard/vehicles/[id]/photos) where multiple photos per
-//   slot are supported with full audit logging. Each entry row
-//   links there for quick access.
+//   Before/after photo galleries are inline on each entry row.
+//   Multiple photos per slot are supported. Add button always
+//   visible; Remove only appears when entry is resolved.
 //
 //   Mirrors SovCorE QR card and list patterns exactly.
 //
@@ -24,27 +27,37 @@
 
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
-import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
 
 // ==================================================
 // TYPES
 // ==================================================
 
-type DamageKind = "scratch" | "dent" | "paintwork" | "accident" | "glass" | "stone_chip";
+type DamageKind   = "scratch" | "dent" | "paintwork" | "accident" | "glass" | "stone_chip";
+type DamageStatus = "urgent" | "in_progress" | "deferred" | "resolved";
+
+interface DamagePhotoItem {
+  id: string;
+  r2_key: string;
+  url: string | null;
+  display_order: number;
+}
 
 interface DamageItem {
   id: string;
   kind: DamageKind;
+  status: DamageStatus;
   description: string | null;
   date: string;
   repair_cost: number | null;
+  before_photos: DamagePhotoItem[];
+  after_photos: DamagePhotoItem[];
   created_at: string;
   updated_at: string;
 }
@@ -76,12 +89,28 @@ const DAMAGE_KINDS: { value: DamageKind; label: string }[] = [
   { value: "stone_chip", label: "Stone chip" },
 ];
 
+const STATUS_LABELS: Record<DamageStatus, string> = {
+  urgent:      "Urgent",
+  in_progress: "In Progress",
+  deferred:    "Deferred",
+  resolved:    "Resolved",
+};
+
+const STATUS_CLASS: Record<DamageStatus, string> = {
+  urgent:      "dmg-status dmg-status--urgent",
+  in_progress: "dmg-status dmg-status--in-progress",
+  deferred:    "dmg-status dmg-status--deferred",
+  resolved:    "dmg-status dmg-status--resolved",
+};
+
 const EMPTY_FORM: AddForm = {
   kind:        "scratch",
   description: "",
   date:        new Date().toISOString().slice(0, 10),
   repair_cost: "",
 };
+
+const ACCEPTED_IMAGE = "image/jpeg,image/png,image/webp";
 
 // ==================================================
 // HELPERS
@@ -108,6 +137,147 @@ function kindBadgeClass(k: DamageKind): string {
 }
 
 // ==================================================
+// TYPED DELETE MODAL
+// ==================================================
+
+function TypedDeleteModal({
+  open,
+  warning,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  warning: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const [typed, setTyped] = useState("");
+  useEffect(() => { if (open) setTyped(""); }, [open]);
+  if (!open) return null;
+  return (
+    <div className="dmg-modal-backdrop" onClick={onCancel}>
+      <div className="dmg-modal" onClick={(e) => e.stopPropagation()}>
+        <h3 className="dmg-modal-title">Delete photo</h3>
+        <p className="dmg-modal-body">{warning}</p>
+        <p className="dmg-modal-caution">
+          This action is permanent. The photo will be deleted from storage and cannot be recovered.
+        </p>
+        <input
+          type="text"
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder="Type DELETE to confirm"
+          className="dmg-modal-input"
+          autoFocus
+        />
+        <div className="dmg-modal-actions">
+          <button onClick={onCancel} className="rec-btn rec-btn--secondary">Cancel</button>
+          <button
+            onClick={onConfirm}
+            disabled={typed !== "DELETE"}
+            className="rec-btn dmg-btn--danger"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================================================
+// DAMAGE PHOTO SLOT
+// ==================================================
+
+function DamagePhotoSlot({
+  slot,
+  photos,
+  entry,
+  vehicleId,
+  accountId,
+  onAdded,
+  onRequestDelete,
+}: {
+  slot: "before" | "after";
+  photos: DamagePhotoItem[];
+  entry: DamageItem;
+  vehicleId: string;
+  accountId: string;
+  onAdded: (updated: DamageItem) => void;
+  onRequestDelete: (entry: DamageItem, photo: DamagePhotoItem, slot: "before" | "after") => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canDelete = entry.status === "resolved";
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("slot", slot);
+      const res = await apiUpload(
+        `/api/v1/accounts/${accountId}/vehicles/${vehicleId}/damage/${entry.id}/photo/upload`,
+        form,
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.detail ?? "Upload failed. Please try again.");
+        return;
+      }
+      onAdded(await res.json());
+    } catch {
+      setError("An unexpected error occurred.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="dmg-slot">
+      <p className="dmg-slot__label">{slot === "before" ? "Before" : "After"}</p>
+      <div className="dmg-slot__row">
+        {photos.map((photo) => (
+          <div key={photo.id} className="dmg-slot__item">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photo.url ?? ""} alt={`${slot} damage`} className="dmg-slot__img" />
+            {canDelete && (
+              <button
+                className="rec-btn rec-btn--danger-sm"
+                onClick={() => onRequestDelete(entry, photo, slot)}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          className="dmg-slot__add"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? "Uploading…" : `Add ${slot}`}
+        </button>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPTED_IMAGE}
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleUpload(f);
+          e.target.value = "";
+        }}
+      />
+      {error && <p className="dmg-slot__err">{error}</p>}
+    </div>
+  );
+}
+
+// ==================================================
 // PAGE
 // ==================================================
 
@@ -126,6 +296,15 @@ export default function DamagePage() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
+
+  // Damage photo delete modal
+  const [deleteModal, setDeleteModal] = useState<{
+    entry: DamageItem;
+    photo: DamagePhotoItem;
+    slot: "before" | "after";
+    deleting: boolean;
+  } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { yearOptions, thisMonth, count, avgCost, annualSpend, totalSpend } = useMemo(() => {
     const now = new Date();
@@ -205,7 +384,7 @@ export default function DamagePage() {
   }
 
   // ==================================================
-  // DELETE
+  // DELETE ENTRY
   // ==================================================
 
   async function handleDelete(entryId: string) {
@@ -218,6 +397,53 @@ export default function DamagePage() {
     setDeletingId(null);
     setEntries((prev) => prev.filter((e) => e.id !== entryId));
     setTotal((prev) => prev - 1);
+  }
+
+  // ==================================================
+  // DAMAGE PHOTOS
+  // ==================================================
+
+  function handleEntryUpdated(updated: DamageItem) {
+    setEntries((prev) => prev.map((e) => e.id === updated.id ? updated : e));
+  }
+
+  function openDeleteModal(entry: DamageItem, photo: DamagePhotoItem, slot: "before" | "after") {
+    setDeleteError(null);
+    setDeleteModal({ entry, photo, slot, deleting: false });
+  }
+
+  async function confirmDamageDelete() {
+    if (!deleteModal || !accountId) return;
+    setDeleteModal((m) => m ? { ...m, deleting: true } : null);
+    setDeleteError(null);
+    const { entry, photo, slot } = deleteModal;
+    try {
+      const res = await apiFetch(
+        `/api/v1/accounts/${accountId}/damage/${entry.id}/photos/${photo.id}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data.detail ?? "Could not delete photo.");
+        setDeleteModal((m) => m ? { ...m, deleting: false } : null);
+        return;
+      }
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === entry.id
+            ? {
+                ...e,
+                before_photos: slot === "before" ? e.before_photos.filter((p) => p.id !== photo.id) : e.before_photos,
+                after_photos:  slot === "after"  ? e.after_photos.filter((p)  => p.id !== photo.id) : e.after_photos,
+              }
+            : e,
+        ),
+      );
+      setDeleteModal(null);
+    } catch {
+      setDeleteError("An unexpected error occurred.");
+      setDeleteModal((m) => m ? { ...m, deleting: false } : null);
+    }
   }
 
   // ==================================================
@@ -246,7 +472,6 @@ export default function DamagePage() {
         <Card>
           <h2 className="rec-section-title">New damage entry</h2>
           <div className="rec-form">
-
             <div className="rec-form-row">
               <div className="rec-label sov-field">
                 <label htmlFor="dmg-kind-sel" className="sov-field__label">Kind</label>
@@ -278,7 +503,6 @@ export default function DamagePage() {
                 disabled={saving}
               />
             </div>
-
             <TextArea
               className="rec-label rec-label--full"
               label="Description"
@@ -288,9 +512,7 @@ export default function DamagePage() {
               onChange={(e) => handleFormChange("description", e.target.value)}
               disabled={saving}
             />
-
-            <p className="rec-sub" style={{ marginTop: 0 }}>After saving, add before and after photos from the Photos page.</p>
-
+            <p className="rec-sub" style={{ marginTop: 0 }}>Save the entry first, then add before and after photos directly on the entry below.</p>
             {saveError && <p className="rec-error">{saveError}</p>}
             <div className="rec-form-actions">
               <button className="rec-btn rec-btn--primary" onClick={handleAdd} disabled={saving}>
@@ -352,10 +574,11 @@ export default function DamagePage() {
           <div className="rec-rows">
             {entries.map((entry) => (
               <div key={entry.id} className="dmg-entry">
-                {/* ~~~~~~~~~ Row ~~~~~~~~~ */}
+                {/* ~~~~~~~~~ Summary row ~~~~~~~~~ */}
                 <div className="pcn-row">
                   <div className="pcn-row__left">
                     <span className={kindBadgeClass(entry.kind)}>{kindLabel(entry.kind)}</span>
+                    <span className={STATUS_CLASS[entry.status]}>{STATUS_LABELS[entry.status]}</span>
                     <span className="pcn-row__date">{formatDate(entry.date)}</span>
                     {entry.description && (
                       <span className="pcn-row__authority">{entry.description}</span>
@@ -365,9 +588,6 @@ export default function DamagePage() {
                     {entry.repair_cost !== null && (
                       <span className="pcn-row__amount">{formatGBP(entry.repair_cost)}</span>
                     )}
-                    <Link href={`/dashboard/vehicles/${id}/photos`} className="dmg-photos-link sov-link">
-                      Photos →
-                    </Link>
                     <button
                       className="rec-btn rec-btn--danger-sm"
                       onClick={() => handleDelete(entry.id)}
@@ -377,6 +597,36 @@ export default function DamagePage() {
                     </button>
                   </div>
                 </div>
+
+                {/* ~~~~~~~~~ Before / After photos ~~~~~~~~~ */}
+                <div className="dmg-photos-area">
+                  {entry.status !== "resolved" && (
+                    <p className="dmg-photo-note">
+                      Photos can only be removed once this entry is marked Resolved.
+                    </p>
+                  )}
+                  <div className="dmg-photo-slots">
+                    <DamagePhotoSlot
+                      slot="before"
+                      photos={entry.before_photos}
+                      entry={entry}
+                      vehicleId={id ?? ""}
+                      accountId={accountId}
+                      onAdded={handleEntryUpdated}
+                      onRequestDelete={openDeleteModal}
+                    />
+                    <DamagePhotoSlot
+                      slot="after"
+                      photos={entry.after_photos}
+                      entry={entry}
+                      vehicleId={id ?? ""}
+                      accountId={accountId}
+                      onAdded={handleEntryUpdated}
+                      onRequestDelete={openDeleteModal}
+                    />
+                  </div>
+                </div>
+
                 {/* ~~~~~~~~~ Attachments ~~~~~~~~~ */}
                 <EntityAttachmentPanel
                   entityType="damage"
@@ -389,6 +639,19 @@ export default function DamagePage() {
         )}
       </Card>
 
+      {/* ---- Typed delete modal ---- */}
+      {deleteModal && (
+        <>
+          <TypedDeleteModal
+            open={!deleteModal.deleting}
+            warning={`You are about to permanently delete a ${deleteModal.slot} photo from the "${kindLabel(deleteModal.entry.kind)}" entry (${formatDate(deleteModal.entry.date)}).`}
+            onConfirm={confirmDamageDelete}
+            onCancel={() => setDeleteModal(null)}
+          />
+          {deleteError && <p className="dmg-modal-outer-err">{deleteError}</p>}
+        </>
+      )}
+
       <style>{DMG_STYLES}</style>
     </div>
   );
@@ -399,85 +662,118 @@ export default function DamagePage() {
 // ==================================================
 
 const DMG_STYLES = `
-  /* Damage kind badges — shares pcn-row pattern */
+  /* Damage kind badges */
   .dmg-badge {
-    font-size: var(--text-xs);
-    padding: 2px 8px;
-    border-radius: var(--radius-full, 999px);
-    border: 1px solid;
-    white-space: nowrap;
+    font-size: var(--text-xs); padding: 2px 8px;
+    border-radius: var(--radius-full, 999px); border: 1px solid; white-space: nowrap;
   }
   .dmg-badge--default  { color: var(--colour-text-muted); border-color: var(--colour-border); background: rgba(255,255,255,0.04); }
   .dmg-badge--accident { color: #f87171; border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
   .dmg-badge--glass    { color: #60a5fa; border-color: rgba(96,165,250,0.3); background: rgba(96,165,250,0.08); }
 
+  /* Damage status badges */
+  .dmg-status {
+    font-size: var(--text-xs); padding: 2px 8px; border-radius: var(--radius-full, 999px);
+    font-weight: var(--weight-medium); white-space: nowrap; border: 1px solid;
+  }
+  .dmg-status--urgent      { color: #f87171; border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.08); }
+  .dmg-status--in-progress { color: #fbbf24; border-color: rgba(251,191,36,0.35);  background: rgba(251,191,36,0.08); }
+  .dmg-status--deferred    { color: #60a5fa; border-color: rgba(96,165,250,0.35);  background: rgba(96,165,250,0.08); }
+  .dmg-status--resolved    { color: #4ade80; border-color: rgba(74,222,128,0.35);  background: rgba(74,222,128,0.08); }
+
   /* Damage entry wrapper */
   .dmg-entry { border-bottom: 0.5px solid var(--colour-border); }
   .dmg-entry:last-child { border-bottom: none; }
 
-  /* Reuse pcn-row for damage rows */
+  /* Reuse pcn-row for damage summary rows */
   .pcn-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--space-3); padding: var(--space-3) var(--space-4); flex-wrap: wrap;
   }
-  .pcn-row__left { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .pcn-row__left  { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
   .pcn-row__right { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
-  .pcn-row__date { font-size: var(--text-sm); color: var(--colour-text-muted); white-space: nowrap; }
+  .pcn-row__date      { font-size: var(--text-sm); color: var(--colour-text-muted); white-space: nowrap; }
   .pcn-row__authority { font-size: var(--text-sm); color: var(--colour-text); }
-  .pcn-row__amount { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text); white-space: nowrap; }
+  .pcn-row__amount    { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text); white-space: nowrap; }
 
-  .dmg-photos-link { font-size: var(--text-xs); color: var(--colour-accent); text-decoration: none; white-space: nowrap; }
-  .dmg-photos-link:hover { text-decoration: underline; }
+  /* Before / after photos area */
+  .dmg-photos-area { padding: 0 var(--space-4) var(--space-4); }
+  .dmg-photo-note  { font-size: var(--text-xs); color: var(--colour-text-muted); font-style: italic; margin: 0 0 var(--space-3); }
+  .dmg-photo-slots { display: flex; gap: var(--space-6); flex-wrap: wrap; }
+
+  /* Photo slot — label + horizontal row of thumbs + add tile */
+  .dmg-slot { display: flex; flex-direction: column; gap: 6px; }
+  .dmg-slot__label { font-size: var(--text-xs); color: var(--colour-text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
+  .dmg-slot__row   { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-start; }
+  .dmg-slot__item  { display: flex; flex-direction: column; gap: 4px; }
+  .dmg-slot__img {
+    width: 140px; height: 96px; object-fit: cover;
+    border-radius: var(--radius-md); border: 0.5px solid var(--colour-border); display: block;
+  }
+  .dmg-slot__add {
+    width: 140px; height: 96px; border: 1px dashed var(--colour-border);
+    border-radius: var(--radius-md); background: rgba(255,255,255,0.02);
+    font-size: var(--text-xs); color: var(--colour-text-muted); cursor: none; flex-shrink: 0;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .dmg-slot__add:hover:not(:disabled) { border-color: var(--colour-accent); color: var(--colour-text); }
+  .dmg-slot__add:disabled { opacity: 0.5; }
+  .dmg-slot__err { font-size: var(--text-xs); color: var(--colour-error); margin: 0; }
+
+  /* Typed delete modal */
+  .dmg-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: var(--space-4);
+  }
+  .dmg-modal {
+    background: var(--colour-surface, #1a1a2e); border: 0.5px solid var(--colour-border);
+    border-radius: var(--radius-lg); padding: var(--space-6); max-width: 420px; width: 100%;
+    display: flex; flex-direction: column; gap: var(--space-4);
+  }
+  .dmg-modal-title   { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0; }
+  .dmg-modal-body    { font-size: var(--text-sm); color: var(--colour-text); margin: 0; }
+  .dmg-modal-caution {
+    font-size: var(--text-sm); color: var(--colour-error); margin: 0;
+    padding: var(--space-3); background: rgba(248,113,113,0.08);
+    border: 1px solid rgba(248,113,113,0.25); border-radius: var(--radius-md);
+  }
+  .dmg-modal-input {
+    width: 100%; padding: 8px 12px; font-size: var(--text-sm);
+    background: rgba(255,255,255,0.04); border: 1px solid var(--colour-border);
+    border-radius: var(--radius-md); color: var(--colour-text); outline: none; font-family: inherit;
+  }
+  .dmg-modal-input:focus { border-color: var(--colour-accent); }
+  .dmg-modal-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
+  .dmg-modal-outer-err { font-size: var(--text-xs); color: var(--colour-error); }
+  .dmg-btn--danger {
+    background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.45); color: #f87171;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
+  }
+  .dmg-btn--danger:hover:not(:disabled) { background: rgba(239,68,68,0.22); border-color: #f87171; color: #fff; transform: translateY(-1px); }
+  .dmg-btn--danger:disabled { opacity: 0.35; }
 
   @media (max-width: 767px) {
     .pcn-row { flex-direction: column; align-items: flex-start; }
     .pcn-row__right { flex-wrap: wrap; }
+    .dmg-photo-slots { flex-direction: column; }
   }
 
   /* ---- Summary card ---- */
-  .rec-section-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-4);
-  }
+  .rec-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
   .fuel-stats {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: var(--space-3);
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3);
   }
   .fuel-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: var(--space-3);
-    border-radius: var(--radius-md);
-    background: rgba(255,255,255,0.03);
-    border: 0.5px solid var(--colour-border);
+    display: flex; flex-direction: column; gap: 4px;
+    padding: var(--space-3); border-radius: var(--radius-md);
+    background: rgba(255,255,255,0.03); border: 0.5px solid var(--colour-border);
   }
-  .fuel-stat__value {
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
-    color: var(--colour-text);
-  }
-  .fuel-stat__label {
-    font-size: var(--text-xs);
-    color: var(--colour-text-muted);
-  }
+  .fuel-stat__value { font-size: var(--text-lg); font-weight: var(--weight-semibold); color: var(--colour-text); }
+  .fuel-stat__label { font-size: var(--text-xs); color: var(--colour-text-muted); }
   .rpt-year-select {
-    background: var(--colour-bg);
-    border: 1px solid var(--colour-border);
-    border-radius: var(--radius-sm);
-    padding: 4px 8px;
-    font-size: var(--text-sm);
-    color: var(--colour-text);
-    cursor: none;
-    outline: none;
-    transition: border-color 0.2s;
+    background: var(--colour-bg); border: 1px solid var(--colour-border);
+    border-radius: var(--radius-sm); padding: 4px 8px; font-size: var(--text-sm);
+    color: var(--colour-text); cursor: none; outline: none; transition: border-color 0.2s;
   }
   .rpt-year-select:focus { border-color: var(--colour-accent); }
   @media (max-width: 900px) {
