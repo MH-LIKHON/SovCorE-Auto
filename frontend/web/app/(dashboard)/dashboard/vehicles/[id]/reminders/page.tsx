@@ -30,6 +30,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 import { toSentenceCase, toTitleCase } from "@/src/lib/text";
@@ -141,6 +142,8 @@ export default function RemindersPage() {
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditForm>({ due_date: "", intervals: "", label: "", notes: "" });
@@ -230,13 +233,20 @@ export default function RemindersPage() {
   // DELETE
   // ==================================================
 
-  async function handleDelete(reminderId: string) {
-    if (!window.confirm("Delete this reminder? This cannot be undone.")) return;
-    setDeletingId(reminderId);
-    await apiFetch(`/api/v1/reminders/${reminderId}`, { method: "DELETE" });
+  function handleDelete(reminderId: string) {
+    setDeleteTarget(reminderId);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeletingId(deleteTarget);
+    await apiFetch(`/api/v1/reminders/${deleteTarget}`, { method: "DELETE" });
     setDeletingId(null);
-    setReminders((prev) => prev.filter((r) => r.id !== reminderId));
+    setReminders((prev) => prev.filter((r) => r.id !== deleteTarget));
     setTotal((prev) => prev - 1);
+    setDeleting(false);
+    setDeleteTarget(null);
   }
 
   // ==================================================
@@ -528,6 +538,15 @@ export default function RemindersPage() {
       </Card>
 
       <style>{REM_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Delete reminder"
+        body="This reminder will be permanently removed from the vehicle."
+        confirming={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

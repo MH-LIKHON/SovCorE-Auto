@@ -779,3 +779,31 @@ svg {
 .sov-action-btn:disabled { opacity: 0.55; }
 .sov-action-btn--view:hover   { border-color: var(--colour-accent); color: var(--colour-text); }
 .sov-action-btn--delete:hover { border-color: var(--colour-error);  color: var(--colour-error); }
+
+/* ── Confirm-delete modal ── */
+.del-modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200;
+  display: flex; align-items: center; justify-content: center; padding: var(--space-4);
+}
+.del-modal {
+  background: var(--colour-bg-2); border: 0.5px solid var(--colour-border);
+  border-radius: var(--radius-lg); padding: var(--space-6); max-width: 420px; width: 100%;
+  display: flex; flex-direction: column; gap: var(--space-4);
+}
+.del-modal-title   { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0; }
+.del-modal-body    { font-size: var(--text-sm); color: var(--colour-text); margin: 0; }
+.del-modal-caution {
+  font-size: var(--text-sm); color: var(--colour-error); margin: 0;
+  padding: var(--space-3); background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.25); border-radius: var(--radius-md);
+}
+.del-modal-input {
+  width: 100%; padding: 8px 12px; font-size: var(--text-sm);
+  background: rgba(255,255,255,0.04); border: 1px solid var(--colour-border);
+  border-radius: var(--radius-md); color: var(--colour-text); outline: none;
+  font-family: inherit; box-sizing: border-box;
+}
+.del-modal-input:focus { border-color: var(--colour-accent); }
+.del-modal-input:disabled { opacity: 0.5; }
+.del-modal-error   { font-size: var(--text-xs); color: var(--colour-error); margin: 0; }
+.del-modal-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }

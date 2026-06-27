@@ -28,6 +28,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { BodyTypeIcon } from "@/src/components/vehicles/body-type-icon";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
 
@@ -78,13 +79,17 @@ export default function VehiclePhotosPage() {
   // Cover photo
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
-  const [coverDeleting, setCoverDeleting] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
 
   // Vehicle media upload
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
   const [mediaError, setMediaError] = useState<string | null>(null);
+
+  // Delete modal
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: "cover" } | { kind: "media"; item: MediaItem } | null>(null);
+  const [deleteDeleting, setDeleteDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // ==================================================
   // DATA LOADING
@@ -136,23 +141,9 @@ export default function VehiclePhotosPage() {
     }
   }
 
-  async function handleCoverDelete() {
-    if (!accountId || !vehicle) return;
-    if (!window.confirm("Remove cover photo?")) return;
-    setCoverDeleting(true);
-    setCoverError(null);
-    try {
-      const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}/photo`,
-        { method: "DELETE" },
-      );
-      if (!res.ok) { setCoverError("Could not remove cover photo."); return; }
-      setVehicle((v) => v ? { ...v, image_key: null, cover_url: null } : v);
-    } catch {
-      setCoverError("An unexpected error occurred.");
-    } finally {
-      setCoverDeleting(false);
-    }
+  function handleCoverDelete() {
+    setDeleteError(null);
+    setDeleteTarget({ kind: "cover" });
   }
 
   // ==================================================
@@ -184,19 +175,36 @@ export default function VehiclePhotosPage() {
     }
   }
 
-  async function handleMediaDelete(item: MediaItem) {
-    if (!accountId || !vehicle) return;
-    if (!window.confirm("Remove this photo?")) return;
+  function handleMediaDelete(item: MediaItem) {
+    setDeleteError(null);
+    setDeleteTarget({ kind: "media", item });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget || !accountId || !vehicle) return;
+    setDeleteDeleting(true);
+    setDeleteError(null);
     try {
-      const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}/media/${item.id}`,
-        { method: "DELETE" },
-      );
-      if (!res.ok) return;
-      setMedia((prev) => prev.filter((m) => m.id !== item.id));
+      if (deleteTarget.kind === "cover") {
+        const res = await apiFetch(
+          `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}/photo`,
+          { method: "DELETE" },
+        );
+        if (!res.ok) { setDeleteError("Could not remove cover photo."); setDeleteDeleting(false); return; }
+        setVehicle((v) => v ? { ...v, image_key: null, cover_url: null } : v);
+      } else {
+        const res = await apiFetch(
+          `/api/v1/accounts/${accountId}/vehicles/${vehicle.id}/media/${deleteTarget.item.id}`,
+          { method: "DELETE" },
+        );
+        if (!res.ok) { setDeleteDeleting(false); return; }
+        setMedia((prev) => prev.filter((m) => m.id !== (deleteTarget as { kind: "media"; item: MediaItem }).item.id));
+      }
+      setDeleteTarget(null);
     } catch {
-      // silent — user can refresh
+      setDeleteError("An unexpected error occurred.");
     }
+    setDeleteDeleting(false);
   }
 
   // ==================================================
@@ -242,7 +250,7 @@ export default function VehiclePhotosPage() {
                 <button
                   className="rec-btn rec-btn--primary"
                   onClick={() => { setCoverError(null); coverInputRef.current?.click(); }}
-                  disabled={coverUploading || coverDeleting}
+                  disabled={coverUploading}
                 >
                   {coverUploading ? "Uploading…" : coverUrl ? "Replace cover photo" : "Upload cover photo"}
                 </button>
@@ -250,9 +258,9 @@ export default function VehiclePhotosPage() {
                   <button
                     className="rec-btn rec-btn--danger-sm"
                     onClick={handleCoverDelete}
-                    disabled={coverUploading || coverDeleting}
+                    disabled={coverUploading}
                   >
-                    {coverDeleting ? "Removing…" : "Remove cover photo"}
+                    Remove cover photo
                   </button>
                 )}
                 {coverError && <p className="ph-err">{coverError}</p>}
@@ -323,6 +331,20 @@ export default function VehiclePhotosPage() {
       )}
 
       <style>{PH_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title={deleteTarget?.kind === "cover" ? "Remove cover photo" : "Remove photo"}
+        body={
+          deleteTarget?.kind === "cover"
+            ? "The cover photo will be permanently deleted from storage."
+            : "This photo will be permanently deleted from storage."
+        }
+        confirming={deleteDeleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => { setDeleteTarget(null); setDeleteError(null); }}
+      />
     </div>
   );
 }

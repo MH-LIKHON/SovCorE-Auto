@@ -30,6 +30,8 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
+
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField, WholeNumberField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
@@ -227,6 +229,8 @@ export default function AlertsPage() {
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Monthly log reminder settings
   const [logSettings, setLogSettings] = useState<LogSettings | null>(null);
@@ -378,13 +382,20 @@ export default function AlertsPage() {
   // DELETE
   // ==================================================
 
-  async function handleDelete(alertId: string) {
-    if (!window.confirm("Delete this alert? This cannot be undone.")) return;
-    setDeletingId(alertId);
-    await apiFetch(`/api/v1/alerts/${alertId}`, { method: "DELETE" });
+  function handleDelete(alertId: string) {
+    setDeleteTarget(alertId);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeletingId(deleteTarget);
+    await apiFetch(`/api/v1/alerts/${deleteTarget}`, { method: "DELETE" });
     setDeletingId(null);
-    setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+    setAlerts((prev) => prev.filter((a) => a.id !== deleteTarget));
     setTotal((prev) => prev - 1);
+    setDeleting(false);
+    setDeleteTarget(null);
   }
 
   // ==================================================
@@ -771,6 +782,15 @@ export default function AlertsPage() {
       </Card>
 
       <style>{AL_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Delete alert"
+        body="This alert and all its conditions will be permanently removed."
+        confirming={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

@@ -28,6 +28,7 @@
 import { useRef, useState } from "react";
 
 import { apiFetch, apiUpload } from "@/src/lib/api/fetch";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
 import { toTitleCase } from "@/src/lib/text";
 
@@ -88,6 +89,9 @@ export function EntityAttachmentPanel({
 
   const [viewLoading, setViewLoading] = useState<string | null>(null);
   const [viewing, setViewing] = useState<ViewState | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteDeleting, setDeleteDeleting] = useState(false);
 
   // ==================================================
   // DATA
@@ -183,13 +187,20 @@ export function EntityAttachmentPanel({
   // DELETE
   // ==================================================
 
-  async function handleDelete(attId: string) {
-    if (!window.confirm("Delete this attachment? This cannot be undone.")) return;
+  function handleDelete(attId: string) {
+    setDeleteTarget(attId);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteDeleting(true);
     await apiFetch(
-      `/api/v1/accounts/${accountId}/entity-attachments/${attId}`,
+      `/api/v1/accounts/${accountId}/entity-attachments/${deleteTarget}`,
       { method: "DELETE" }
     );
-    setAttachments((prev) => prev.filter((a) => a.id !== attId));
+    setAttachments((prev) => prev.filter((a) => a.id !== deleteTarget));
+    setDeleteDeleting(false);
+    setDeleteTarget(null);
   }
 
   // ==================================================
@@ -280,6 +291,15 @@ export function EntityAttachmentPanel({
           onClose={handleViewClose}
         />
       )}
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Delete attachment"
+        body="This file will be permanently deleted from storage."
+        confirming={deleteDeleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </>
   );
 }

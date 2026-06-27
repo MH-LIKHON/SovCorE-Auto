@@ -27,6 +27,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 import { toSentenceCase, toTitleCase } from "@/src/lib/text";
 import { daysUntil, formatDate } from "@/src/lib/format";
@@ -109,6 +110,8 @@ export default function TasksPage() {
 
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // ==================================================
   // DATA LOADING
@@ -192,13 +195,20 @@ export default function TasksPage() {
   // DELETE
   // ==================================================
 
-  async function handleDelete(taskId: string) {
-    if (!window.confirm("Delete this task? This cannot be undone.")) return;
-    setDeletingId(taskId);
-    await apiFetch(`/api/v1/tasks/${taskId}`, { method: "DELETE" });
+  function handleDelete(taskId: string) {
+    setDeleteTarget(taskId);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeletingId(deleteTarget);
+    await apiFetch(`/api/v1/tasks/${deleteTarget}`, { method: "DELETE" });
     setDeletingId(null);
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setTasks((prev) => prev.filter((t) => t.id !== deleteTarget));
     setTotal((prev) => prev - 1);
+    setDeleting(false);
+    setDeleteTarget(null);
   }
 
   // ==================================================
@@ -349,6 +359,15 @@ export default function TasksPage() {
       </Card>
 
       <style>{TSK_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Delete task"
+        body="This task will be permanently removed from the vehicle."
+        confirming={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { TextField } from "@/src/components/ui/input";
 import { apiFetch } from "@/src/lib/api/fetch";
 
@@ -74,6 +75,10 @@ export default function UsersPage() {
   const [transferTarget, setTransferTarget] = useState<string>("");
   const [transferring, setTransferring] = useState(false);
   const [transferError, setTransferError] = useState<string | null>(null);
+
+  // Remove member modal
+  const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const accountId = typeof window !== "undefined" ? sessionStorage.getItem("sva_account_id") : null;
 
@@ -127,13 +132,21 @@ export default function UsersPage() {
     if (res.ok) await load();
   }
 
-  async function handleRemove(member: Member) {
-    if (!accountId) return;
-    if (!window.confirm(`Remove ${member.email} from this account?`)) return;
-    const res = await apiFetch(`/api/v1/accounts/${accountId}/members/${member.id}`, {
+  function handleRemove(member: Member) {
+    setRemoveTarget(member);
+  }
+
+  async function confirmRemove() {
+    if (!accountId || !removeTarget) return;
+    setRemoving(true);
+    const res = await apiFetch(`/api/v1/accounts/${accountId}/members/${removeTarget.id}`, {
       method: "DELETE",
     });
-    if (res.ok) await load();
+    setRemoving(false);
+    if (res.ok) {
+      setRemoveTarget(null);
+      await load();
+    }
   }
 
   async function handleTransferOwnership() {
@@ -317,6 +330,15 @@ export default function UsersPage() {
       )}
 
       <style>{SET_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={removeTarget !== null}
+        title="Remove member"
+        body={removeTarget ? `${removeTarget.email} will lose access to this account.` : undefined}
+        confirming={removing}
+        onConfirm={confirmRemove}
+        onCancel={() => setRemoveTarget(null)}
+      />
     </div>
   );
 }

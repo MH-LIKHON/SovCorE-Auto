@@ -31,6 +31,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { TextField, WholeNumberField } from "@/src/components/ui/input";
 import { BodyTypeIcon } from "@/src/components/vehicles/body-type-icon";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
@@ -245,6 +246,10 @@ export default function VehicleProfilePage() {
   const [lifecycleState, setLifecycleState] = useState<string>("");
   const [settingLifecycle, setSettingLifecycle] = useState(false);
 
+  // Delete vehicle
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [vehicleDeleting, setVehicleDeleting] = useState(false);
+
   async function load() {
     if (!accountId || !id) return;
     setLoading(true);
@@ -371,10 +376,16 @@ export default function VehicleProfilePage() {
   }
 
   // ------------------------------ Delete -------------------------------------
-  async function handleDelete() {
+  function handleDelete() {
     if (!accountId || !vehicle) return;
-    if (!window.confirm(`Delete ${vehicle.registration ?? "this vehicle"} and all its data? This cannot be undone.`)) return;
+    setDeleteOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!accountId || !vehicle) return;
+    setVehicleDeleting(true);
     await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${vehicle.id}`, { method: "DELETE" });
+    setVehicleDeleting(false);
     router.push("/dashboard/vehicles");
   }
 
@@ -768,6 +779,15 @@ export default function VehicleProfilePage() {
       )}
 
       <style>{VD_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteOpen}
+        title="Delete vehicle"
+        body={`All records, photos, tasks, reminders, alerts, and documents for ${vehicle?.registration ?? "this vehicle"} will be permanently removed.`}
+        confirming={vehicleDeleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </div>
   );
 }

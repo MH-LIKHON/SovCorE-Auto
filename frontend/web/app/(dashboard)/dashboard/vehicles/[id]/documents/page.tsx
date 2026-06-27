@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
 import { formatDateTime } from "@/src/lib/format";
@@ -93,6 +94,10 @@ export default function VehicleDocumentsPage() {
   const [viewLoading, setViewLoading] = useState<string | null>(null);
   const [viewing, setViewing] = useState<{ url: string; filename: string; contentType: string } | null>(null);
 
+  // Delete modal
+  const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   async function loadDocs() {
     if (!accountId || !id) return;
     setLoading(true);
@@ -157,10 +162,17 @@ export default function VehicleDocumentsPage() {
     setViewing(null);
   }
 
-  async function handleDelete(doc: Document) {
-    if (!window.confirm(`Delete "${doc.filename}"? This cannot be undone.`)) return;
-    await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/documents/${doc.id}`, { method: "DELETE" });
-    setDocs((prev) => prev.filter((d) => d.id !== doc.id));
+  function handleDelete(doc: Document) {
+    setDeleteTarget(doc);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/documents/${deleteTarget.id}`, { method: "DELETE" });
+    setDocs((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+    setDeleting(false);
+    setDeleteTarget(null);
   }
 
   const progressLabel =
@@ -286,6 +298,15 @@ export default function VehicleDocumentsPage() {
       </Card>
 
       <style>{DOCS_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Delete document"
+        body={deleteTarget ? `"${deleteTarget.filename}" will be permanently deleted from storage.` : undefined}
+        confirming={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
 
       {viewing && (
         <DocViewerModal

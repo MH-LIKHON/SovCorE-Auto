@@ -32,6 +32,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { WholeNumberInput } from "@/src/components/ui/input";
 import { RecordTypeBadge } from "@/src/components/records/record-type-badge";
 import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
@@ -302,7 +303,13 @@ export default function VehicleRecordsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: "record"; id: string }
+    | { kind: "attachment"; id: string }
+    | null
+  >(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Diagnostic fault code builder state (for the add record form)
   const [diagFaultCodes, setDiagFaultCodes] = useState<FaultCodeDraft[]>([]);
@@ -320,7 +327,6 @@ export default function VehicleRecordsPage() {
   const attachInputRef = useRef<HTMLInputElement | null>(null);
   const [attachUploading, setAttachUploading] = useState(false);
   const [attachError, setAttachError] = useState<string | null>(null);
-  const [deletingAttachId, setDeletingAttachId] = useState<string | null>(null);
   const [attachKind, setAttachKind] = useState("");
   const [showAttachForm, setShowAttachForm] = useState(false);
 
@@ -590,18 +596,9 @@ export default function VehicleRecordsPage() {
   // DELETE
   // ==================================================
 
-  async function handleDelete(recordId: string) {
-    if (!window.confirm("Delete this record? This cannot be undone.")) return;
-    setDeletingId(recordId);
-    await apiFetch(
-      `/api/v1/accounts/${accountId}/records/${recordId}?vehicle_id=${id}`,
-      { method: "DELETE" }
-    );
-    setDeletingId(null);
-    setExpandedId(null);
-    setExpandedDetail(null);
-    setRecords((prev) => prev.filter((r) => r.id !== recordId));
-    setTotal((prev) => prev - 1);
+  function handleDelete(recordId: string) {
+    setDeleteError(null);
+    setDeleteTarget({ kind: "record", id: recordId });
   }
 
   // ==================================================
@@ -644,17 +641,39 @@ export default function VehicleRecordsPage() {
     }
   }
 
-  async function handleAttachDelete(attachmentId: string) {
-    if (!window.confirm("Delete this attachment? This cannot be undone.")) return;
-    setDeletingAttachId(attachmentId);
-    const res = await apiFetch(
-      `/api/v1/accounts/${accountId}/attachments/${attachmentId}`,
-      { method: "DELETE" }
-    );
-    setDeletingAttachId(null);
-    if (res.ok && expandedDetail) {
-      await loadDetail(expandedDetail.id);
+  function handleAttachDelete(attachmentId: string) {
+    setDeleteError(null);
+    setDeleteTarget({ kind: "attachment", id: attachmentId });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    if (deleteTarget.kind === "record") {
+      await apiFetch(
+        `/api/v1/accounts/${accountId}/records/${deleteTarget.id}?vehicle_id=${id}`,
+        { method: "DELETE" }
+      );
+      setExpandedId(null);
+      setExpandedDetail(null);
+      setRecords((prev) => prev.filter((r) => r.id !== (deleteTarget as { kind: "record"; id: string }).id));
+      setTotal((prev) => prev - 1);
+      setDeleteTarget(null);
+    } else {
+      const res = await apiFetch(
+        `/api/v1/accounts/${accountId}/attachments/${deleteTarget.id}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        setDeleteError("Could not delete attachment.");
+        setDeleting(false);
+        return;
+      }
+      if (expandedDetail) await loadDetail(expandedDetail.id);
+      setDeleteTarget(null);
     }
+    setDeleting(false);
   }
 
   async function handleAttachView(attachmentId: string, filename: string) {
@@ -1434,9 +1453,8 @@ export default function VehicleRecordsPage() {
                                     <button
                                       className="sov-action-btn sov-action-btn--delete"
                                       onClick={() => handleAttachDelete(a.id)}
-                                      disabled={deletingAttachId === a.id}
                                     >
-                                      {deletingAttachId === a.id ? "…" : "Delete"}
+                                      Delete
                                     </button>
                                   </div>
                                 ))}
@@ -1449,9 +1467,8 @@ export default function VehicleRecordsPage() {
                             <button
                               className="rec-btn rec-btn--danger-sm"
                               onClick={() => handleDelete(expandedDetail.id)}
-                              disabled={deletingId === expandedDetail.id}
                             >
-                              {deletingId === expandedDetail.id ? "Deleting…" : "Delete record"}
+                              Delete record
                             </button>
                           </div>
                         </>
@@ -1466,6 +1483,20 @@ export default function VehicleRecordsPage() {
       </Card>
 
       <style>{REC_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title={deleteTarget?.kind === "attachment" ? "Delete attachment" : "Delete record"}
+        body={
+          deleteTarget?.kind === "attachment"
+            ? "This attachment will be permanently deleted from storage."
+            : "This record and all its attached data will be permanently removed."
+        }
+        confirming={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => { setDeleteTarget(null); setDeleteError(null); }}
+      />
 
       {viewingAttach && (
         <DocViewerModal

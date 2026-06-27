@@ -190,25 +190,6 @@ export default function ExpensesPage() {
             </div>
           </Card>
 
-          {/* ---- By-category breakdown ---- */}
-          <Card>
-            <div className="rec-list-head">
-              <h2 className="rec-section-title" style={{ margin: 0 }}>By category</h2>
-              <span className="rec-count">
-                {categoryCount} {categoryCount !== 1 ? "categories" : "category"} · {yearRecords} record{yearRecords !== 1 ? "s" : ""}
-              </span>
-            </div>
-            <div className="exp-cat-list">
-              {analytics.by_category.map((cat) => (
-                <div key={cat.record_type} className="exp-cat-row">
-                  <span className="exp-cat-row__label">{cat.label}</span>
-                  <span className="exp-cat-row__count">{cat.count} record{cat.count !== 1 ? "s" : ""}</span>
-                  <span className="exp-cat-row__total">{formatGBP(cat.total_pence)}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
           {/* ---- Monthly bar chart ---- */}
           <Card>
             <h2 className="rec-section-title">Monthly spend, {year}</h2>
@@ -229,6 +210,25 @@ export default function ExpensesPage() {
                   <span className="fuel-bar-label">
                     {formatMonth(m.month).split(" ")[0]}
                   </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* ---- By-category breakdown ---- */}
+          <Card>
+            <div className="rec-list-head">
+              <h2 className="rec-section-title" style={{ margin: 0 }}>By category</h2>
+              <span className="rec-count">
+                {categoryCount} {categoryCount !== 1 ? "categories" : "category"} · {yearRecords} record{yearRecords !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="exp-cat-list">
+              {analytics.by_category.map((cat) => (
+                <div key={cat.record_type} className="exp-cat-row">
+                  <span className="exp-cat-row__label">{cat.label}</span>
+                  <span className="exp-cat-row__count">{cat.count} record{cat.count !== 1 ? "s" : ""}</span>
+                  <span className="exp-cat-row__total">{formatGBP(cat.total_pence)}</span>
                 </div>
               ))}
             </div>

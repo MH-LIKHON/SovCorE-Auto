@@ -42,6 +42,7 @@
 import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 import { formatDateTime } from "@/src/lib/format";
 
@@ -97,6 +98,7 @@ export default function BackupsPage() {
   const [restoring, setRestoring] = useState<string | null>(null);
   const [restoreResult, setRestoreResult] = useState<RestoreResult | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<Backup | null>(null);
 
   async function load() {
     if (!accountId) return;
@@ -148,31 +150,28 @@ export default function BackupsPage() {
   // RESTORE
   // ==================================================
 
-  async function handleRestore(backup: Backup) {
-    if (!accountId) return;
-    const confirmed = window.confirm(
-      "Restore data from this backup?\n\n" +
-      "Rows that already exist in the database are skipped (no data will be overwritten). " +
-      "Only rows missing from the current database are inserted back. " +
-      "This cannot be undone without another backup.\n\n" +
-      "Continue?"
-    );
-    if (!confirmed) return;
+  function handleRestore(backup: Backup) {
+    setRestoreTarget(backup);
+  }
 
-    setRestoring(backup.id);
+  async function confirmRestore() {
+    if (!accountId || !restoreTarget) return;
+    setRestoring(restoreTarget.id);
     setRestoreResult(null);
     setRestoreError(null);
 
     const res = await apiFetch(
-      `/api/v1/accounts/${accountId}/backups/${backup.id}/restore`,
+      `/api/v1/accounts/${accountId}/backups/${restoreTarget.id}/restore`,
       { method: "POST" }
     );
     setRestoring(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setRestoreError(data.detail ?? "Restore failed. Please try again.");
+      setRestoreTarget(null);
       return;
     }
+    setRestoreTarget(null);
     setRestoreResult(await res.json());
   }
 
@@ -300,9 +299,9 @@ export default function BackupsPage() {
                           <button
                             className="bkp-action-btn bkp-action-btn--warn"
                             onClick={() => handleRestore(b)}
-                            disabled={restoring === b.id}
+                            disabled={restoring !== null}
                           >
-                            {restoring === b.id ? "Restoring…" : "Restore"}
+                            Restore
                           </button>
                         </div>
                       )}
@@ -316,6 +315,16 @@ export default function BackupsPage() {
       </Card>
 
       <style>{BKP_STYLES}</style>
+
+      <ConfirmDeleteModal
+        confirmWord="RESTORE"
+        open={restoreTarget !== null}
+        title="Restore from backup"
+        body="Rows that already exist are skipped. Only missing rows are inserted back."
+        confirming={restoring === restoreTarget?.id}
+        onConfirm={confirmRestore}
+        onCancel={() => setRestoreTarget(null)}
+      />
     </div>
   );
 }

@@ -27,6 +27,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
@@ -122,6 +123,8 @@ export default function PCNsPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { yearOptions, thisMonth, count, avgCost, annualSpend, totalSpend } = useMemo(() => {
     const now = new Date();
@@ -222,16 +225,23 @@ export default function PCNsPage() {
   // DELETE
   // ==================================================
 
-  async function handleDelete(pcnId: string) {
-    if (!window.confirm("Delete this PCN? This cannot be undone.")) return;
-    setDeletingId(pcnId);
+  function handleDelete(pcnId: string) {
+    setDeleteTarget(pcnId);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeletingId(deleteTarget);
     await apiFetch(
-      `/api/v1/accounts/${accountId}/pcns/${pcnId}`,
+      `/api/v1/accounts/${accountId}/pcns/${deleteTarget}`,
       { method: "DELETE" }
     );
     setDeletingId(null);
-    setPCNs((prev) => prev.filter((p) => p.id !== pcnId));
+    setPCNs((prev) => prev.filter((p) => p.id !== deleteTarget));
     setTotal((prev) => prev - 1);
+    setDeleting(false);
+    setDeleteTarget(null);
   }
 
   // ==================================================
@@ -425,6 +435,15 @@ export default function PCNsPage() {
       </Card>
 
       <style>{PCN_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Delete PCN"
+        body="This penalty charge notice will be permanently removed from the vehicle."
+        confirming={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

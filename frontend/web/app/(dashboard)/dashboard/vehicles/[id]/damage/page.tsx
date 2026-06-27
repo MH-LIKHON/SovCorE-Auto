@@ -31,6 +31,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
@@ -126,55 +127,6 @@ function kindBadgeClass(k: DamageKind): string {
   if (k === "accident") return "dmg-badge dmg-badge--accident";
   if (k === "glass")    return "dmg-badge dmg-badge--glass";
   return "dmg-badge dmg-badge--default";
-}
-
-// ==================================================
-// TYPED DELETE MODAL
-// ==================================================
-
-function TypedDeleteModal({
-  open,
-  warning,
-  onConfirm,
-  onCancel,
-}: {
-  open: boolean;
-  warning: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const [typed, setTyped] = useState("");
-  useEffect(() => { if (open) setTyped(""); }, [open]);
-  if (!open) return null;
-  return (
-    <div className="dmg-modal-backdrop" onClick={onCancel}>
-      <div className="dmg-modal" onClick={(e) => e.stopPropagation()}>
-        <h3 className="dmg-modal-title">Delete photo</h3>
-        <p className="dmg-modal-body">{warning}</p>
-        <p className="dmg-modal-caution">
-          This action is permanent. The photo will be deleted from storage and cannot be recovered.
-        </p>
-        <input
-          type="text"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder="Type DELETE to confirm"
-          className="dmg-modal-input"
-          autoFocus
-        />
-        <div className="dmg-modal-actions">
-          <button onClick={onCancel} className="rec-btn rec-btn--secondary">Cancel</button>
-          <button
-            onClick={onConfirm}
-            disabled={typed !== "DELETE"}
-            className="rec-btn dmg-btn--danger"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ==================================================
@@ -286,16 +238,15 @@ export default function DamagePage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
 
-  // Damage photo delete modal
-  const [deleteModal, setDeleteModal] = useState<{
-    entry: DamageItem;
-    photo: DamagePhotoItem;
-    slot: "before" | "after";
-    deleting: boolean;
-  } | null>(null);
+  // Unified delete modal state — covers entry deletion and photo deletion.
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: "entry"; id: string }
+    | { kind: "photo"; entry: DamageItem; photo: DamagePhotoItem; slot: "before" | "after" }
+    | null
+  >(null);
+  const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const { yearOptions, thisMonth, count, avgCost, annualSpend, totalSpend } = useMemo(() => {
@@ -379,16 +330,53 @@ export default function DamagePage() {
   // DELETE ENTRY
   // ==================================================
 
-  async function handleDelete(entryId: string) {
-    if (!window.confirm("Delete this damage entry? This cannot be undone.")) return;
-    setDeletingId(entryId);
-    await apiFetch(
-      `/api/v1/accounts/${accountId}/damage/${entryId}`,
-      { method: "DELETE" }
-    );
-    setDeletingId(null);
-    setEntries((prev) => prev.filter((e) => e.id !== entryId));
-    setTotal((prev) => prev - 1);
+  function handleDelete(entryId: string) {
+    setDeleteError(null);
+    setDeleteTarget({ kind: "entry", id: entryId });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget || !accountId) return;
+    setDeleting(true);
+    setDeleteError(null);
+    if (deleteTarget.kind === "entry") {
+      await apiFetch(
+        `/api/v1/accounts/${accountId}/damage/${deleteTarget.id}`,
+        { method: "DELETE" }
+      );
+      setEntries((prev) => prev.filter((e) => e.id !== (deleteTarget as { kind: "entry"; id: string }).id));
+      setTotal((prev) => prev - 1);
+      setDeleteTarget(null);
+    } else {
+      const { entry, photo, slot } = deleteTarget;
+      try {
+        const res = await apiFetch(
+          `/api/v1/accounts/${accountId}/damage/${entry.id}/photos/${photo.id}`,
+          { method: "DELETE" },
+        );
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setDeleteError(data.detail ?? "Could not delete photo.");
+          setDeleting(false);
+          return;
+        }
+        setEntries((prev) =>
+          prev.map((e) =>
+            e.id === entry.id
+              ? {
+                  ...e,
+                  before_photos: slot === "before" ? e.before_photos.filter((p) => p.id !== photo.id) : e.before_photos,
+                  after_photos:  slot === "after"  ? e.after_photos.filter((p)  => p.id !== photo.id) : e.after_photos,
+                }
+              : e,
+          ),
+        );
+        setDeleteTarget(null);
+      } catch {
+        setDeleteError("An unexpected error occurred.");
+      }
+    }
+    setDeleting(false);
   }
 
   // ==================================================
@@ -399,43 +387,9 @@ export default function DamagePage() {
     setEntries((prev) => prev.map((e) => e.id === updated.id ? updated : e));
   }
 
-  function openDeleteModal(entry: DamageItem, photo: DamagePhotoItem, slot: "before" | "after") {
+  function openPhotoDelete(entry: DamageItem, photo: DamagePhotoItem, slot: "before" | "after") {
     setDeleteError(null);
-    setDeleteModal({ entry, photo, slot, deleting: false });
-  }
-
-  async function confirmDamageDelete() {
-    if (!deleteModal || !accountId) return;
-    setDeleteModal((m) => m ? { ...m, deleting: true } : null);
-    setDeleteError(null);
-    const { entry, photo, slot } = deleteModal;
-    try {
-      const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/damage/${entry.id}/photos/${photo.id}`,
-        { method: "DELETE" },
-      );
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setDeleteError(data.detail ?? "Could not delete photo.");
-        setDeleteModal((m) => m ? { ...m, deleting: false } : null);
-        return;
-      }
-      setEntries((prev) =>
-        prev.map((e) =>
-          e.id === entry.id
-            ? {
-                ...e,
-                before_photos: slot === "before" ? e.before_photos.filter((p) => p.id !== photo.id) : e.before_photos,
-                after_photos:  slot === "after"  ? e.after_photos.filter((p)  => p.id !== photo.id) : e.after_photos,
-              }
-            : e,
-        ),
-      );
-      setDeleteModal(null);
-    } catch {
-      setDeleteError("An unexpected error occurred.");
-      setDeleteModal((m) => m ? { ...m, deleting: false } : null);
-    }
+    setDeleteTarget({ kind: "photo", entry, photo, slot });
   }
 
   // ==================================================
@@ -583,9 +537,8 @@ export default function DamagePage() {
                     <button
                       className="rec-btn rec-btn--danger-sm"
                       onClick={() => handleDelete(entry.id)}
-                      disabled={deletingId === entry.id}
                     >
-                      {deletingId === entry.id ? "…" : "Delete"}
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -605,7 +558,7 @@ export default function DamagePage() {
                       vehicleId={id ?? ""}
                       accountId={accountId}
                       onAdded={handleEntryUpdated}
-                      onRequestDelete={openDeleteModal}
+                      onRequestDelete={openPhotoDelete}
                     />
                     <DamagePhotoSlot
                       slot="after"
@@ -614,7 +567,7 @@ export default function DamagePage() {
                       vehicleId={id ?? ""}
                       accountId={accountId}
                       onAdded={handleEntryUpdated}
-                      onRequestDelete={openDeleteModal}
+                      onRequestDelete={openPhotoDelete}
                     />
                   </div>
                 </div>
@@ -631,18 +584,19 @@ export default function DamagePage() {
         )}
       </Card>
 
-      {/* ---- Typed delete modal ---- */}
-      {deleteModal && (
-        <>
-          <TypedDeleteModal
-            open={!deleteModal.deleting}
-            warning={`You are about to permanently delete a ${deleteModal.slot} photo from the "${kindLabel(deleteModal.entry.kind)}" entry (${formatDate(deleteModal.entry.date)}).`}
-            onConfirm={confirmDamageDelete}
-            onCancel={() => setDeleteModal(null)}
-          />
-          {deleteError && <p className="dmg-modal-outer-err">{deleteError}</p>}
-        </>
-      )}
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title={deleteTarget?.kind === "entry" ? "Delete damage entry" : "Delete photo"}
+        body={
+          deleteTarget?.kind === "photo"
+            ? `Permanently delete a ${deleteTarget.slot} photo from the "${kindLabel(deleteTarget.entry.kind)}" entry (${formatDate(deleteTarget.entry.date)}).`
+            : undefined
+        }
+        confirming={deleting}
+        error={deleteError}
+        onConfirm={confirmDelete}
+        onCancel={() => { setDeleteTarget(null); setDeleteError(null); }}
+      />
 
       <style>{DMG_STYLES}</style>
     </div>
@@ -711,38 +665,6 @@ const DMG_STYLES = `
   .dmg-slot__add:hover:not(:disabled) { border-color: var(--colour-accent); color: var(--colour-text); }
   .dmg-slot__add:disabled { opacity: 0.5; }
   .dmg-slot__err { font-size: var(--text-xs); color: var(--colour-error); margin: 0; }
-
-  /* Typed delete modal */
-  .dmg-modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200;
-    display: flex; align-items: center; justify-content: center; padding: var(--space-4);
-  }
-  .dmg-modal {
-    background: var(--colour-surface, #1a1a2e); border: 0.5px solid var(--colour-border);
-    border-radius: var(--radius-lg); padding: var(--space-6); max-width: 420px; width: 100%;
-    display: flex; flex-direction: column; gap: var(--space-4);
-  }
-  .dmg-modal-title   { font-size: var(--text-lg); font-weight: var(--weight-semibold); margin: 0; }
-  .dmg-modal-body    { font-size: var(--text-sm); color: var(--colour-text); margin: 0; }
-  .dmg-modal-caution {
-    font-size: var(--text-sm); color: var(--colour-error); margin: 0;
-    padding: var(--space-3); background: rgba(248,113,113,0.08);
-    border: 1px solid rgba(248,113,113,0.25); border-radius: var(--radius-md);
-  }
-  .dmg-modal-input {
-    width: 100%; padding: 8px 12px; font-size: var(--text-sm);
-    background: rgba(255,255,255,0.04); border: 1px solid var(--colour-border);
-    border-radius: var(--radius-md); color: var(--colour-text); outline: none; font-family: inherit;
-  }
-  .dmg-modal-input:focus { border-color: var(--colour-accent); }
-  .dmg-modal-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
-  .dmg-modal-outer-err { font-size: var(--text-xs); color: var(--colour-error); }
-  .dmg-btn--danger {
-    background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.45); color: #f87171;
-    transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
-  }
-  .dmg-btn--danger:hover:not(:disabled) { background: rgba(239,68,68,0.22); border-color: #f87171; color: #fff; transform: translateY(-1px); }
-  .dmg-btn--danger:disabled { opacity: 0.35; }
 
   @media (max-width: 767px) {
     .pcn-row { flex-direction: column; align-items: flex-start; }

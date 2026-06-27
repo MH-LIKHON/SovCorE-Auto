@@ -29,6 +29,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
+import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
@@ -127,6 +128,8 @@ export default function WarrantyPage() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { yearOptions, thisMonth, count, avgCost, annualSpend, totalSpend } = useMemo(() => {
     const now = new Date();
@@ -214,16 +217,23 @@ export default function WarrantyPage() {
   // DELETE
   // ==================================================
 
-  async function handleDelete(warrantyId: string) {
-    if (!window.confirm("Delete this warranty entry? This cannot be undone.")) return;
-    setDeletingId(warrantyId);
+  function handleDelete(warrantyId: string) {
+    setDeleteTarget(warrantyId);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeletingId(deleteTarget);
     await apiFetch(
-      `/api/v1/accounts/${accountId}/warranties/${warrantyId}`,
+      `/api/v1/accounts/${accountId}/warranties/${deleteTarget}`,
       { method: "DELETE" }
     );
     setDeletingId(null);
-    setWarranties((prev) => prev.filter((w) => w.id !== warrantyId));
+    setWarranties((prev) => prev.filter((w) => w.id !== deleteTarget));
     setTotal((prev) => prev - 1);
+    setDeleting(false);
+    setDeleteTarget(null);
   }
 
   // ==================================================
@@ -422,6 +432,15 @@ export default function WarrantyPage() {
       </Card>
 
       <style>{WAR_STYLES}</style>
+
+      <ConfirmDeleteModal
+        open={deleteTarget !== null}
+        title="Delete warranty entry"
+        body="This warranty record will be permanently removed from the vehicle."
+        confirming={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }
