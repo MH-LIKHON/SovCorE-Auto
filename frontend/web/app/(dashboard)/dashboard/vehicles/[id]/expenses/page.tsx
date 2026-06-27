@@ -32,6 +32,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { formatGBP, formatMonth } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -60,15 +61,6 @@ interface ExpenseAnalytics {
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatGBP(pence: number): string {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
-}
-
-function formatMonth(ym: string): string {
-  const [y, m] = ym.split("-").map(Number) as [number, number];
-  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-}
 
 // ==================================================
 // YEAR CONSTANTS

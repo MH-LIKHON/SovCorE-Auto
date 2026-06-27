@@ -33,6 +33,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { formatDate, formatGBP, formatMonth } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -70,21 +71,6 @@ interface FuelAnalytics {
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatGBP(pence: number | null): string {
-  if (pence === null) return "-";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function formatMonthLabel(ym: string): string {
-  const [y, m] = ym.split("-").map(Number) as [number, number];
-  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
-}
 
 // ==================================================
 // YEAR CONSTANTS
@@ -245,7 +231,7 @@ export default function FuelPage() {
                     />
                   </div>
                   <span className="fuel-bar-label">
-                    {formatMonthLabel(m.month).split(" ")[0]}
+                    {formatMonth(m.month).split(" ")[0]}
                   </span>
                 </div>
               ))}

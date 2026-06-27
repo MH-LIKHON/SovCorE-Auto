@@ -28,6 +28,8 @@ import { useEffect, useState } from "react";
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { toSentenceCase, toTitleCase } from "@/src/lib/text";
+import { daysUntil, formatDate } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -65,28 +67,14 @@ interface AddForm {
 const EMPTY_FORM: AddForm = { title: "", due_date: "", notes: "" };
 
 const STATUS_LABELS: Record<string, string> = {
-  open: "Open",
-  in_progress: "In progress",
-  completed: "Completed",
+  open: "OPEN",
+  in_progress: "IN PROGRESS",
+  completed: "COMPLETED",
 };
 
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function daysUntil(d: string | null): number | null {
-  if (!d) return null;
-  return Math.ceil((new Date(d).getTime() - Date.now()) / 86_400_000);
-}
 
 function statusBadgeClass(s: string): string {
   if (s === "completed") return "tsk-badge tsk-badge--green";
@@ -232,7 +220,7 @@ export default function TasksPage() {
             </p>
           </div>
           {showForm ? (
-            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add task" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -251,7 +239,7 @@ export default function TasksPage() {
               type="text"
               placeholder="What needs to be done?"
               value={form.title}
-              onChange={(e) => handleFormChange("title", e.target.value)}
+              onChange={(e) => handleFormChange("title", toTitleCase(e.target.value))}
               disabled={saving}
             />
 
@@ -272,7 +260,7 @@ export default function TasksPage() {
               rows={2}
               placeholder="Optional notes…"
               value={form.notes}
-              onChange={(e) => handleFormChange("notes", e.target.value)}
+              onChange={(e) => handleFormChange("notes", toSentenceCase(e.target.value))}
               disabled={saving}
             />
 
@@ -282,7 +270,7 @@ export default function TasksPage() {
                 {saving ? "Saving…" : "Save task"}
               </button>
               <button
-                className="rec-btn rec-btn--ghost"
+                className="rec-btn--danger-sm"
                 onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }}
                 disabled={saving}
               >
@@ -318,7 +306,7 @@ export default function TasksPage() {
                     {STATUS_LABELS[t.status]}
                   </span>
                   {t.is_system_default && (
-                    <span className="tsk-badge tsk-badge--default">Default</span>
+                    <span className="tsk-badge tsk-badge--default">DEFAULT</span>
                   )}
                   <div className="tsk-row__info">
                     <span className="tsk-row__title">{t.title}</span>

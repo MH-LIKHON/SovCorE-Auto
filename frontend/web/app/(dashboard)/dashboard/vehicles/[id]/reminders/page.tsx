@@ -32,6 +32,8 @@ import { useEffect, useState } from "react";
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { toSentenceCase, toTitleCase } from "@/src/lib/text";
+import { daysUntil, formatDate } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -40,6 +42,7 @@ import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
 interface ReminderItem {
   id: string;
   type: string;
+  label: string | null;
   due_date: string;
   intervals: number[];
   last_sent_interval: number | null;
@@ -57,6 +60,7 @@ interface ReminderPage {
 
 interface AddForm {
   type: string;
+  label: string;
   due_date: string;
   intervals: string;
   notes: string;
@@ -68,6 +72,7 @@ interface AddForm {
 
 const EMPTY_FORM: AddForm = {
   type: "mot",
+  label: "",
   due_date: "",
   intervals: "90,60,30,14,7,1",
   notes: "",
@@ -92,20 +97,6 @@ const DEFAULT_INTERVALS = [90, 60, 30, 14, 7, 1];
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function daysUntil(d: string | null): number | null {
-  if (!d) return null;
-  return Math.ceil((new Date(d).getTime() - Date.now()) / 86_400_000);
-}
 
 function dueBadgeClass(d: string): string {
   const days = daysUntil(d);
@@ -174,6 +165,7 @@ export default function RemindersPage() {
   }
 
   async function handleAdd() {
+    if (form.type === "custom" && !form.label.trim()) { setSaveError("Label is required for custom reminders."); return; }
     if (!form.due_date) { setSaveError("Due date is required."); return; }
     setSaving(true);
     setSaveError(null);
@@ -184,6 +176,7 @@ export default function RemindersPage() {
           method: "POST",
           body: JSON.stringify({
             type: form.type,
+            label: form.type === "custom" ? form.label.trim() : null,
             due_date: form.due_date,
             intervals: parseIntervals(form.intervals),
             notes: form.notes || null,
@@ -252,7 +245,7 @@ export default function RemindersPage() {
             </p>
           </div>
           {showForm ? (
-            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add reminder" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -273,7 +266,7 @@ export default function RemindersPage() {
                     id="rem-type-sel"
                     className="sov-field__control"
                     value={form.type}
-                    onChange={(e) => handleFormChange("type", e.target.value)}
+                    onChange={(e) => { handleFormChange("type", e.target.value); handleFormChange("label", ""); }}
                     disabled={saving}
                   >
                     {REMINDER_TYPES.map((t) => (
@@ -282,6 +275,17 @@ export default function RemindersPage() {
                   </select>
                 </div>
               </div>
+              {form.type === "custom" && (
+                <TextField
+                  className="rec-label"
+                  label="Label"
+                  type="text"
+                  placeholder="e.g. Tinting, dash cam fitting…"
+                  value={form.label}
+                  onChange={(e) => handleFormChange("label", toTitleCase(e.target.value))}
+                  disabled={saving}
+                />
+              )}
               <TextField
                 className="rec-label"
                 label="Due date"
@@ -307,7 +311,7 @@ export default function RemindersPage() {
               rows={2}
               placeholder="Optional notes…"
               value={form.notes}
-              onChange={(e) => handleFormChange("notes", e.target.value)}
+              onChange={(e) => handleFormChange("notes", toSentenceCase(e.target.value))}
               disabled={saving}
             />
 
@@ -317,7 +321,7 @@ export default function RemindersPage() {
                 {saving ? "Saving…" : "Save reminder"}
               </button>
               <button
-                className="rec-btn rec-btn--ghost"
+                className="rec-btn--danger-sm"
                 onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }}
                 disabled={saving}
               >
@@ -352,7 +356,12 @@ export default function RemindersPage() {
                     {formatDate(r.due_date)}
                   </span>
                   <div className="rem-row__info">
-                    <span className="rem-row__type">{typeLabel(r.type)}</span>
+                    <span className="rem-row__type">
+                      {r.type === "custom" && r.label ? r.label : typeLabel(r.type)}
+                      {r.type === "custom" && r.label && (
+                        <span className="rem-row__custom-tag">CUSTOM</span>
+                      )}
+                    </span>
                     <span className="rem-row__intervals">
                       Notify at {r.intervals.sort((a, b) => b - a).join(", ")} days
                     </span>
@@ -362,7 +371,7 @@ export default function RemindersPage() {
                 {/* ---- Right: active toggle + delete ---- */}
                 <div className="rem-row__right">
                   {!r.active && (
-                    <span className="rem-inactive-label">Paused</span>
+                    <span className="rem-inactive-label">PAUSED</span>
                   )}
                   <button
                     className={`rem-toggle${r.active ? " rem-toggle--on" : ""}`}
@@ -412,7 +421,8 @@ const REM_STYLES = `
   .rem-row__left { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
   .rem-row__right { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
   .rem-row__info { display: flex; flex-direction: column; gap: 2px; }
-  .rem-row__type { font-size: var(--text-sm); color: var(--colour-text); }
+  .rem-row__type { font-size: var(--text-sm); color: var(--colour-text); display: flex; align-items: center; gap: var(--space-2); }
+  .rem-row__custom-tag { font-size: var(--text-xs); color: var(--colour-text-muted); background: rgba(255,255,255,0.06); border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 1px 6px; }
   .rem-row__intervals { font-size: var(--text-xs); color: var(--colour-text-muted); }
   .rem-inactive-label { font-size: var(--text-xs); color: var(--colour-text-muted); }
 

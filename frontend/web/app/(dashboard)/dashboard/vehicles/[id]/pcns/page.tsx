@@ -30,6 +30,8 @@ import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { toAllCaps, toSentenceCase, toTitleCase } from "@/src/lib/text";
+import { formatDate, formatGBP } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -88,15 +90,6 @@ const EMPTY_FORM: AddForm = {
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatGBP(pence: number): string {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
 
 function statusBadgeClass(s: PCNStatus): string {
   if (s === "open")      return "pcn-badge pcn-badge--open";
@@ -255,7 +248,7 @@ export default function PCNsPage() {
             <p className="rec-sub">Council and private parking charges raised against this vehicle.</p>
           </div>
           {showForm ? (
-            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add PCN" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -307,7 +300,7 @@ export default function PCNsPage() {
                 type="text"
                 placeholder="e.g. PCN12345"
                 value={form.reference}
-                onChange={(e) => handleFormChange("reference", e.target.value.toUpperCase())}
+                onChange={(e) => handleFormChange("reference", toAllCaps(e.target.value))}
                 disabled={saving}
               />
               <TextField
@@ -316,7 +309,7 @@ export default function PCNsPage() {
                 type="text"
                 placeholder="e.g. Westminster City Council"
                 value={form.authority}
-                onChange={(e) => handleFormChange("authority", e.target.value.toUpperCase())}
+                onChange={(e) => handleFormChange("authority", toTitleCase(e.target.value))}
                 disabled={saving}
               />
             </div>
@@ -327,7 +320,7 @@ export default function PCNsPage() {
               rows={2}
               placeholder="Any additional notes…"
               value={form.notes}
-              onChange={(e) => handleFormChange("notes", e.target.value)}
+              onChange={(e) => handleFormChange("notes", toSentenceCase(e.target.value))}
               disabled={saving}
             />
 
@@ -336,7 +329,7 @@ export default function PCNsPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAdd} disabled={saving}>
                 {saving ? "Saving…" : "Save PCN"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
+              <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
                 Cancel
               </button>
             </div>

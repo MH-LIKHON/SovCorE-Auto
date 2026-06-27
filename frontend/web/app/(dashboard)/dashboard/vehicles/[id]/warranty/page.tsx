@@ -32,6 +32,8 @@ import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { toTitleCase } from "@/src/lib/text";
+import { daysUntil, formatDate, formatGBP } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -82,22 +84,6 @@ const EMPTY_FORM: AddForm = {
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatGBP(pence: number | null): string {
-  if (pence === null) return "-";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function daysUntil(d: string | null): number | null {
-  if (!d) return null;
-  const diff = new Date(d).getTime() - Date.now();
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
-}
 
 function expiryColour(d: string | null): string {
   const days = daysUntil(d);
@@ -254,7 +240,7 @@ export default function WarrantyPage() {
             <p className="rec-sub">Component warranties for this vehicle, ordered by earliest expiry.</p>
           </div>
           {showForm ? (
-            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add warranty" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -274,7 +260,7 @@ export default function WarrantyPage() {
                 type="text"
                 placeholder="e.g. Clutch assembly"
                 value={form.component}
-                onChange={(e) => handleFormChange("component", e.target.value.toUpperCase())}
+                onChange={(e) => handleFormChange("component", toTitleCase(e.target.value))}
                 disabled={saving}
               />
               <TextField
@@ -283,7 +269,7 @@ export default function WarrantyPage() {
                 type="text"
                 placeholder="e.g. Halfords"
                 value={form.supplier}
-                onChange={(e) => handleFormChange("supplier", e.target.value.toUpperCase())}
+                onChange={(e) => handleFormChange("supplier", toTitleCase(e.target.value))}
                 disabled={saving}
               />
               <TextField
@@ -340,7 +326,7 @@ export default function WarrantyPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAdd} disabled={saving}>
                 {saving ? "Saving…" : "Save warranty"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
+              <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
                 Cancel
               </button>
             </div>

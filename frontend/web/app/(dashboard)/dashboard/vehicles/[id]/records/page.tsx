@@ -36,6 +36,8 @@ import { WholeNumberInput } from "@/src/components/ui/input";
 import { RecordTypeBadge } from "@/src/components/records/record-type-badge";
 import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
+import { toAllCaps, toSentenceCase, toTitleCase } from "@/src/lib/text";
+import { formatDate, formatGBP } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -192,16 +194,6 @@ const MAINTENANCE_CATEGORIES = [
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function formatGBP(pence: number | null): string {
-  if (pence === null) return "-";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
-}
 
 function locationText(supplier: string | null, garage: string | null): string {
   return garage || supplier || "-";
@@ -706,7 +698,7 @@ export default function VehicleRecordsPage() {
             <p className="rec-sub">Every action taken on this vehicle, all in one place.</p>
           </div>
           {showForm ? (
-            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add record" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -793,7 +785,7 @@ export default function VehicleRecordsPage() {
                 {SHOW_GARAGE.has(form.type) && (
                   <label className="rec-label rec-label--wide">
                     <span className="rec-label__text">Garage</span>
-                    <input className="rec-input" type="text" placeholder="KWIK FIT" value={form.garage} onChange={(e) => handleFormChange("garage", e.target.value.toUpperCase())} disabled={saving} />
+                    <input className="rec-input" type="text" placeholder="e.g. Kwik Fit" value={form.garage} onChange={(e) => handleFormChange("garage", toTitleCase(e.target.value))} disabled={saving} />
                   </label>
                 )}
                 {SHOW_SUPPLIER.has(form.type) && (
@@ -801,7 +793,7 @@ export default function VehicleRecordsPage() {
                     <span className="rec-label__text">
                       {form.type === "insurance" || form.type === "warranty" ? "Provider" : "Supplier"}
                     </span>
-                    <input className="rec-input" type="text" placeholder="AMAZON" value={form.supplier} onChange={(e) => handleFormChange("supplier", e.target.value.toUpperCase())} disabled={saving} />
+                    <input className="rec-input" type="text" placeholder="e.g. Amazon" value={form.supplier} onChange={(e) => handleFormChange("supplier", toTitleCase(e.target.value))} disabled={saving} />
                   </label>
                 )}
               </div>
@@ -810,7 +802,7 @@ export default function VehicleRecordsPage() {
             {/* Notes */}
             <label className="rec-label rec-label--full">
               <span className="rec-label__text">Notes</span>
-              <textarea className="rec-textarea" rows={2} placeholder="Any additional notes…" value={form.notes} onChange={(e) => handleFormChange("notes", e.target.value)} disabled={saving} />
+              <textarea className="rec-textarea" rows={2} placeholder="Any additional notes…" value={form.notes} onChange={(e) => handleFormChange("notes", toSentenceCase(e.target.value))} disabled={saving} />
             </label>
 
             {/* ---- Maintenance / repair detail fields ---- */}
@@ -826,11 +818,11 @@ export default function VehicleRecordsPage() {
                   </label>
                   <label className="rec-label rec-label--wide">
                     <span className="rec-label__text">Item description</span>
-                    <input className="rec-input" type="text" placeholder="FRONT BRAKE PADS" value={form.maint_item} onChange={(e) => handleFormChange("maint_item", e.target.value.toUpperCase())} disabled={saving} />
+                    <input className="rec-input" type="text" placeholder="e.g. Front Brake Pads" value={form.maint_item} onChange={(e) => handleFormChange("maint_item", toTitleCase(e.target.value))} disabled={saving} />
                   </label>
                   <label className="rec-label">
                     <span className="rec-label__text">Part number</span>
-                    <input className="rec-input" type="text" placeholder="PART NUMBER" value={form.maint_part_number} onChange={(e) => handleFormChange("maint_part_number", e.target.value.toUpperCase())} disabled={saving} />
+                    <input className="rec-input" type="text" placeholder="PART NUMBER" value={form.maint_part_number} onChange={(e) => handleFormChange("maint_part_number", toAllCaps(e.target.value))} disabled={saving} />
                   </label>
                 </div>
                 <div className="rec-form-row">
@@ -861,7 +853,7 @@ export default function VehicleRecordsPage() {
                   </label>
                   <label className="rec-label rec-label--wide">
                     <span className="rec-label__text">Station</span>
-                    <input className="rec-input" type="text" placeholder="SHELL" value={form.fuel_station} onChange={(e) => handleFormChange("fuel_station", e.target.value.toUpperCase())} disabled={saving} />
+                    <input className="rec-input" type="text" placeholder="e.g. Shell" value={form.fuel_station} onChange={(e) => handleFormChange("fuel_station", toTitleCase(e.target.value))} disabled={saving} />
                   </label>
                   <label className="rec-label rec-label--check">
                     <span className="rec-label__text">Full tank</span>
@@ -921,7 +913,7 @@ export default function VehicleRecordsPage() {
                     rows={2}
                     placeholder="Visual or audio findings..."
                     value={form.diag_findings}
-                    onChange={(e) => handleFormChange("diag_findings", e.target.value)}
+                    onChange={(e) => handleFormChange("diag_findings", toSentenceCase(e.target.value))}
                     disabled={saving}
                   />
                 </label>
@@ -970,7 +962,7 @@ export default function VehicleRecordsPage() {
                           type="text"
                           placeholder="P0300"
                           value={diagFaultCodeForm.code}
-                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, code: toAllCaps(e.target.value) }))}
                         />
                       </label>
                       <label className="rec-label rec-label--wide">
@@ -978,9 +970,9 @@ export default function VehicleRecordsPage() {
                         <input
                           className="rec-input"
                           type="text"
-                          placeholder="RANDOM MISFIRE DETECTED"
+                          placeholder="e.g. Random misfire detected"
                           value={diagFaultCodeForm.description}
-                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, description: e.target.value.toUpperCase() }))}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, description: toSentenceCase(e.target.value) }))}
                         />
                       </label>
                       <label className="rec-label">
@@ -1003,9 +995,8 @@ export default function VehicleRecordsPage() {
                           className="rec-input"
                           type="text"
                           placeholder="Additional notes"
-                          style={{ textTransform: "none" }}
                           value={diagFaultCodeForm.notes}
-                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, notes: e.target.value }))}
+                          onChange={(e) => setDiagFaultCodeForm((p) => ({ ...p, notes: toSentenceCase(e.target.value) }))}
                         />
                       </label>
                       <label className="rec-label">
@@ -1051,7 +1042,7 @@ export default function VehicleRecordsPage() {
                       </button>
                       <button
                         type="button"
-                        className="rec-btn rec-btn--ghost rec-btn--sm"
+                        className="rec-btn--danger-sm"
                         onClick={() => { setShowFaultCodeForm(false); setDiagFaultCodeForm({ ...EMPTY_FC }); setEditingFcIndex(null); setTriggerMileageError(null); }}
                       >
                         Cancel
@@ -1100,9 +1091,9 @@ export default function VehicleRecordsPage() {
                   <input
                     type="text"
                     className="rec-attach-kind-input"
-                    placeholder="LABEL"
+                    placeholder="Label"
                     value={newAttachLabel}
-                    onChange={(e) => { setNewAttachLabel(e.target.value.toUpperCase()); setNewAttachError(null); }}
+                    onChange={(e) => { setNewAttachLabel(toTitleCase(e.target.value)); setNewAttachError(null); }}
                     disabled={saving}
                     maxLength={32}
                   />
@@ -1143,7 +1134,7 @@ export default function VehicleRecordsPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAddRecord} disabled={saving}>
                 {saving ? "Saving…" : "Save record"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setMileageError(null); setTriggerMileageError(null); setNewAttachFiles([]); setNewAttachLabel(""); setDiagFaultCodes([]); setDiagFaultCodeForm({ ...EMPTY_FC }); setShowFaultCodeForm(false); setEditingFcIndex(null); }} disabled={saving}>
+              <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setMileageError(null); setTriggerMileageError(null); setNewAttachFiles([]); setNewAttachLabel(""); setDiagFaultCodes([]); setDiagFaultCodeForm({ ...EMPTY_FC }); setShowFaultCodeForm(false); setEditingFcIndex(null); }} disabled={saving}>
                 Cancel
               </button>
             </div>
@@ -1369,8 +1360,8 @@ export default function VehicleRecordsPage() {
                                   type="text"
                                   className="rec-attach-kind-input"
                                   value={attachKind}
-                                  onChange={(e) => setAttachKind(e.target.value.toUpperCase())}
-                                  placeholder="LABEL"
+                                  onChange={(e) => setAttachKind(toTitleCase(e.target.value))}
+                                  placeholder="Label"
                                   maxLength={32}
                                 />
                                 <button
@@ -1585,7 +1576,7 @@ const REC_STYLES = `
   /* Attachments */
   .rec-attach-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
   .rec-attach-form { display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-3); flex-wrap: wrap; }
-  .rec-attach-kind-input { width: 110px; background: rgba(255,255,255,0.04); border: 1px solid var(--colour-border); border-radius: var(--radius-full, 999px); color: var(--colour-text-muted); font-size: var(--text-xs); padding: 1px 10px; text-transform: uppercase; cursor: text; outline: none; transition: border-color 0.15s; }
+  .rec-attach-kind-input { width: 110px; background: rgba(255,255,255,0.04); border: 1px solid var(--colour-border); border-radius: var(--radius-full, 999px); color: var(--colour-text-muted); font-size: var(--text-xs); padding: 1px 10px; cursor: text; outline: none; transition: border-color 0.15s; }
   .rec-attach-kind-input::placeholder { color: var(--colour-text-muted); }
   .rec-attach-kind-input:focus { border-color: var(--colour-accent); color: var(--colour-text); }
   .rec-attach-cancel { font-size: var(--text-sm); color: var(--colour-text-muted); background: none; border: none; cursor: none; padding: 5px 8px; transition: color 0.15s; }

@@ -24,6 +24,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
 import { TextField } from "@/src/components/ui/input";
 import { apiFetch } from "@/src/lib/api/fetch";
+import { toTitleCase } from "@/src/lib/text";
 
 // ==================================================
 // TYPES
@@ -134,7 +135,7 @@ export default function AccountSettingsPage() {
             <TextField
               label="Account name"
               value={nameInput}
-              onChange={(e) => setNameInput(e.target.value.toUpperCase())}
+              onChange={(e) => setNameInput(toTitleCase(e.target.value))}
               maxLength={200}
               autoFocus
             />
@@ -198,7 +199,7 @@ export default function AccountSettingsPage() {
             <dd>
               {me ? (
                 <Badge tone={me.is_email_verified ? "success" : "muted"}>
-                  {me.is_email_verified ? "Verified" : "Not verified"}
+                  {me.is_email_verified ? "VERIFIED" : "NOT VERIFIED"}
                 </Badge>
               ) : "-"}
             </dd>
@@ -223,7 +224,7 @@ export default function AccountSettingsPage() {
             <dd>
               {me ? (
                 <Badge tone={me.totp_enabled ? "success" : "muted"}>
-                  {me.totp_enabled ? "Enabled" : "Not set up"}
+                  {me.totp_enabled ? "ENABLED" : "NOT SET UP"}
                 </Badge>
               ) : "-"}
             </dd>

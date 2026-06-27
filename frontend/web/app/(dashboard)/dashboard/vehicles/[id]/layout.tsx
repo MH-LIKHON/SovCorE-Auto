@@ -56,10 +56,10 @@ const BADGE_TONE: Record<VehicleMinimal["lifecycle_state"], "success" | "muted">
 };
 
 const BADGE_LABEL: Record<VehicleMinimal["lifecycle_state"], string> = {
-  active:   "Active",
-  sold:     "Sold",
-  scrapped: "Scrapped",
-  archived: "Archived",
+  active:   "ACTIVE",
+  sold:     "SOLD",
+  scrapped: "SCRAPPED",
+  archived: "ARCHIVED",
 };
 
 type SubTab  = { readonly label: string; readonly segment: string };

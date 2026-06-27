@@ -43,6 +43,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { formatDateTime } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -75,16 +76,6 @@ interface RestoreResult {
 // HELPERS
 // ==================================================
 
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function formatBytes(n: number | null): string {
   if (n == null) return "-";
@@ -295,8 +286,8 @@ export default function BackupsPage() {
                       </span>
                     </td>
                     <td className="bkp-col--size set-muted">{formatBytes(b.size_bytes)}</td>
-                    <td className="set-muted">{formatDate(b.created_at)}</td>
-                    <td className="bkp-col--completed set-muted">{formatDate(b.completed_at)}</td>
+                    <td className="set-muted">{formatDateTime(b.created_at)}</td>
+                    <td className="bkp-col--completed set-muted">{formatDateTime(b.completed_at)}</td>
                     <td>
                       {b.status === "complete" && (
                         <div className="bkp-actions">

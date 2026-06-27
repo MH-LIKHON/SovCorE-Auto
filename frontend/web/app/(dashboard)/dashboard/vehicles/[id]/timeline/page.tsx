@@ -27,6 +27,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { formatDateTime } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -53,14 +54,6 @@ interface TimelinePage {
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatDateTime(s: string): string {
-  return new Date(s).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 // Map the event kind to a display label and colour.
 function kindMeta(kind: string): { label: string; colour: string } {

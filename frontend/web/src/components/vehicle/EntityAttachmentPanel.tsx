@@ -29,6 +29,7 @@ import { useRef, useState } from "react";
 
 import { apiFetch, apiUpload } from "@/src/lib/api/fetch";
 import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
+import { toTitleCase } from "@/src/lib/text";
 
 // ==================================================
 // TYPES
@@ -215,9 +216,9 @@ export function EntityAttachmentPanel({
               <input
                 className="eat-label-input sov-field__control"
                 type="text"
-                placeholder="LABEL"
+                placeholder="Label"
                 value={label}
-                onChange={(e) => setLabel(e.target.value.toUpperCase())}
+                onChange={(e) => setLabel(toTitleCase(e.target.value))}
                 disabled={uploading}
               />
               <input

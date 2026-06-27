@@ -28,6 +28,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
 import { DocViewerModal } from "@/src/components/vehicle/DocViewerModal";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
+import { formatDateTime } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -67,14 +68,6 @@ function formatBytes(n: number | null): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDateTime(s: string): string {
-  return new Date(s).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
 }
 
 // ==================================================

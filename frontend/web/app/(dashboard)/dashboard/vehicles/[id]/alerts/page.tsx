@@ -33,6 +33,8 @@ import { useEffect, useState } from "react";
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField, WholeNumberField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { toSentenceCase, toTitleCase } from "@/src/lib/text";
+import { formatDate } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -137,15 +139,6 @@ const CONDITION_TYPE_LABELS: Record<AlertCondition["type"], string> = {
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 function parseIntList(raw: string): number[] {
   return raw
@@ -444,7 +437,7 @@ export default function AlertsPage() {
             <p className="rec-sub">{active} active · {total} total</p>
           </div>
           {showForm ? (
-            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add alert" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -461,9 +454,9 @@ export default function AlertsPage() {
               className="rec-label rec-label--full"
               label="Alert name"
               type="text"
-              placeholder="CAMBELT"
+              placeholder="Cambelt"
               value={form.name}
-              onChange={(e) => setField("name", e.target.value.toUpperCase())}
+              onChange={(e) => setField("name", toTitleCase(e.target.value))}
               disabled={saving}
             />
 
@@ -628,7 +621,7 @@ export default function AlertsPage() {
               rows={2}
               placeholder="Optional notes…"
               value={form.notes}
-              onChange={(e) => setField("notes", e.target.value)}
+              onChange={(e) => setField("notes", toSentenceCase(e.target.value))}
               disabled={saving}
             />
 
@@ -642,7 +635,7 @@ export default function AlertsPage() {
                 {saving ? "Saving…" : "Save alert"}
               </button>
               <button
-                className="rec-btn rec-btn--ghost"
+                className="rec-btn--danger-sm"
                 onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }}
                 disabled={saving}
               >
@@ -691,11 +684,11 @@ export default function AlertsPage() {
                             disabled={savingLog}
                           />
                         </label>
-                        <button className="rec-btn rec-btn--primary" onClick={handleSaveLog} disabled={savingLog}>
+                        <button className="rec-btn--primary-sm" onClick={handleSaveLog} disabled={savingLog}>
                           {savingLog ? "Saving…" : "Save"}
                         </button>
                         <button
-                          className="rec-btn rec-btn--ghost"
+                          className="rec-btn--danger-sm"
                           onClick={() => { setEditingLog(false); setLogDay(String(logSettings.reminder_day)); }}
                           disabled={savingLog}
                         >
@@ -710,8 +703,8 @@ export default function AlertsPage() {
                   </div>
                 </div>
                 <div className="rem-row__right">
-                  {!logSettings.active && <span className="rem-inactive-label">Paused</span>}
-                  <span className="al-default-badge">Default</span>
+                  {!logSettings.active && <span className="rem-inactive-label">PAUSED</span>}
+                  <span className="al-default-badge">DEFAULT</span>
                   <button
                     className={`rem-toggle${logSettings.active ? " rem-toggle--on" : ""}`}
                     onClick={handleToggleLog}
@@ -721,7 +714,7 @@ export default function AlertsPage() {
                     {savingLog ? "…" : logSettings.active ? "Pause" : "Resume"}
                   </button>
                   {!editingLog && (
-                    <button className="rec-btn rec-btn--ghost" onClick={() => setEditingLog(true)}>
+                    <button className="rec-btn--ghost-sm" onClick={() => setEditingLog(true)}>
                       Edit
                     </button>
                   )}
@@ -749,9 +742,9 @@ export default function AlertsPage() {
 
                 {/* ---- Right: active toggle + delete (locked for system defaults) ---- */}
                 <div className="rem-row__right">
-                  {!a.active && <span className="rem-inactive-label">Paused</span>}
+                  {!a.active && <span className="rem-inactive-label">PAUSED</span>}
                   {a.is_system_default && (
-                    <span className="al-default-badge">Default</span>
+                    <span className="al-default-badge">DEFAULT</span>
                   )}
                   <button
                     className={`rem-toggle${a.active ? " rem-toggle--on" : ""}`}
@@ -865,7 +858,7 @@ const AL_STYLES = `
   .rem-row__info { display: flex; flex-direction: column; gap: 2px; }
   .rem-row__type { font-size: var(--text-sm); color: var(--colour-text); }
   .rem-row__intervals { font-size: var(--text-xs); color: var(--colour-text-muted); }
-  .rem-inactive-label { font-size: var(--text-xs); color: var(--colour-text-muted); }
+  .rem-inactive-label { font-size: var(--text-xs); color: #f59e0b; }
   .rem-toggle {
     background: none;
     border: 1px solid var(--colour-border);

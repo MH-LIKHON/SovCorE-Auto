@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { formatGBP } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -94,14 +95,6 @@ interface MaintenanceReport {
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatGBP(pence: number | null): string {
-  if (pence === null) return "-";
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(pence / 100);
-}
 
 function formatMonthLabel(ym: string): string {
   const [y, m] = ym.split("-").map(Number) as [number, number];
@@ -270,7 +263,7 @@ function ExportModal({ accountId, vehicles, onClose }: ExportModalProps) {
         </div>
 
         <footer className="xpm-footer">
-          <button className="rec-btn rec-btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="rec-btn--danger-sm" onClick={onClose}>Cancel</button>
           <button className="rec-btn rec-btn--primary" onClick={handleGenerate} disabled={busy}>
             {busy ? "Generating…" : "Generate PDF"}
           </button>

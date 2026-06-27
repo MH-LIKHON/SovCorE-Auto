@@ -27,6 +27,7 @@ import { useState } from "react";
 import { Card } from "@/src/components/ui/card";
 import { TextField, WholeNumberField } from "@/src/components/ui/input";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { toAllCaps, toTitleCase } from "@/src/lib/text";
 
 // ==================================================
 // CONSTANTS
@@ -170,7 +171,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Registration"
               value={form.registration}
-              onChange={(e) => set("registration", e.target.value.toUpperCase())}
+              onChange={(e) => set("registration", toAllCaps(e.target.value))}
               placeholder="e.g. AB12 CDE"
               maxLength={8}
               autoFocus
@@ -180,7 +181,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Make"
               value={form.make}
-              onChange={(e) => set("make", e.target.value.toUpperCase())}
+              onChange={(e) => set("make", toTitleCase(e.target.value))}
               placeholder="e.g. Volkswagen"
               maxLength={100}
               disabled={saving}
@@ -189,7 +190,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Model"
               value={form.model}
-              onChange={(e) => set("model", e.target.value.toUpperCase())}
+              onChange={(e) => set("model", toTitleCase(e.target.value))}
               placeholder="e.g. Golf"
               maxLength={100}
               disabled={saving}
@@ -198,7 +199,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Variant / trim"
               value={form.variant}
-              onChange={(e) => set("variant", e.target.value.toUpperCase())}
+              onChange={(e) => set("variant", toTitleCase(e.target.value))}
               placeholder="e.g. GTI DSG"
               maxLength={100}
               disabled={saving}
@@ -216,7 +217,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Colour"
               value={form.colour}
-              onChange={(e) => set("colour", e.target.value.toUpperCase())}
+              onChange={(e) => set("colour", toTitleCase(e.target.value))}
               placeholder="e.g. Moonstone Grey"
               maxLength={50}
               disabled={saving}
@@ -279,7 +280,7 @@ export default function NewVehiclePage() {
             <TextField
               label="Engine"
               value={form.engine}
-              onChange={(e) => set("engine", e.target.value.toUpperCase())}
+              onChange={(e) => set("engine", toTitleCase(e.target.value))}
               placeholder="e.g. 2.0 TDI"
               maxLength={50}
               disabled={saving}

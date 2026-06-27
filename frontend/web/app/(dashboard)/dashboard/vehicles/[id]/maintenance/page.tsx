@@ -26,6 +26,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { formatDate, formatGBP, formatMonth } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -39,23 +40,6 @@ interface RecordItem {
   supplier: string | null;
   garage: string | null;
   notes: string | null;
-}
-
-// ==================================================
-// HELPERS
-// ==================================================
-
-function formatGBP(pence: number): string {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
-}
-
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
-function formatMonth(ym: string): string {
-  const [y, m] = ym.split("-").map(Number) as [number, number];
-  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
 }
 
 // ==================================================

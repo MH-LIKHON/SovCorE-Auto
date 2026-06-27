@@ -39,6 +39,8 @@ import { Suspense, useEffect, useRef, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { toAllCaps } from "@/src/lib/text";
+import { formatDate } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -122,12 +124,6 @@ const STATUS_LABELS: Record<string, string> = {
   open: "Open", in_progress: "In progress", completed: "Completed",
 };
 
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "numeric", month: "short", year: "numeric",
-  });
-}
 
 function capitalize(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ") : "-";
@@ -228,9 +224,9 @@ function SearchInner() {
             <input
               className="sov-field__control srch-input"
               type="text"
-              placeholder="SEARCH REGISTRATION, MAKE, MODEL, SUPPLIER, TAG..."
+              placeholder="Search registration, make, model, supplier, tag..."
               value={input}
-              onChange={(e) => { firePulse(); setInput(e.target.value.toUpperCase()); }}
+              onChange={(e) => { firePulse(); setInput(toAllCaps(e.target.value)); }}
               autoFocus
             />
             <div ref={pulseRingRef} aria-hidden="true" style={PULSE_RING_STYLE} />

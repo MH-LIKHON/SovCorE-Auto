@@ -34,6 +34,8 @@ import { Card } from "@/src/components/ui/card";
 import { TextField, WholeNumberField } from "@/src/components/ui/input";
 import { BodyTypeIcon } from "@/src/components/vehicles/body-type-icon";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
+import { toAllCaps, toSentenceCase, toTitleCase } from "@/src/lib/text";
+import { daysUntil, formatDate, formatGBP } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -63,17 +65,10 @@ interface VehicleDetail {
   wheel_sizes: string | null;
   mileage: number | null;
   image_key: string | null;
+  cover_url: string | null;
   lifecycle_state: "active" | "sold" | "scrapped" | "archived";
   created_at: string;
   updated_at: string;
-}
-
-interface Renewal {
-  mot_expiry: string | null;
-  tax_due_date: string | null;
-  insurance_expiry: string | null;
-  service_due_date: string | null;
-  service_due_mileage: number | null;
 }
 
 interface Ownership {
@@ -88,15 +83,54 @@ interface Ownership {
   notes: string | null;
 }
 
-type Tab = "overview" | "info" | "ownership" | "renewals";
+type Tab = "overview" | "info" | "ownership";
+
+// ==================================================
+// STATUS TYPES
+// ==================================================
+
+interface ReminderSummary {
+  id: string;
+  type: string;
+  label: string | null;
+  due_date: string;
+  active: boolean;
+}
+
+interface AlertCondition {
+  type: "date" | "recurring" | "mileage" | "mileage_recurring";
+  on?: string;
+  next_due?: string;
+  at?: number;
+  fired?: boolean;
+  next_due_mileage?: number;
+}
+
+interface AlertSummary {
+  id: string;
+  name: string;
+  conditions: AlertCondition[];
+  active: boolean;
+  is_system_default: boolean;
+}
+
+// A normalised status row for the Summary panel
+interface StatusRow {
+  id: string;
+  label: string;
+  kind: "date" | "mileage";
+  source: "reminder" | "alert";
+  date?: string;          // ISO date string for date-kind rows
+  mileage?: number;       // absolute mileage for mileage-kind rows
+  overdue: boolean;
+  urgency: number;        // 0 = overdue/red, 1 = amber, 2 = green — for sort
+}
 
 // ==================================================
 // HELPERS
 // ==================================================
 
-const R2_PUBLIC = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "";
-
-function formatDate(d: string | null): string {
+function formatDateLong(d: string | null): string {
   if (!d) return "Not set";
   return new Date(d).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -105,23 +139,79 @@ function formatDate(d: string | null): string {
   });
 }
 
-function formatGBP(pence: number | null): string {
-  if (pence === null) return "Not set";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
+function ragFromDays(days: number): { colour: string; urgency: number } {
+  if (days <= 0)  return { colour: "var(--colour-error)",  urgency: 0 };
+  if (days <= 30) return { colour: "var(--colour-error)",  urgency: 0 };
+  if (days <= 90) return { colour: "var(--colour-amber)",  urgency: 1 };
+  return           { colour: "var(--colour-teal)",   urgency: 2 };
 }
 
-function daysUntil(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const diff = new Date(dateStr).getTime() - Date.now();
-  return Math.ceil(diff / 86_400_000);
+function ragFromMiles(remaining: number): { colour: string; urgency: number } {
+  if (remaining <= 0)    return { colour: "var(--colour-error)",  urgency: 0 };
+  if (remaining <= 500)  return { colour: "var(--colour-error)",  urgency: 0 };
+  if (remaining <= 2000) return { colour: "var(--colour-amber)",  urgency: 1 };
+  return                  { colour: "var(--colour-teal)",   urgency: 2 };
 }
 
-function ragColour(dateStr: string | null): string {
-  const days = daysUntil(dateStr);
-  if (days === null) return "var(--colour-text-muted)";
-  if (days <= 30) return "var(--colour-error)";
-  if (days <= 90) return "var(--colour-amber)";
-  return "var(--colour-teal)";
+const REMINDER_TYPE_LABEL: Record<string, string> = {
+  mot: "MOT", tax: "Tax", insurance: "Insurance", service: "Service",
+  tyres: "Tyres", brake_fluid: "Brake fluid", battery: "Battery",
+  warranty: "Warranty", finance: "Finance", breakdown_cover: "Breakdown cover",
+};
+
+function buildStatusRows(
+  reminders: ReminderSummary[],
+  alerts: AlertSummary[],
+  currentMileage: number | null,
+): StatusRow[] {
+  const rows: StatusRow[] = [];
+
+  for (const r of reminders) {
+    if (!r.active) continue;
+    const days = daysUntil(r.due_date) ?? 0;
+    const { urgency } = ragFromDays(days);
+    rows.push({
+      id: `rem-${r.id}`,
+      label: r.type === "custom" && r.label ? r.label : (REMINDER_TYPE_LABEL[r.type] ?? r.type),
+      kind: "date",
+      source: "reminder",
+      date: r.due_date,
+      overdue: days <= 0,
+      urgency,
+    });
+  }
+
+  for (const a of alerts) {
+    if (!a.active || a.is_system_default) continue;
+    for (const c of a.conditions) {
+      if (c.type === "date" && c.on) {
+        const days = daysUntil(c.on) ?? 0;
+        const { urgency } = ragFromDays(days);
+        rows.push({ id: `alt-${a.id}-date`, label: a.name, kind: "date", source: "alert", date: c.on, overdue: days <= 0, urgency });
+      } else if (c.type === "recurring" && c.next_due) {
+        const days = daysUntil(c.next_due) ?? 0;
+        const { urgency } = ragFromDays(days);
+        rows.push({ id: `alt-${a.id}-rec`, label: a.name, kind: "date", source: "alert", date: c.next_due, overdue: days <= 0, urgency });
+      } else if (c.type === "mileage" && c.at != null && !c.fired) {
+        const remaining = currentMileage != null ? c.at - currentMileage : c.at;
+        const { urgency } = ragFromMiles(remaining);
+        rows.push({ id: `alt-${a.id}-mi`, label: a.name, kind: "mileage", source: "alert", mileage: c.at, overdue: remaining <= 0, urgency });
+      } else if (c.type === "mileage_recurring" && c.next_due_mileage != null) {
+        const remaining = currentMileage != null ? c.next_due_mileage - currentMileage : c.next_due_mileage;
+        const { urgency } = ragFromMiles(remaining);
+        rows.push({ id: `alt-${a.id}-mirec`, label: a.name, kind: "mileage", source: "alert", mileage: c.next_due_mileage, overdue: remaining <= 0, urgency });
+      }
+    }
+  }
+
+  // Sort: overdue first, then by urgency asc, then by date/mileage
+  rows.sort((a, b) => {
+    if (a.urgency !== b.urgency) return a.urgency - b.urgency;
+    if (a.kind === "date" && b.kind === "date") return new Date(a.date!).getTime() - new Date(b.date!).getTime();
+    return 0;
+  });
+
+  return rows;
 }
 
 // ==================================================
@@ -135,14 +225,14 @@ export default function VehicleProfilePage() {
 
   const [tab, setTab] = useState<Tab>("overview");
   const [vehicle, setVehicle] = useState<VehicleDetail | null>(null);
-  const [renewal, setRenewal] = useState<Renewal | null>(null);
   const [ownership, setOwnership] = useState<Ownership | null>(null);
+  const [reminders, setReminders] = useState<ReminderSummary[]>([]);
+  const [alerts, setAlerts] = useState<AlertSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Edit mode for basic info and ownership
   const [editingInfo, setEditingInfo] = useState(false);
   const [editingOwnership, setEditingOwnership] = useState(false);
-  const [editingRenewals, setEditingRenewals] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -158,17 +248,20 @@ export default function VehicleProfilePage() {
   async function load() {
     if (!accountId || !id) return;
     setLoading(true);
-    const [vRes, rRes, oRes] = await Promise.all([
+    const [vRes, oRes, remRes, altRes] = await Promise.all([
       apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}`),
-      apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/renewals`),
       apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/ownership`),
+      apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/reminders?page=1&page_size=100`),
+      apiFetch(`/api/v1/accounts/${accountId}/vehicles/${id}/alerts?page=1&page_size=100`),
     ]);
     const v = vRes.ok ? await vRes.json() : null;
-    const r = rRes.ok ? await rRes.json() : null;
     const o = oRes.ok ? await oRes.json() : null;
+    const rem = remRes.ok ? await remRes.json() : null;
+    const alt = altRes.ok ? await altRes.json() : null;
     setVehicle(v);
-    setRenewal(r);
     setOwnership(o);
+    if (rem) setReminders(rem.items ?? []);
+    if (alt) setAlerts(alt.items ?? []);
     if (v) setLifecycleState(v.lifecycle_state);
     setLoading(false);
   }
@@ -262,32 +355,6 @@ export default function VehicleProfilePage() {
     setEditingOwnership(false);
   }
 
-  // ------------------------------ Renewals put --------------------------------
-  const [renewalForm, setRenewalForm] = useState<Partial<Renewal>>({});
-  function startEditRenewals() {
-    setRenewalForm({ ...renewal });
-    setEditingRenewals(true);
-    setSaveError(null);
-  }
-  async function saveRenewals() {
-    if (!accountId || !vehicle) return;
-    setSaving(true);
-    setSaveError(null);
-    const res = await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${vehicle.id}/renewals`, {
-      method: "PUT",
-      body: JSON.stringify(renewalForm),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      setSaveError(d.detail ?? "Save failed.");
-      return;
-    }
-    const updated = await res.json();
-    setRenewal(updated);
-    setEditingRenewals(false);
-  }
-
   // ------------------------------ Lifecycle -----------------------------------
   async function applyLifecycle() {
     if (!accountId || !vehicle || lifecycleState === vehicle.lifecycle_state) return;
@@ -341,7 +408,7 @@ export default function VehicleProfilePage() {
     ? [vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Vehicle"
     : "Vehicle";
 
-  const imageUrl = vehicle?.image_key && R2_PUBLIC ? `${R2_PUBLIC}/${vehicle.image_key}` : null;
+  const imageUrl = vehicle?.cover_url ?? null;
 
   if (loading) {
     return (
@@ -366,15 +433,15 @@ export default function VehicleProfilePage() {
 
   return (
     <div className="vd-shell">
-      {/* ~~~~~~~~~ Secondary sub-tabs (Overview / Details / Ownership / Renewals) ~~~~~~~~~ */}
+      {/* ~~~~~~~~~ Secondary sub-tabs (Summary / Details / Ownership) ~~~~~~~~~ */}
       <nav className="vd-tabs" aria-label="Vehicle overview sections">
-        {(["overview", "info", "ownership", "renewals"] as Tab[]).map((t) => (
+        {(["overview", "info", "ownership"] as Tab[]).map((t) => (
           <button
             key={t}
             className={t === tab ? "vd-tab vd-tab--active" : "vd-tab"}
-            onClick={() => { setTab(t); setEditingInfo(false); setEditingOwnership(false); setEditingRenewals(false); setSaveError(null); setInfoMileageError(null); }}
+            onClick={() => { setTab(t); setEditingInfo(false); setEditingOwnership(false); setSaveError(null); setInfoMileageError(null); }}
           >
-            {t === "overview" ? "Summary" : t === "info" ? "Details" : t === "ownership" ? "Ownership" : "Renewals"}
+            {t === "overview" ? "Summary" : t === "info" ? "Details" : "Ownership"}
           </button>
         ))}
       </nav>
@@ -422,40 +489,80 @@ export default function VehicleProfilePage() {
             {photoError && <p className="vd-photo-error">{photoError}</p>}
           </div>
 
-          {/* Renewal RAG panel */}
-          <Card>
-            <h2 className="vd-card-title">Renewal status</h2>
-            <div className="vd-rag-grid">
-              {([
-                { key: "mot_expiry", label: "MOT" },
-                { key: "tax_due_date", label: "Tax" },
-                { key: "insurance_expiry", label: "Insurance" },
-                { key: "service_due_date", label: "Service" },
-              ] as const).map(({ key, label }) => {
-                const dateStr = renewal ? renewal[key] : null;
-                const colour = ragColour(dateStr);
-                const days = daysUntil(dateStr);
-                return (
-                  <div key={key} className="vd-rag-item">
-                    <div className="vd-rag-dot" style={{ background: colour }} />
-                    <div>
-                      <p className="vd-rag-label">{label}</p>
-                      <p className="vd-rag-date" style={{ color: colour }}>
-                        {formatDate(dateStr)}
-                      </p>
-                      {days !== null && (
-                        <p className="vd-rag-days" style={{ color: colour }}>
-                          {days <= 0
-                            ? `${Math.abs(days)} day${Math.abs(days) !== 1 ? "s" : ""} overdue`
-                            : `${days} day${days !== 1 ? "s" : ""} remaining`}
-                        </p>
-                      )}
-                    </div>
+          {/* Status panel — live from Reminders + Alerts */}
+          {(() => {
+            const rows = buildStatusRows(reminders, alerts, vehicle.mileage);
+            if (rows.length === 0) return null;
+
+            const overdue  = rows.filter((r) => r.overdue);
+            const dueSoon  = rows.filter((r) => !r.overdue && r.urgency === 0);
+            const upcoming = rows.filter((r) => !r.overdue && r.urgency === 1);
+            const future   = rows.filter((r) => !r.overdue && r.urgency === 2);
+
+            function StatusCard({ row }: { row: StatusRow }) {
+              const rag = row.kind === "date"
+                ? ragFromDays(daysUntil(row.date!) ?? 0)
+                : ragFromMiles(vehicle!.mileage != null && row.mileage != null ? row.mileage - vehicle!.mileage : row.mileage ?? 0);
+
+              const badge = row.kind === "date"
+                ? (() => {
+                    const d = daysUntil(row.date!) ?? 0;
+                    return d <= 0 ? `${Math.abs(d)}d overdue` : `${d} day${d !== 1 ? "s" : ""}`;
+                  })()
+                : (() => {
+                    const rem = vehicle!.mileage != null && row.mileage != null ? row.mileage - vehicle!.mileage : null;
+                    return rem != null ? (rem <= 0 ? "Overdue" : `${rem.toLocaleString("en-GB")} mi`) : "Due";
+                  })();
+
+              const sub = row.kind === "date"
+                ? formatDate(row.date!)
+                : `at ${row.mileage!.toLocaleString("en-GB")} mi`;
+
+              const href = `/dashboard/vehicles/${id}/${row.source === "reminder" ? "reminders" : "alerts"}`;
+
+              return (
+                <Card
+                  clickable
+                  hoverEffect="glow"
+                  padding="12px 14px"
+                  onClick={() => router.push(href)}
+                  style={{ borderTop: `2px solid ${rag.colour}`, borderRadius: 12 }}
+                >
+                  <span className="vd-sc__name">{row.label}</span>
+                  <span className="vd-sc__badge" style={{ color: rag.colour, borderColor: `${rag.colour}44`, background: `${rag.colour}11` }}>{badge}</span>
+                  <span className="vd-sc__sub">{sub}</span>
+                </Card>
+              );
+            }
+
+            function Group({ title, colour, rows: gr }: { title: string; colour: string; rows: StatusRow[] }) {
+              if (gr.length === 0) return null;
+              return (
+                <div className="vd-sg">
+                  <div className="vd-sg__head">
+                    <span className="vd-sg__dot" style={{ background: colour }} />
+                    <span className="vd-sg__title" style={{ color: colour }}>{title}</span>
+                    <span className="vd-sg__count">{gr.length}</span>
                   </div>
-                );
-              })}
-            </div>
-          </Card>
+                  <div className="vd-sg__grid">
+                    {gr.map((r) => <StatusCard key={r.id} row={r} />)}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <Card>
+                <h2 className="vd-card-title">Status</h2>
+                <div className="vd-status-groups">
+                  <Group title="Overdue"   colour="var(--colour-error)" rows={overdue} />
+                  <Group title="Due soon"  colour="var(--colour-error)" rows={dueSoon} />
+                  <Group title="Upcoming"  colour="var(--colour-amber)" rows={upcoming} />
+                  <Group title="All clear" colour="var(--colour-teal)"  rows={future} />
+                </div>
+              </Card>
+            );
+          })()}
 
           {/* Key facts */}
           <Card>
@@ -554,7 +661,7 @@ export default function VehicleProfilePage() {
                   key={field}
                   label={label}
                   value={(infoForm[field] as string | number | null) ?? ""}
-                  onChange={(e) => setInfoForm((f) => ({ ...f, [field]: e.target.value.toUpperCase() || null }))}
+                  onChange={(e) => setInfoForm((f) => ({ ...f, [field]: (field === "registration" || field === "vin") ? toAllCaps(e.target.value) || null : toTitleCase(e.target.value) || null }))}
                   disabled={saving}
                 />
               ))}
@@ -632,7 +739,7 @@ export default function VehicleProfilePage() {
                   key={field}
                   label={label}
                   value={(ownershipForm[field] as string | number | null) ?? ""}
-                  onChange={(e) => setOwnershipForm((f) => ({ ...f, [field]: field === "notes" ? e.target.value || null : e.target.value.toUpperCase() || null }))}
+                  onChange={(e) => setOwnershipForm((f) => ({ ...f, [field]: field === "notes" ? toSentenceCase(e.target.value) || null : toTitleCase(e.target.value) || null }))}
                   disabled={saving}
                 />
               ))}
@@ -648,70 +755,13 @@ export default function VehicleProfilePage() {
             <dl className="vd-dl">
               <div><dt>Current owner</dt><dd>{ownership?.current_owner ?? "-"}</dd></div>
               <div><dt>Registered keeper</dt><dd>{ownership?.registered_keeper ?? "-"}</dd></div>
-              <div><dt>Purchase date</dt><dd>{formatDate(ownership?.purchase_date ?? null)}</dd></div>
+              <div><dt>Purchase date</dt><dd>{formatDateLong(ownership?.purchase_date ?? null)}</dd></div>
               <div><dt>Purchase price</dt><dd>{formatGBP(ownership?.purchase_price ?? null)}</dd></div>
               <div><dt>Seller</dt><dd>{ownership?.seller ?? "-"}</dd></div>
               <div><dt>Dealer</dt><dd>{ownership?.dealer ?? "-"}</dd></div>
               <div><dt>Finance company</dt><dd>{ownership?.finance_company ?? "-"}</dd></div>
               <div><dt>Finance status</dt><dd>{ownership?.finance_status ?? "-"}</dd></div>
               <div><dt>Notes</dt><dd>{ownership?.notes ?? "-"}</dd></div>
-            </dl>
-          )}
-        </Card>
-      )}
-
-      {/* ==================================================
-          RENEWALS TAB
-      ================================================== */}
-      {tab === "renewals" && (
-        <Card>
-          <div className="vd-section-head">
-            <h2 className="vd-card-title">Renewal dates</h2>
-            {!editingRenewals && (
-              <button className="vd-edit-btn" onClick={startEditRenewals}>Edit</button>
-            )}
-          </div>
-
-          {editingRenewals ? (
-            <div className="vd-form">
-              {([
-                ["mot_expiry", "MOT expiry"],
-                ["tax_due_date", "Tax due date"],
-                ["insurance_expiry", "Insurance expiry"],
-                ["service_due_date", "Service due date"],
-              ] as [keyof Renewal, string][]).map(([field, label]) => (
-                <TextField
-                  key={field}
-                  label={label}
-                  type="date"
-                  value={(renewalForm[field] as string | null) ?? ""}
-                  onChange={(e) => setRenewalForm((f) => ({ ...f, [field]: e.target.value || null }))}
-                  disabled={saving}
-                />
-              ))}
-              <WholeNumberField
-                label="Service due mileage"
-                value={renewalForm.service_due_mileage ?? ""}
-                onChange={(v) => { setRenewalForm((f) => ({ ...f, service_due_mileage: v ? parseInt(v, 10) : null })); }}
-                placeholder="e.g. 50000"
-                disabled={saving}
-                maxLength={7}
-              />
-              {saveError && <p className="vd-error">{saveError}</p>}
-              <div className="vd-form-actions">
-                <button className="vd-btn vd-btn--primary" onClick={saveRenewals} disabled={saving}>
-                  {saving ? "Saving…" : "Save"}
-                </button>
-                <button className="vd-btn vd-btn--ghost" onClick={() => setEditingRenewals(false)}>Cancel</button>
-              </div>
-            </div>
-          ) : (
-            <dl className="vd-dl">
-              <div><dt>MOT expiry</dt><dd style={{ color: ragColour(renewal?.mot_expiry ?? null) }}>{formatDate(renewal?.mot_expiry ?? null)}</dd></div>
-              <div><dt>Tax due date</dt><dd style={{ color: ragColour(renewal?.tax_due_date ?? null) }}>{formatDate(renewal?.tax_due_date ?? null)}</dd></div>
-              <div><dt>Insurance expiry</dt><dd style={{ color: ragColour(renewal?.insurance_expiry ?? null) }}>{formatDate(renewal?.insurance_expiry ?? null)}</dd></div>
-              <div><dt>Service due date</dt><dd style={{ color: ragColour(renewal?.service_due_date ?? null) }}>{formatDate(renewal?.service_due_date ?? null)}</dd></div>
-              <div><dt>Service due mileage</dt><dd>{renewal?.service_due_mileage !== null && renewal?.service_due_mileage !== undefined ? renewal.service_due_mileage.toLocaleString("en-GB") + " mi" : "-"}</dd></div>
             </dl>
           )}
         </Card>
@@ -756,8 +806,9 @@ const VD_STYLES = `
     cursor: none;
     text-decoration: underline;
     text-underline-offset: 2px;
+    transition: color var(--duration-normal) var(--ease-smooth);
   }
-  .vd-photo-btn:hover { color: var(--colour-text); }
+  .vd-photo-btn:hover { color: var(--colour-accent2); }
   .vd-photo-btn:disabled { opacity: 0.5; }
   .vd-photo-error { font-size: var(--text-xs); color: var(--colour-error); margin: 0; }
 
@@ -790,13 +841,31 @@ const VD_STYLES = `
 
   .vd-card-title { font-size: var(--text-md); font-weight: var(--weight-medium); margin-bottom: var(--space-5); letter-spacing: normal; }
 
-  /* ---- Renewal RAG grid ---- */
-  .vd-rag-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-5); }
-  .vd-rag-item { display: flex; align-items: flex-start; gap: var(--space-3); }
-  .vd-rag-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
-  .vd-rag-label { font-size: var(--text-xs); color: var(--colour-text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 2px; }
-  .vd-rag-date { font-size: var(--text-sm); font-weight: var(--weight-medium); margin: 0 0 2px; }
-  .vd-rag-days { font-size: var(--text-xs); margin: 0; }
+  /* ---- Status panel ---- */
+  .vd-status-groups { display: flex; flex-direction: column; gap: var(--space-5); }
+
+  /* Group header */
+  .vd-sg__head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-3); }
+  .vd-sg__dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .vd-sg__title { font-size: var(--text-xs); font-weight: var(--weight-semibold); text-transform: uppercase; letter-spacing: 0.08em; }
+  .vd-sg__count { font-size: var(--text-xs); color: var(--colour-text-muted); margin-left: 2px; }
+
+  /* Card grid within a group */
+  .vd-sg__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--space-3);
+  }
+
+  /* Individual status card content (Card component handles hover/glow) */
+  .vd-sc__name { font-size: var(--text-sm); color: var(--colour-text); font-weight: var(--weight-medium); line-height: 1.3; }
+  .vd-sc__badge {
+    display: inline-block; align-self: flex-start;
+    font-size: 10px; font-weight: var(--weight-semibold);
+    padding: 1px 7px; border-radius: var(--radius-full, 999px);
+    border: 1px solid; margin-top: 4px;
+  }
+  .vd-sc__sub { font-size: var(--text-xs); color: var(--colour-text-muted); margin-top: 4px; }
 
   /* ---- Key facts dl ---- */
   .vd-dl { display: flex; flex-direction: column; gap: var(--space-3); }

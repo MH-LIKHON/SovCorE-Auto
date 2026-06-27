@@ -26,6 +26,7 @@ import { useEffect, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { formatDateTime } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -54,16 +55,6 @@ interface AuditPage {
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatDateTime(s: string): string {
-  return new Date(s).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 const ACTION_COLOURS: Record<string, string> = {
   create: "#22c55e",

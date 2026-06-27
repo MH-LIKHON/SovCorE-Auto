@@ -29,6 +29,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { apiFetch, getAccountId } from "@/src/lib/api/fetch";
+import { formatDate, formatMiles, formatMonth } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -50,32 +51,6 @@ interface MileageAnalytics {
   oldest_year: number;
 }
 
-
-// ==================================================
-// HELPERS
-// ==================================================
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function formatMiles(n: number | null): string {
-  if (n === null) return "-";
-  return n.toLocaleString("en-GB") + " mi";
-}
-
-function formatMonthLabel(ym: string): string {
-  const [y, m] = ym.split("-").map(Number) as [number, number];
-  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", {
-    month: "short",
-    year: "numeric",
-  });
-}
 
 // ==================================================
 // YEAR CONSTANTS
@@ -246,7 +221,7 @@ export default function MileagePage() {
                       />
                     </div>
                     <span className="fuel-bar-label">
-                      {formatMonthLabel(m.month).split(" ")[0]}
+                      {formatMonth(m.month).split(" ")[0]}
                     </span>
                   </div>
                 ))}
@@ -266,7 +241,7 @@ export default function MileagePage() {
               {[...analytics.monthly_history].reverse().map((m) => (
                 <div key={m.month} className="mil-row">
                   <div className="mil-row__left">
-                    <span className="mil-row__month">{formatMonthLabel(m.month)}</span>
+                    <span className="mil-row__month">{formatMonth(m.month)}</span>
                   </div>
                   <div className="mil-row__right">
                     <span className="mil-row__odo">{m.odometer.toLocaleString("en-GB")} mi</span>

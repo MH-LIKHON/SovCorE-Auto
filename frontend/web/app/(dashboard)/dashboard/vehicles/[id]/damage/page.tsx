@@ -34,6 +34,8 @@ import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
 import { EntityAttachmentPanel } from "@/src/components/vehicle/EntityAttachmentPanel";
 import { apiFetch, apiUpload, getAccountId } from "@/src/lib/api/fetch";
+import { toSentenceCase } from "@/src/lib/text";
+import { formatDate, formatGBP } from "@/src/lib/format";
 
 // ==================================================
 // TYPES
@@ -115,16 +117,6 @@ const ACCEPTED_IMAGE = "image/jpeg,image/png,image/webp";
 // ==================================================
 // HELPERS
 // ==================================================
-
-function formatGBP(pence: number | null): string {
-  if (pence === null) return "-";
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
-}
-
-function formatDate(d: string | null): string {
-  if (!d) return "-";
-  return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
 
 function kindLabel(k: DamageKind): string {
   return DAMAGE_KINDS.find((d) => d.value === k)?.label ?? k;
@@ -460,7 +452,7 @@ export default function DamagePage() {
             <p className="rec-sub">Scratches, dents, paintwork, glass damage and accident records for this vehicle.</p>
           </div>
           {showForm ? (
-            <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add entry" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -509,7 +501,7 @@ export default function DamagePage() {
               rows={2}
               placeholder="Describe the damage…"
               value={form.description}
-              onChange={(e) => handleFormChange("description", e.target.value)}
+              onChange={(e) => handleFormChange("description", toSentenceCase(e.target.value))}
               disabled={saving}
             />
             <p className="rec-sub" style={{ marginTop: 0 }}>Save the entry first, then add before and after photos directly on the entry below.</p>
@@ -518,7 +510,7 @@ export default function DamagePage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAdd} disabled={saving}>
                 {saving ? "Saving…" : "Save entry"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
+              <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
                 Cancel
               </button>
             </div>
