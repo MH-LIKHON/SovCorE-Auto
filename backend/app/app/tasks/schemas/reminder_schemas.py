@@ -32,6 +32,7 @@ _DEFAULT_INTERVALS: list[int] = [90, 60, 30, 14, 7, 1]
 
 class ReminderCreateIn(BaseModel):
     type: str                            # ReminderType enum value
+    label: Optional[str] = None          # required when type == "custom"
     due_date: date
     intervals: list[int] = Field(default_factory=lambda: list(_DEFAULT_INTERVALS))
     # Optional mileage-based trigger. Set for dual-trigger types (service,
@@ -48,6 +49,7 @@ class ReminderCreateIn(BaseModel):
 
 
 class ReminderPatchIn(BaseModel):
+    label: Optional[str] = None
     due_date: Optional[date] = None
     intervals: Optional[list[int]] = None
     due_mileage: Optional[int] = None
@@ -66,6 +68,7 @@ class ReminderOut(BaseModel):
     account_id: uuid.UUID
     vehicle_id: uuid.UUID
     type: str
+    label: Optional[str]
     due_date: date
     intervals: list[int]
     last_sent_interval: Optional[int]

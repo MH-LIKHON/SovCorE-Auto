@@ -102,6 +102,9 @@ class Reminder(Base):
         Integer, nullable=False, default=500, server_default="500"
     )
 
+    # User-defined name for custom reminder types.
+    label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
