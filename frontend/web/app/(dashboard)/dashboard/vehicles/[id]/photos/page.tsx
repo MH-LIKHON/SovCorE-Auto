@@ -231,7 +231,7 @@ function DamagePhotoSlot({
           <img src={url} alt={`${slot} damage`} className="ph-slot__img" />
           {canDelete && (
             <button
-              className="ph-slot__remove"
+              className="rec-btn rec-btn--danger-sm"
               onClick={() => onRequestDelete(entry, slot)}
               disabled={uploading}
             >
@@ -569,7 +569,7 @@ export default function VehiclePhotosPage() {
                       <div className="ph-gallery-fallback" />
                     )}
                     <button
-                      className="ph-gallery-remove"
+                      className="rec-btn rec-btn--danger-sm"
                       onClick={() => handleMediaDelete(item)}
                     >
                       Remove
@@ -709,10 +709,6 @@ const PH_STYLES = `
     background: rgba(255,255,255,0.04); border-radius: var(--radius-md);
     border: 0.5px dashed var(--colour-border);
   }
-  .ph-gallery-remove {
-    font-size: var(--text-xs); color: var(--colour-error); background: none; border: none;
-    padding: 0; cursor: none; text-decoration: underline; text-underline-offset: 2px; text-align: left;
-  }
 
   /* Damage list */
   .ph-damage-list { display: flex; flex-direction: column; gap: var(--space-5); }
@@ -746,10 +742,6 @@ const PH_STYLES = `
   .ph-slot__img {
     width: 140px; height: 96px; object-fit: cover;
     border-radius: var(--radius-md); border: 0.5px solid var(--colour-border); display: block;
-  }
-  .ph-slot__remove {
-    font-size: var(--text-xs); color: var(--colour-error); background: none; border: none;
-    padding: 0; cursor: none; text-decoration: underline; text-underline-offset: 2px; text-align: left;
   }
   .ph-slot__add {
     width: 140px; height: 96px; border: 1px dashed var(--colour-border);

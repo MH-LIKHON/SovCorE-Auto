@@ -16,10 +16,10 @@
 //   CSP allows:
 //     - Scripts from self (Next.js needs unsafe-inline/eval without nonces).
 //     - Styles from self and inline.
-//     - Images from self, data: URIs (avatars) and blob: (canvas snapshots).
-//     - Connections to self only — all API calls use relative paths so the
-//       backend is never a separate origin in the browser. R2 storage URL
-//       is the only external connect-src entry.
+//     - Images from self, data: URIs (avatars), blob: (canvas snapshots),
+//       and the EU R2 domain for signed GET URLs (private bucket, no public URL).
+//     - Connections to self only — all API calls use relative paths. Browser
+//       never connects to R2 directly (proxy upload pattern); no R2 connect-src needed.
 //     - Fonts from self.
 //     - Microsoft login iframe for SSO.
 //     - Frames denied from any parent via frame-ancestors 'none'.
@@ -43,9 +43,9 @@ const csp = [
   `default-src 'self'`,
   `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,  // unsafe-eval required by Next.js App Router in production; remove only after adopting nonces (Phase 9)
   `style-src 'self' 'unsafe-inline'`,
-  `img-src 'self' data: blob:`,
+  `img-src 'self' data: blob: https://0d015e9069ac7a0b9d14088046d1f3ae.eu.r2.cloudflarestorage.com`,
   `font-src 'self' data:`,
-  `connect-src 'self' https://0d015e9069ac7a0b9d14088046d1f3ae.r2.cloudflarestorage.com`,
+  `connect-src 'self'`,
   `frame-src 'self' blob: https://login.microsoftonline.com`,
   `frame-ancestors 'none'`,
   `form-action 'self'`,
