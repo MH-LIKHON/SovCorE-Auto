@@ -507,7 +507,7 @@ export default function VehiclePhotosPage() {
                 </button>
                 {coverUrl && (
                   <button
-                    className="rec-btn rec-btn--ghost"
+                    className="rec-btn rec-btn--danger-sm"
                     onClick={handleCoverDelete}
                     disabled={coverUploading || coverDeleting}
                   >

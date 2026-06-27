@@ -214,7 +214,7 @@ export default function UsersPage() {
                                   <option key={r} value={r}>{r}</option>
                                 ))}
                               </select>
-                              <button className="mem-remove-btn" onClick={() => handleRemove(m)}>
+                              <button className="rec-btn rec-btn--danger-sm" onClick={() => handleRemove(m)}>
                                 Remove
                               </button>
                             </div>

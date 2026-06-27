@@ -277,7 +277,7 @@ export default function VehicleDocumentsPage() {
                         {viewLoading === doc.id ? "…" : "View"}
                       </button>
                       <button
-                        className="sov-action-btn sov-action-btn--delete"
+                        className="rec-btn rec-btn--danger-sm"
                         onClick={() => handleDelete(doc)}
                         aria-label={`Delete ${doc.filename}`}
                       >
