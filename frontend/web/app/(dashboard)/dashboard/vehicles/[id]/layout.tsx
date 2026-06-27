@@ -16,7 +16,7 @@
 //   body:has(.vl-sticky) removes dash-main's top padding so the
 //   bar reaches flush to the top of the scroll container.
 //
-//   Groups: Overview · Media · Records · Analytics · Manage · History
+//   Groups: Overview · Media · Manage · Records · Analytics · History
 //   Sub-tabs are derived from NAV_GROUPS and scroll horizontally.
 //
 // Consumed by:
@@ -75,12 +75,12 @@ const NAV_GROUPS: readonly NavGroup[] = [
     { label: "Photos",    segment: "photos" },
     { label: "Documents", segment: "documents" },
   ]},
-  { label: "Records",   defaultSegment: "records",  subTabs: [] },
   { label: "Manage",    defaultSegment: "tasks",    subTabs: [
     { label: "Tasks",     segment: "tasks" },
     { label: "Reminders", segment: "reminders" },
     { label: "Alerts",    segment: "alerts" },
   ]},
+  { label: "Records",   defaultSegment: "records",  subTabs: [] },
   { label: "Analytics", defaultSegment: "expenses", subTabs: [
     { label: "Expenses",      segment: "expenses" },
     { label: "Odometer",      segment: "mileage" },
