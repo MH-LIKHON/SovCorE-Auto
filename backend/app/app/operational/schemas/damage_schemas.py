@@ -4,8 +4,11 @@
 #
 # Purpose:
 #   Pydantic schemas for the damage history module. Covers CRUD
-#   schemas for damage entries and the proxy photo upload flow
-#   for before and after images.
+#   schemas for damage entries and the proxy photo upload flow.
+#
+#   Photos are stored in the separate damage_photos table and are
+#   returned as before_photos / after_photos lists on DamageOut.
+#   Each list item is a DamagePhotoOut with a signed GET URL.
 #
 # Consumed by:
 #   - backend/app/app/operational/schemas/__init__.py
@@ -21,6 +24,20 @@ from pydantic import BaseModel
 from app.operational.models.damage import DamageKind, DamageStatus
 
 # ==================================================
+# DAMAGE PHOTO
+# ==================================================
+
+
+class DamagePhotoOut(BaseModel):
+    id: uuid.UUID
+    r2_key: str
+    url: str | None = None
+    display_order: int
+
+    model_config = {"from_attributes": True}
+
+
+# ==================================================
 # CREATE
 # ==================================================
 
@@ -30,9 +47,7 @@ class DamageCreateIn(BaseModel):
     status: DamageStatus = DamageStatus.in_progress
     description: str | None = None
     date: _Date
-    repair_cost: int | None = None     # pence
-    before_key: str | None = None
-    after_key: str | None = None
+    repair_cost: int | None = None  # pence
 
 
 # ==================================================
@@ -45,9 +60,7 @@ class DamagePatchIn(BaseModel):
     status: DamageStatus | None = None
     description: str | None = None
     date: _Date | None = None
-    repair_cost: int | None = None     # pence
-    before_key: str | None = None
-    after_key: str | None = None
+    repair_cost: int | None = None  # pence
 
 
 # ==================================================
@@ -64,11 +77,9 @@ class DamageOut(BaseModel):
     description: str | None
     date: _Date
     repair_cost: int | None
-    before_key: str | None
-    after_key: str | None
-    # Signed GET URLs — populated by the API endpoint, not the ORM.
-    before_url: str | None = None
-    after_url: str | None = None
+    # Populated by the API endpoint after loading from damage_photos table.
+    before_photos: list[DamagePhotoOut] = []
+    after_photos: list[DamagePhotoOut] = []
     created_at: datetime
     updated_at: datetime
 
@@ -91,17 +102,10 @@ class DamagePage(BaseModel):
 # PHOTO SIGN (legacy presigned flow — kept for reference)
 # ==================================================
 
-# ------------------------------ Sign In -------------------------------------
-
 
 class DamagePhotoSignIn(BaseModel):
-    # Which image slot to sign. "before" = pre-repair, "after" = post-repair.
     slot: Literal["before", "after"]
-    # File extension without a dot. Accepted values: jpg, jpeg, png, webp.
     ext: str
-
-
-# ------------------------------ Sign Out ------------------------------------
 
 
 class DamagePhotoSignOut(BaseModel):

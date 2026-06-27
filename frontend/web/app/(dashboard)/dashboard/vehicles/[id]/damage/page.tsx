@@ -5,18 +5,16 @@
 // Purpose:
 //   Damage history page for a vehicle. Lists damage events with
 //   kind badge, date, description, and repair cost. Provides an
-//   inline add form and per-entry before/after photo upload.
+//   inline add form and per-entry entity attachments.
 //
 // Design:
 //   Damage kind values: scratch, dent, paintwork, accident,
 //   glass, stone_chip. Each kind has a distinct colour badge.
 //
-//   Photo upload flow (Phase 8):
-//     1. Add form saves the damage entry (gets entry_id).
-//     2. Before/after photo slots appear on saved entries.
-//     3. Clicking a slot calls the sign endpoint, PUTs to R2,
-//        then PATCHes the entry with the returned key.
-//     4. Delete photo button calls DELETE .../photo/{slot}.
+//   Before/after photo galleries live on the Photos page (see
+//   /dashboard/vehicles/[id]/photos) where multiple photos per
+//   slot are supported with full audit logging. Each entry row
+//   links there for quick access.
 //
 //   Mirrors SovCorE QR card and list patterns exactly.
 //
@@ -26,8 +24,9 @@
 
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { TextArea, TextField } from "@/src/components/ui/input";
@@ -46,8 +45,6 @@ interface DamageItem {
   description: string | null;
   date: string;
   repair_cost: number | null;
-  before_key: string | null;
-  after_key: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,8 +66,6 @@ interface AddForm {
 // ==================================================
 // CONSTANTS
 // ==================================================
-
-const R2_PUBLIC = process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "";
 
 const DAMAGE_KINDS: { value: DamageKind; label: string }[] = [
   { value: "scratch",    label: "Scratch" },
@@ -110,121 +105,6 @@ function kindBadgeClass(k: DamageKind): string {
   if (k === "accident") return "dmg-badge dmg-badge--accident";
   if (k === "glass")    return "dmg-badge dmg-badge--glass";
   return "dmg-badge dmg-badge--default";
-}
-
-// ==================================================
-// PHOTO SLOT COMPONENT
-// ==================================================
-
-function PhotoSlot({
-  slot,
-  entry,
-  vehicleId,
-  accountId,
-  onUpdated,
-}: {
-  slot: "before" | "after";
-  entry: DamageItem;
-  vehicleId: string;
-  accountId: string;
-  onUpdated: (updated: DamageItem) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const r2Key = slot === "before" ? entry.before_key : entry.after_key;
-  const imageUrl = r2Key && R2_PUBLIC ? `${R2_PUBLIC}/${r2Key}` : null;
-
-  async function handleUpload(file: File) {
-    setUploading(true);
-    setError(null);
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    try {
-      const signRes = await apiFetch(
-        `/api/v1/accounts/${accountId}/vehicles/${vehicleId}/damage/${entry.id}/photo/sign`,
-        { method: "POST", body: JSON.stringify({ slot, ext }) }
-      );
-      if (!signRes.ok) { setError("Could not generate upload URL."); return; }
-      const { upload_url, key } = await signRes.json();
-      const putRes = await fetch(upload_url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "image/jpeg" },
-        body: file,
-      });
-      if (!putRes.ok) { setError("Upload to storage failed."); return; }
-      const patchRes = await apiFetch(
-        `/api/v1/accounts/${accountId}/damage/${entry.id}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify(slot === "before" ? { before_key: key } : { after_key: key }),
-        }
-      );
-      if (!patchRes.ok) { setError("Could not save photo key."); return; }
-      onUpdated(await patchRes.json());
-    } catch {
-      setError("An unexpected error occurred.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleDelete() {
-    if (!window.confirm(`Remove ${slot} photo?`)) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/damage/${entry.id}/photo/${slot}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) { setError("Could not remove photo."); return; }
-      onUpdated({ ...entry, [slot === "before" ? "before_key" : "after_key"]: null });
-    } catch {
-      setError("An unexpected error occurred.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  return (
-    <div className="dmg-photo-slot">
-      <p className="dmg-photo-label">{slot === "before" ? "Before" : "After"}</p>
-      {imageUrl ? (
-        <div className="dmg-photo-preview">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageUrl} alt={`${slot} photo`} className="dmg-photo-img" />
-          <button
-            className="dmg-photo-remove"
-            onClick={handleDelete}
-            disabled={uploading}
-          >
-            {uploading ? "…" : "Remove"}
-          </button>
-        </div>
-      ) : (
-        <button
-          className="dmg-photo-upload-btn"
-          onClick={() => inputRef.current?.click()}
-          disabled={uploading}
-        >
-          {uploading ? "Uploading…" : `Add ${slot} photo`}
-        </button>
-      )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleUpload(f);
-          e.target.value = "";
-        }}
-      />
-      {error && <p className="dmg-photo-err">{error}</p>}
-    </div>
-  );
 }
 
 // ==================================================
@@ -340,10 +220,6 @@ export default function DamagePage() {
     setTotal((prev) => prev - 1);
   }
 
-  function handleEntryUpdated(updated: DamageItem) {
-    setEntries((prev) => prev.map((e) => e.id === updated.id ? updated : e));
-  }
-
   // ==================================================
   // RENDER
   // ==================================================
@@ -413,7 +289,7 @@ export default function DamagePage() {
               disabled={saving}
             />
 
-            <p className="rec-sub" style={{ marginTop: 0 }}>Save the entry first, then add before and after photos from the list below.</p>
+            <p className="rec-sub" style={{ marginTop: 0 }}>After saving, add before and after photos from the Photos page.</p>
 
             {saveError && <p className="rec-error">{saveError}</p>}
             <div className="rec-form-actions">
@@ -489,6 +365,9 @@ export default function DamagePage() {
                     {entry.repair_cost !== null && (
                       <span className="pcn-row__amount">{formatGBP(entry.repair_cost)}</span>
                     )}
+                    <Link href={`/dashboard/vehicles/${id}/photos`} className="dmg-photos-link sov-link">
+                      Photos →
+                    </Link>
                     <button
                       className="rec-btn rec-btn--danger-sm"
                       onClick={() => handleDelete(entry.id)}
@@ -497,23 +376,6 @@ export default function DamagePage() {
                       {deletingId === entry.id ? "…" : "Delete"}
                     </button>
                   </div>
-                </div>
-                {/* ~~~~~~~~~ Photo slots ~~~~~~~~~ */}
-                <div className="dmg-photos">
-                  <PhotoSlot
-                    slot="before"
-                    entry={entry}
-                    vehicleId={id ?? ""}
-                    accountId={accountId}
-                    onUpdated={handleEntryUpdated}
-                  />
-                  <PhotoSlot
-                    slot="after"
-                    entry={entry}
-                    vehicleId={id ?? ""}
-                    accountId={accountId}
-                    onUpdated={handleEntryUpdated}
-                  />
                 </div>
                 {/* ~~~~~~~~~ Attachments ~~~~~~~~~ */}
                 <EntityAttachmentPanel
@@ -568,53 +430,12 @@ const DMG_STYLES = `
   .pcn-row__authority { font-size: var(--text-sm); color: var(--colour-text); }
   .pcn-row__amount { font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text); white-space: nowrap; }
 
-  /* Photo slots */
-  .dmg-photos {
-    display: flex;
-    gap: var(--space-4);
-    padding: var(--space-3) var(--space-4) var(--space-4);
-    flex-wrap: wrap;
-  }
-  .dmg-photo-slot { display: flex; flex-direction: column; gap: 6px; }
-  .dmg-photo-label { font-size: var(--text-xs); color: var(--colour-text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
-  .dmg-photo-preview { position: relative; display: inline-flex; flex-direction: column; gap: 4px; }
-  .dmg-photo-img {
-    width: 120px;
-    height: 80px;
-    object-fit: cover;
-    border-radius: var(--radius-md);
-    border: 0.5px solid var(--colour-border);
-  }
-  .dmg-photo-remove {
-    font-size: var(--text-xs);
-    color: var(--colour-error);
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: none;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-    text-align: left;
-  }
-  .dmg-photo-upload-btn {
-    width: 120px;
-    height: 80px;
-    border: 1px dashed var(--colour-border);
-    border-radius: var(--radius-md);
-    background: rgba(255,255,255,0.02);
-    font-size: var(--text-xs);
-    color: var(--colour-text-muted);
-    cursor: none;
-    transition: border-color 0.2s, color 0.2s;
-  }
-  .dmg-photo-upload-btn:hover { border-color: var(--colour-accent); color: var(--colour-text); }
-  .dmg-photo-upload-btn:disabled { opacity: 0.5; }
-  .dmg-photo-err { font-size: var(--text-xs); color: var(--colour-error); margin: 0; }
+  .dmg-photos-link { font-size: var(--text-xs); color: var(--colour-accent); text-decoration: none; white-space: nowrap; }
+  .dmg-photos-link:hover { text-decoration: underline; }
 
   @media (max-width: 767px) {
     .pcn-row { flex-direction: column; align-items: flex-start; }
     .pcn-row__right { flex-wrap: wrap; }
-    .dmg-photos { flex-direction: column; }
   }
 
   /* ---- Summary card ---- */

@@ -5,11 +5,10 @@
 # Purpose:
 #   SQLAlchemy ORM model for the damage_entries table. Records
 #   damage events on a vehicle: kind, status, description, repair
-#   cost, before and after images stored in R2, and the date.
+#   cost, and the date. Photos are stored separately in the
+#   damage_photos table (multiple before / after photos per entry).
 #
 # Design:
-#   before_key and after_key are R2 object keys, nullable because
-#   images are optional (not every damage entry has photos).
 #   repair_cost is in pence; nullable when cost is unknown.
 #   status drives photo-deletion gate: photos can only be deleted
 #   when status is "resolved". Active entries (urgent/in_progress/
@@ -26,7 +25,7 @@ import uuid
 from datetime import date, datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -89,11 +88,6 @@ class DamageEntry(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     repair_cost: Mapped[int | None] = mapped_column(Integer, nullable=True)  # pence
-
-    # ------------------------------ R2 image keys ---------------------------
-    # Keys are nullable: images are optional.
-    before_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    after_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # ------------------------------ Timestamps ------------------------------
     created_at: Mapped[datetime] = mapped_column(

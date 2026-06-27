@@ -14,22 +14,21 @@
 #   overall /accounts/{id}/vehicles/{id}/ scope so the URL shape
 #   is consistent with records and documents.
 #
-#   PCNs and damage entries use the same page-envelope convention:
-#   { items, total, page, page_size }.
-#
-#   Damage photo flow:
-#     POST .../damage/{id}/photo/upload (multipart/form-data, fields: file + slot)
-#     → backend deletes old R2 key if present → calls r2.put_object()
-#       → writes audit log → patches before_key/after_key → returns DamageOut
-#       with signed before_url/after_url.
-#     Browser never connects to R2 directly (EU-jurisdiction CORS blocks that).
-#     DELETE .../damage/{id}/photo/{slot} is only permitted when damage status
-#     is "resolved". It removes the key and deletes the R2 object, then writes
-#     an audit log row.
+#   Damage photo flow (multi-photo gallery per slot):
+#     POST .../damage/{id}/photo/upload (multipart: file + slot)
+#     → backend calls r2.put_object() → creates a damage_photos row
+#       → writes audit log → returns DamageOut with signed
+#       before_photos / after_photos lists.
+#     Browser never connects to R2 directly (EU-jurisdiction CORS
+#     blocks that); proxy upload pattern throughout.
+#     DELETE .../damage/{entry_id}/photos/{photo_id} is only permitted
+#     when damage status is "resolved". It deletes the R2 object and
+#     the damage_photos row, then writes an audit log row.
 #
 #   Signed GET URLs:
-#     All DamageOut responses populate before_url / after_url with 1-hour
-#     presigned GET URLs. The bucket is private.
+#     All DamageOut responses populate before_photos[].url and
+#     after_photos[].url with 1-hour presigned GET URLs. The R2
+#     bucket is private.
 #
 # Consumed by:
 #   - backend/app/app/api/v1/router.py
@@ -47,12 +46,14 @@ from app.core.settings import get_settings
 from app.integrations.r2 import get_r2_client, sign_r2_get
 from app.operational.models.damage import DamageStatus
 from app.operational.models.damage_audit import DamagePhotoAuditLog
+from app.operational.repositories.damage_photo_repository import DamagePhotoRepository
 from app.operational.repositories.damage_repository import DamageRepository
 from app.operational.schemas import (
     DamageCreateIn,
     DamageOut,
     DamagePage,
     DamagePatchIn,
+    DamagePhotoOut,
     DamagePhotoSignIn,
     DamagePhotoSignOut,
     PCNCreateIn,
@@ -80,15 +81,40 @@ router = APIRouter()
 # ==================================================
 
 
-def _sign_damage(out: DamageOut) -> DamageOut:
-    out.before_url = sign_r2_get(out.before_key)
-    out.after_url = sign_r2_get(out.after_key)
+def _make_photo_out(photo) -> DamagePhotoOut:
+    return DamagePhotoOut(
+        id=photo.id,
+        r2_key=photo.r2_key,
+        display_order=photo.display_order,
+        url=sign_r2_get(photo.r2_key),
+    )
+
+
+async def _enrich_damage(out: DamageOut, db: AsyncSession) -> DamageOut:
+    """Load damage photos for one entry and sign their GET URLs."""
+    photo_repo = DamagePhotoRepository(db)
+    photos = await photo_repo.list_by_entry(out.id, out.account_id)
+    out.before_photos = [_make_photo_out(p) for p in photos if p.slot == "before"]
+    out.after_photos  = [_make_photo_out(p) for p in photos if p.slot == "after"]
     return out
 
 
-def _sign_damage_page(page: DamagePage) -> DamagePage:
+async def _enrich_damage_page(page: DamagePage, db: AsyncSession) -> DamagePage:
+    """Batch-load photos for all entries in a page to avoid N+1 queries."""
+    if not page.items:
+        return page
+    photo_repo = DamagePhotoRepository(db)
+    entry_ids = [item.id for item in page.items]
+    all_photos = await photo_repo.list_by_entries(entry_ids, page.items[0].account_id)
+
+    photos_by_entry: dict[uuid.UUID, list] = {}
+    for p in all_photos:
+        photos_by_entry.setdefault(p.entry_id, []).append(p)
+
     for item in page.items:
-        _sign_damage(item)
+        photos = photos_by_entry.get(item.id, [])
+        item.before_photos = [_make_photo_out(p) for p in photos if p.slot == "before"]
+        item.after_photos  = [_make_photo_out(p) for p in photos if p.slot == "after"]
     return page
 
 
@@ -184,7 +210,7 @@ async def list_damage(
     db: AsyncSession = Depends(get_db),
 ) -> DamagePage:
     page_out = await DamageService(db).list(vehicle_id, account_id, page=page, page_size=page_size)
-    return _sign_damage_page(page_out)
+    return await _enrich_damage_page(page_out, db)
 
 
 @router.post(
@@ -200,7 +226,8 @@ async def create_damage(
     _: User = Depends(require_editor),
     db: AsyncSession = Depends(get_db),
 ) -> DamageOut:
-    return _sign_damage(await DamageService(db).create(account_id, vehicle_id, body))
+    out = await DamageService(db).create(account_id, vehicle_id, body)
+    return await _enrich_damage(out, db)
 
 
 # ------------------------------ Patch and delete ----------------------------
@@ -218,7 +245,8 @@ async def patch_damage(
     _: User = Depends(require_editor),
     db: AsyncSession = Depends(get_db),
 ) -> DamageOut:
-    return _sign_damage(await DamageService(db).patch(entry_id, account_id, body))
+    out = await DamageService(db).patch(entry_id, account_id, body)
+    return await _enrich_damage(out, db)
 
 
 @router.delete(
@@ -315,13 +343,9 @@ async def upload_damage_photo(
     vehicle = await VehicleRepository(db).get_by_id(vehicle_id, account_id)
     if vehicle is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
-    repo = DamageRepository(db)
-    entry = await repo.get_by_id(entry_id, account_id)
+    entry = await DamageRepository(db).get_by_id(entry_id, account_id)
     if entry is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Damage entry not found.")
-
-    # Capture old key before upload for orphan cleanup.
-    old_key: str | None = entry.before_key if slot == "before" else entry.after_key
 
     content_type = file.content_type or f"image/{ext}"
     settings = get_settings()
@@ -336,15 +360,17 @@ async def upload_damage_photo(
             detail=f"R2 storage upload failed: {exc}",
         ) from exc
 
-    # Delete the old photo from R2 after a successful upload.
-    if old_key:
-        try:
-            r2.delete_object(Bucket=settings.r2_bucket_name, Key=old_key)
-        except Exception:
-            pass
-
-    patch_data = DamagePatchIn(before_key=key) if slot == "before" else DamagePatchIn(after_key=key)
-    updated = await repo.patch(entry, patch_data)
+    # Create damage_photos row (appended, not replacing).
+    photo_repo = DamagePhotoRepository(db)
+    order = await photo_repo.count_by_slot(entry_id, slot)
+    await photo_repo.create(
+        entry_id=entry_id,
+        account_id=account_id,
+        vehicle_id=vehicle_id,
+        slot=slot,
+        r2_key=key,
+        display_order=order,
+    )
 
     # Write audit log.
     db.add(
@@ -360,68 +386,62 @@ async def upload_damage_photo(
     )
     await db.flush()
 
-    out = DamageOut.model_validate(updated)
-    return _sign_damage(out)
+    out = DamageOut.model_validate(entry)
+    return await _enrich_damage(out, db)
 
 
 @router.delete(
-    "/accounts/{account_id}/damage/{entry_id}/photo/{slot}",
+    "/accounts/{account_id}/damage/{entry_id}/photos/{photo_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Delete a damage photo (only permitted when damage status is resolved)",
+    summary="Delete one damage photo (only permitted when damage status is resolved)",
 )
 async def delete_damage_photo(
     account_id: uuid.UUID,
     entry_id: uuid.UUID,
-    slot: str,
+    photo_id: uuid.UUID,
     current_user: User = Depends(require_editor),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    if slot not in ("before", "after"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Slot must be 'before' or 'after'.",
-        )
     repo = DamageRepository(db)
     entry = await repo.get_by_id(entry_id, account_id)
     if entry is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Damage entry not found.")
 
-    # Photos on active entries are evidence — deletion is blocked until resolved.
+    # Photos on active entries are evidence — deletion blocked until resolved.
     if entry.status != DamageStatus.resolved:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Damage photos can only be deleted when the damage status is 'Resolved'.",
         )
 
-    r2_key: str | None = entry.before_key if slot == "before" else entry.after_key
-    if r2_key:
-        try:
-            settings = get_settings()
-            r2 = get_r2_client()
-            r2.delete_object(Bucket=settings.r2_bucket_name, Key=r2_key)
-        except Exception:
-            pass  # do not block row update on R2 errors
+    photo_repo = DamagePhotoRepository(db)
+    photo = await photo_repo.get_by_id(photo_id, account_id)
+    if photo is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Photo not found.")
 
-    # Null the key directly on the ORM object; exclude_none patch cannot clear to None.
-    if slot == "before":
-        entry.before_key = None
-    else:
-        entry.after_key = None
-    await db.flush()
+    # Delete from R2 (non-blocking on R2 error).
+    try:
+        settings = get_settings()
+        r2 = get_r2_client()
+        r2.delete_object(Bucket=settings.r2_bucket_name, Key=photo.r2_key)
+    except Exception:
+        pass
 
-    # Write audit log.
+    # Write audit log before deleting the row.
     db.add(
         DamagePhotoAuditLog(
             account_id=account_id,
             vehicle_id=entry.vehicle_id,
             entry_id=entry_id,
-            slot=slot,
+            slot=photo.slot,
             action="deleted",
-            r2_key=r2_key,
+            r2_key=photo.r2_key,
             performed_by=current_user.id,
         )
     )
     await db.flush()
+
+    await photo_repo.delete(photo)
 
 
 # ==================================================

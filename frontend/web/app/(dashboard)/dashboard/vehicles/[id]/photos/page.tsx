@@ -5,24 +5,25 @@
 // Purpose:
 //   Photos gallery for a vehicle. Three sections:
 //     Cover photo  — the single image stored in vehicle.image_key.
-//     Vehicle media — all-round gallery photos (unlimited).
-//     Damage photos — before/after images per damage entry, gated
-//       by damage status.
+//     Vehicle media — all-round gallery photos (unlimited). The
+//       "Add photo" tile lives inside the grid next to Remove buttons.
+//     Damage photos — before/after galleries per damage entry, each
+//       slot holding multiple photos. Gated by damage status:
+//       active entries allow add but block delete; resolved entries
+//       allow delete with a typed DELETE confirmation modal.
 //
 // Design:
 //   All images are served via signed GET URLs returned by the API
-//   (cover_url, before_url, after_url, url). The R2 bucket is
-//   private; no public URL is ever used.
+//   (cover_url, before_photos[].url, after_photos[].url, url). The
+//   R2 bucket is private; no public URL is ever used.
+//
+//   Vehicle media gallery: photos + "Add photo" tile sit in the same
+//   grid so Add and Remove are always at the same visual level.
 //
 //   Damage photo delete requires the entry status to be "resolved"
 //   and the user to type DELETE (all caps) in a confirmation modal.
 //   Active entries (urgent/in_progress/deferred) block deletion to
 //   preserve photographic evidence.
-//
-//   Damage photo upload is permitted on entries of any status.
-//
-//   Vehicle media and cover photo deletion use a simple confirm()
-//   because these photos are cosmetic, not evidential.
 //
 // Consumed by:
 //   - Routed at /dashboard/vehicles/[id]/photos
@@ -55,16 +56,21 @@ interface VehicleSummary {
 type DamageStatus = "urgent" | "in_progress" | "deferred" | "resolved";
 type DamageKind = "scratch" | "dent" | "paintwork" | "accident" | "glass" | "stone_chip";
 
+interface DamagePhotoItem {
+  id: string;
+  r2_key: string;
+  url: string | null;
+  display_order: number;
+}
+
 interface DamageItem {
   id: string;
   kind: DamageKind;
   date: string;
   description: string | null;
   status: DamageStatus;
-  before_key: string | null;
-  after_key: string | null;
-  before_url: string | null;
-  after_url: string | null;
+  before_photos: DamagePhotoItem[];
+  after_photos: DamagePhotoItem[];
 }
 
 interface DamagePage {
@@ -178,24 +184,25 @@ function TypedDeleteModal({
 
 function DamagePhotoSlot({
   slot,
+  photos,
   entry,
   vehicleId,
   accountId,
-  onUpdated,
+  onAdded,
   onRequestDelete,
 }: {
   slot: "before" | "after";
+  photos: DamagePhotoItem[];
   entry: DamageItem;
   vehicleId: string;
   accountId: string;
-  onUpdated: (e: DamageItem) => void;
-  onRequestDelete: (entry: DamageItem, slot: "before" | "after") => void;
+  onAdded: (updated: DamageItem) => void;
+  onRequestDelete: (entry: DamageItem, photo: DamagePhotoItem, slot: "before" | "after") => void;
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const url = slot === "before" ? entry.before_url : entry.after_url;
   const canDelete = entry.status === "resolved";
 
   async function handleUpload(file: File) {
@@ -214,7 +221,7 @@ function DamagePhotoSlot({
         setError(data.detail ?? "Upload failed. Please try again.");
         return;
       }
-      onUpdated(await res.json());
+      onAdded(await res.json());
     } catch {
       setError("An unexpected error occurred.");
     } finally {
@@ -225,21 +232,21 @@ function DamagePhotoSlot({
   return (
     <div className="ph-slot">
       <p className="ph-slot__label">{slot === "before" ? "Before" : "After"}</p>
-      {url ? (
-        <div className="ph-slot__preview">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={url} alt={`${slot} damage`} className="ph-slot__img" />
-          {canDelete && (
-            <button
-              className="rec-btn rec-btn--danger-sm"
-              onClick={() => onRequestDelete(entry, slot)}
-              disabled={uploading}
-            >
-              {uploading ? "…" : "Remove"}
-            </button>
-          )}
-        </div>
-      ) : (
+      <div className="ph-slot__row">
+        {photos.map((photo) => (
+          <div key={photo.id} className="ph-slot__item">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photo.url ?? ""} alt={`${slot} damage`} className="ph-slot__img" />
+            {canDelete && (
+              <button
+                className="rec-btn rec-btn--danger-sm"
+                onClick={() => onRequestDelete(entry, photo, slot)}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
         <button
           className="ph-slot__add"
           onClick={() => inputRef.current?.click()}
@@ -247,7 +254,7 @@ function DamagePhotoSlot({
         >
           {uploading ? "Uploading…" : `Add ${slot}`}
         </button>
-      )}
+      </div>
       <input
         ref={inputRef}
         type="file"
@@ -291,6 +298,7 @@ export default function VehiclePhotosPage() {
   // Damage photo delete modal
   const [deleteModal, setDeleteModal] = useState<{
     entry: DamageItem;
+    photo: DamagePhotoItem;
     slot: "before" | "after";
     deleting: boolean;
   } | null>(null);
@@ -422,19 +430,19 @@ export default function VehiclePhotosPage() {
     setDamage((prev) => prev.map((e) => e.id === updated.id ? updated : e));
   }
 
-  function openDeleteModal(entry: DamageItem, slot: "before" | "after") {
+  function openDeleteModal(entry: DamageItem, photo: DamagePhotoItem, slot: "before" | "after") {
     setDeleteError(null);
-    setDeleteModal({ entry, slot, deleting: false });
+    setDeleteModal({ entry, photo, slot, deleting: false });
   }
 
   async function confirmDamageDelete() {
     if (!deleteModal || !accountId) return;
     setDeleteModal((m) => m ? { ...m, deleting: true } : null);
     setDeleteError(null);
-    const { entry, slot } = deleteModal;
+    const { entry, photo, slot } = deleteModal;
     try {
       const res = await apiFetch(
-        `/api/v1/accounts/${accountId}/damage/${entry.id}/photo/${slot}`,
+        `/api/v1/accounts/${accountId}/damage/${entry.id}/photos/${photo.id}`,
         { method: "DELETE" },
       );
       if (!res.ok) {
@@ -446,7 +454,11 @@ export default function VehiclePhotosPage() {
       setDamage((prev) =>
         prev.map((e) =>
           e.id === entry.id
-            ? { ...e, [slot === "before" ? "before_key" : "after_key"]: null, [slot === "before" ? "before_url" : "after_url"]: null }
+            ? {
+                ...e,
+                before_photos: slot === "before" ? e.before_photos.filter((p) => p.id !== photo.id) : e.before_photos,
+                after_photos:  slot === "after"  ? e.after_photos.filter((p)  => p.id !== photo.id) : e.after_photos,
+              }
             : e,
         ),
       );
@@ -532,52 +544,53 @@ export default function VehiclePhotosPage() {
 
           {/* ==================================================
               VEHICLE MEDIA GALLERY
+              Add photo tile lives inside the grid so it sits
+              at the same level as the Remove buttons.
           ================================================== */}
           <Card>
             <div className="ph-section-head">
               <h2 className="ph-section-title">Vehicle media</h2>
-              <button
-                className="rec-btn rec-btn--primary ph-media-upload-btn"
-                onClick={() => { setMediaError(null); mediaInputRef.current?.click(); }}
-                disabled={mediaUploading}
-              >
-                {mediaUploading ? "Uploading…" : "Add photo"}
-              </button>
-              <input
-                ref={mediaInputRef}
-                type="file"
-                accept={ACCEPTED_IMAGE}
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleMediaUpload(f);
-                  e.target.value = "";
-                }}
-              />
             </div>
             {mediaError && <p className="ph-err ph-media-err">{mediaError}</p>}
-            {media.length === 0 ? (
-              <p className="ph-empty">No media photos added yet. Upload all-round, interior, or other vehicle photos here.</p>
-            ) : (
-              <div className="ph-gallery">
-                {media.map((item) => (
-                  <div key={item.id} className="ph-gallery-item">
-                    {item.url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={item.url} alt="Vehicle media" className="ph-gallery-img" />
-                    ) : (
-                      <div className="ph-gallery-fallback" />
-                    )}
-                    <button
-                      className="rec-btn rec-btn--danger-sm"
-                      onClick={() => handleMediaDelete(item)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
+            <div className="ph-gallery">
+              {media.map((item) => (
+                <div key={item.id} className="ph-gallery-item">
+                  {item.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.url} alt="Vehicle media" className="ph-gallery-img" />
+                  ) : (
+                    <div className="ph-gallery-fallback" />
+                  )}
+                  <button
+                    className="rec-btn rec-btn--danger-sm"
+                    onClick={() => handleMediaDelete(item)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {/* Add photo tile — always last in grid */}
+              <div className="ph-gallery-item">
+                <button
+                  className="ph-gallery-add"
+                  onClick={() => { setMediaError(null); mediaInputRef.current?.click(); }}
+                  disabled={mediaUploading}
+                >
+                  {mediaUploading ? "Uploading…" : "+ Add photo"}
+                </button>
               </div>
-            )}
+            </div>
+            <input
+              ref={mediaInputRef}
+              type="file"
+              accept={ACCEPTED_IMAGE}
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleMediaUpload(f);
+                e.target.value = "";
+              }}
+            />
           </Card>
 
           {/* ==================================================
@@ -613,18 +626,20 @@ export default function VehiclePhotosPage() {
                     <div className="ph-damage-slots">
                       <DamagePhotoSlot
                         slot="before"
+                        photos={entry.before_photos}
                         entry={entry}
                         vehicleId={id ?? ""}
                         accountId={accountId}
-                        onUpdated={handleDamageUpdated}
+                        onAdded={handleDamageUpdated}
                         onRequestDelete={openDeleteModal}
                       />
                       <DamagePhotoSlot
                         slot="after"
+                        photos={entry.after_photos}
                         entry={entry}
                         vehicleId={id ?? ""}
                         accountId={accountId}
-                        onUpdated={handleDamageUpdated}
+                        onAdded={handleDamageUpdated}
                         onRequestDelete={openDeleteModal}
                       />
                     </div>
@@ -643,7 +658,7 @@ export default function VehiclePhotosPage() {
         <>
           <TypedDeleteModal
             open={!deleteModal.deleting}
-            warning={`You are about to permanently delete the ${deleteModal.slot} photo from damage entry "${KIND_LABELS[deleteModal.entry.kind]}" (${formatDate(deleteModal.entry.date)}).`}
+            warning={`You are about to permanently delete a ${deleteModal.slot} photo from damage entry "${KIND_LABELS[deleteModal.entry.kind]}" (${formatDate(deleteModal.entry.date)}).`}
             onConfirm={confirmDamageDelete}
             onCancel={() => setDeleteModal(null)}
           />
@@ -692,14 +707,13 @@ const PH_STYLES = `
   .ph-cover-actions { display: flex; flex-direction: column; gap: var(--space-3); padding-top: 4px; }
 
   /* Vehicle media gallery */
-  .ph-media-upload-btn { flex-shrink: 0; }
   .ph-media-err { margin-bottom: var(--space-4); }
   .ph-gallery {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: var(--space-4);
   }
-  .ph-gallery-item { position: relative; display: flex; flex-direction: column; gap: 4px; }
+  .ph-gallery-item { display: flex; flex-direction: column; gap: 4px; }
   .ph-gallery-img {
     width: 100%; aspect-ratio: 4/3; object-fit: cover;
     border-radius: var(--radius-md); border: 0.5px solid var(--colour-border); display: block;
@@ -709,6 +723,15 @@ const PH_STYLES = `
     background: rgba(255,255,255,0.04); border-radius: var(--radius-md);
     border: 0.5px dashed var(--colour-border);
   }
+  /* Add photo tile — same size as gallery images, lives in grid */
+  .ph-gallery-add {
+    width: 100%; aspect-ratio: 4/3; border: 1px dashed var(--colour-border);
+    border-radius: var(--radius-md); background: rgba(255,255,255,0.02);
+    font-size: var(--text-xs); color: var(--colour-text-muted); cursor: none;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .ph-gallery-add:hover:not(:disabled) { border-color: var(--colour-accent); color: var(--colour-text); }
+  .ph-gallery-add:disabled { opacity: 0.5; }
 
   /* Damage list */
   .ph-damage-list { display: flex; flex-direction: column; gap: var(--space-5); }
@@ -723,7 +746,7 @@ const PH_STYLES = `
   .ph-damage-date { font-size: var(--text-sm); color: var(--colour-text-muted); }
   .ph-damage-desc { font-size: var(--text-sm); color: var(--colour-text); }
   .ph-damage-note { font-size: var(--text-xs); color: var(--colour-text-muted); margin: 0 0 var(--space-3); font-style: italic; }
-  .ph-damage-slots { display: flex; gap: var(--space-4); flex-wrap: wrap; }
+  .ph-damage-slots { display: flex; gap: var(--space-6); flex-wrap: wrap; }
 
   /* Damage status badges */
   .ph-status {
@@ -735,10 +758,11 @@ const PH_STYLES = `
   .ph-status--deferred    { color: #60a5fa; border-color: rgba(96,165,250,0.35);   background: rgba(96,165,250,0.08); }
   .ph-status--resolved    { color: #4ade80; border-color: rgba(74,222,128,0.35);   background: rgba(74,222,128,0.08); }
 
-  /* Shared photo slot */
+  /* Damage photo slot — multi-photo row per slot */
   .ph-slot { display: flex; flex-direction: column; gap: 6px; }
   .ph-slot__label { font-size: var(--text-xs); color: var(--colour-text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
-  .ph-slot__preview { display: flex; flex-direction: column; gap: 4px; }
+  .ph-slot__row { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-start; }
+  .ph-slot__item { display: flex; flex-direction: column; gap: 4px; }
   .ph-slot__img {
     width: 140px; height: 96px; object-fit: cover;
     border-radius: var(--radius-md); border: 0.5px solid var(--colour-border); display: block;
@@ -748,8 +772,9 @@ const PH_STYLES = `
     border-radius: var(--radius-md); background: rgba(255,255,255,0.02);
     font-size: var(--text-xs); color: var(--colour-text-muted); cursor: none;
     transition: border-color 0.2s, color 0.2s;
+    flex-shrink: 0;
   }
-  .ph-slot__add:hover { border-color: var(--colour-accent); color: var(--colour-text); }
+  .ph-slot__add:hover:not(:disabled) { border-color: var(--colour-accent); color: var(--colour-text); }
   .ph-slot__add:disabled { opacity: 0.5; }
 
   /* Typed delete modal */
@@ -779,7 +804,7 @@ const PH_STYLES = `
   .ph-modal-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
   .ph-modal-outer-err { font-size: var(--text-xs); color: var(--colour-error); }
 
-  /* Danger button (full-size variant — danger-sm exists globally but not danger) */
+  /* Danger button (full-size variant for the modal confirm) */
   .rec-btn--danger {
     background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.45); color: #f87171;
     transition: background 0.2s, border-color 0.2s, color 0.2s, transform 0.15s;
