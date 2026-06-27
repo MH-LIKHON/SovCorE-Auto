@@ -4,19 +4,19 @@
 //
 // Purpose:
 //   Reminders management page for a vehicle. Lists scheduled
-//   notifications by due date. Supports inline create, active
-//   toggle via patch, and delete per row.
+//   notifications by due date. Supports inline create, inline
+//   edit, active toggle via patch, and delete per row.
 //
 // Design:
 //   Reminders are ordered soonest-due first. Each row shows the
-//   reminder type, due date, configured intervals, and active
-//   status. The due-date RAG matches the vehicle card renewal
-//   indicators: green > 90 days, amber 31–90, red ≤ 30.
+//   reminder type (or user label for custom), due date, configured
+//   intervals, and active status. The due-date RAG matches the
+//   vehicle card renewal indicators: green > 90 days, amber 31-90,
+//   red <= 30.
 //
-//   The add form captures type (select from the eleven reminder
-//   types), due date, optional intervals (comma-separated days),
-//   and notes. Intervals default to 90, 60, 30, 14, 7, 1 if
-//   left blank.
+//   System reminder types (mot, tax, insurance, etc.) are not
+//   deleteable — only Edit and Pause. Custom type reminders are
+//   fully editable and deleteable.
 //
 //   Mirrors SovCorE QR card and list patterns exactly.
 //
@@ -63,6 +63,13 @@ interface AddForm {
   label: string;
   due_date: string;
   intervals: string;
+  notes: string;
+}
+
+interface EditForm {
+  due_date: string;
+  intervals: string;
+  label: string;
   notes: string;
 }
 
@@ -134,6 +141,11 @@ export default function RemindersPage() {
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<EditForm>({ due_date: "", intervals: "", label: "", notes: "" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // ==================================================
   // DATA LOADING
@@ -225,6 +237,58 @@ export default function RemindersPage() {
     setDeletingId(null);
     setReminders((prev) => prev.filter((r) => r.id !== reminderId));
     setTotal((prev) => prev - 1);
+  }
+
+  // ==================================================
+  // EDIT
+  // ==================================================
+
+  function startEdit(r: ReminderItem) {
+    setEditingId(r.id);
+    setEditForm({
+      due_date: r.due_date,
+      intervals: r.intervals.sort((a, b) => b - a).join(", "),
+      label: r.label ?? "",
+      notes: r.notes ?? "",
+    });
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditError(null);
+  }
+
+  async function handleEditSave() {
+    if (!editingId) return;
+    const rem = reminders.find((r) => r.id === editingId);
+    if (!rem) return;
+    if (rem.type === "custom" && !editForm.label.trim()) { setEditError("Label is required."); return; }
+    if (!editForm.due_date) { setEditError("Due date is required."); return; }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const res = await apiFetch(`/api/v1/reminders/${editingId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          due_date: editForm.due_date,
+          intervals: parseIntervals(editForm.intervals),
+          label: rem.type === "custom" ? editForm.label.trim() || null : undefined,
+          notes: editForm.notes || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setEditError(err.detail ?? "Could not update the reminder.");
+        return;
+      }
+      setEditingId(null);
+      await loadReminders();
+    } catch {
+      setEditError("An unexpected error occurred.");
+    } finally {
+      setEditSaving(false);
+    }
   }
 
   // ==================================================
@@ -348,47 +412,115 @@ export default function RemindersPage() {
         ) : (
           <div className="rec-rows">
             {reminders.map((r) => (
-              <div key={r.id} className={`rem-row${r.active ? "" : " rem-row--inactive"}`}>
+              <div key={r.id}>
 
-                {/* ---- Left: due badge + type + intervals ---- */}
-                <div className="rem-row__left">
-                  <span className={dueBadgeClass(r.due_date)}>
-                    {formatDate(r.due_date)}
-                  </span>
-                  <div className="rem-row__info">
-                    <span className="rem-row__type">
-                      {r.type === "custom" && r.label ? r.label : typeLabel(r.type)}
-                      {r.type === "custom" && r.label && (
-                        <span className="rem-row__custom-tag">CUSTOM</span>
-                      )}
+                {/* ---- Reminder row ---- */}
+                <div className={`rem-row${r.active ? "" : " rem-row--inactive"}`}>
+
+                  {/* Left: due badge + type + intervals */}
+                  <div className="rem-row__left">
+                    <span className={dueBadgeClass(r.due_date)}>
+                      {formatDate(r.due_date)}
                     </span>
-                    <span className="rem-row__intervals">
-                      Notify at {r.intervals.sort((a, b) => b - a).join(", ")} days
-                    </span>
+                    <div className="rem-row__info">
+                      <span className="rem-row__type">
+                        {r.type === "custom" && r.label ? r.label : typeLabel(r.type)}
+                        {r.type === "custom" && r.label && (
+                          <span className="rem-row__custom-tag">CUSTOM</span>
+                        )}
+                      </span>
+                      <span className="rem-row__intervals">
+                        Notify at {r.intervals.sort((a, b) => b - a).join(", ")} days
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right: active toggle + edit + delete (custom only) */}
+                  <div className="rem-row__right">
+                    {!r.active && (
+                      <span className="rem-inactive-label">PAUSED</span>
+                    )}
+                    <button
+                      className={`rem-toggle${r.active ? " rem-toggle--on" : ""}`}
+                      onClick={() => handleToggleActive(r)}
+                      disabled={togglingId === r.id}
+                      title={r.active ? "Pause this reminder" : "Reactivate this reminder"}
+                    >
+                      {togglingId === r.id ? "…" : r.active ? "Pause" : "Resume"}
+                    </button>
+                    <button
+                      className="rec-btn--ghost-sm"
+                      onClick={() => editingId === r.id ? cancelEdit() : startEdit(r)}
+                      disabled={editSaving}
+                    >
+                      {editingId === r.id ? "Cancel" : "Edit"}
+                    </button>
+                    {r.type === "custom" && (
+                      <button
+                        className="rec-btn rec-btn--danger-sm"
+                        onClick={() => handleDelete(r.id)}
+                        disabled={deletingId === r.id}
+                      >
+                        {deletingId === r.id ? "…" : "Delete"}
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* ---- Right: active toggle + delete ---- */}
-                <div className="rem-row__right">
-                  {!r.active && (
-                    <span className="rem-inactive-label">PAUSED</span>
-                  )}
-                  <button
-                    className={`rem-toggle${r.active ? " rem-toggle--on" : ""}`}
-                    onClick={() => handleToggleActive(r)}
-                    disabled={togglingId === r.id}
-                    title={r.active ? "Pause this reminder" : "Reactivate this reminder"}
-                  >
-                    {togglingId === r.id ? "…" : r.active ? "Pause" : "Resume"}
-                  </button>
-                  <button
-                    className="rec-btn rec-btn--danger-sm"
-                    onClick={() => handleDelete(r.id)}
-                    disabled={deletingId === r.id}
-                  >
-                    {deletingId === r.id ? "…" : "Delete"}
-                  </button>
-                </div>
+                {/* ---- Inline edit form ---- */}
+                {editingId === r.id && (
+                  <div className="rem-edit-panel">
+                    <div className="rec-form-row">
+                      {r.type === "custom" && (
+                        <TextField
+                          className="rec-label"
+                          label="Label"
+                          type="text"
+                          placeholder="e.g. Tinting, dash cam fitting…"
+                          value={editForm.label}
+                          onChange={(e) => setEditForm((f) => ({ ...f, label: toTitleCase(e.target.value) }))}
+                          disabled={editSaving}
+                        />
+                      )}
+                      <TextField
+                        className="rec-label"
+                        label="Due date"
+                        type="date"
+                        value={editForm.due_date}
+                        onChange={(e) => setEditForm((f) => ({ ...f, due_date: e.target.value }))}
+                        disabled={editSaving}
+                      />
+                      <TextField
+                        className="rec-label rec-label--wide"
+                        label="Notify at (days before)"
+                        type="text"
+                        placeholder="90,60,30,14,7,1"
+                        value={editForm.intervals}
+                        onChange={(e) => setEditForm((f) => ({ ...f, intervals: e.target.value }))}
+                        disabled={editSaving}
+                      />
+                    </div>
+                    <TextArea
+                      className="rec-label rec-label--full"
+                      label="Notes"
+                      rows={2}
+                      placeholder="Optional notes…"
+                      value={editForm.notes}
+                      onChange={(e) => setEditForm((f) => ({ ...f, notes: toSentenceCase(e.target.value) }))}
+                      disabled={editSaving}
+                    />
+                    {editError && <p className="rec-error">{editError}</p>}
+                    <div className="rec-form-actions">
+                      <button className="rec-btn--primary-sm" onClick={handleEditSave} disabled={editSaving}>
+                        {editSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button className="rec-btn--danger-sm" onClick={cancelEdit} disabled={editSaving}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </div>
             ))}
           </div>
@@ -424,7 +556,15 @@ const REM_STYLES = `
   .rem-row__type { font-size: var(--text-sm); color: var(--colour-text); display: flex; align-items: center; gap: var(--space-2); }
   .rem-row__custom-tag { font-size: var(--text-xs); color: var(--colour-text-muted); background: rgba(255,255,255,0.06); border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 1px 6px; }
   .rem-row__intervals { font-size: var(--text-xs); color: var(--colour-text-muted); }
-  .rem-inactive-label { font-size: var(--text-xs); color: var(--colour-text-muted); }
+  .rem-inactive-label { font-size: var(--text-xs); color: #f59e0b; }
+
+  /* ---- Inline edit panel ---- */
+  .rem-edit-panel {
+    padding: var(--space-4);
+    background: var(--colour-bg);
+    border-top: 0.5px solid var(--colour-border);
+    border-bottom: 0.5px solid var(--colour-border);
+  }
 
   /* ---- Due date badges ---- */
   .rem-badge {

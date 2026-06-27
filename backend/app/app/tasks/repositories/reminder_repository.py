@@ -109,6 +109,7 @@ class ReminderRepository:
             vehicle_id=vehicle_id,
             account_id=account_id,
             type=data.type,
+            label=data.label,
             due_date=data.due_date,
             intervals=data.intervals,
             active=True,
@@ -135,6 +136,8 @@ class ReminderRepository:
             reminder.active = data.active
         if data.notes is not None:
             reminder.notes = data.notes
+        if data.label is not None:
+            reminder.label = data.label
         self._db.add(reminder)
         await self._db.flush()
         return reminder
