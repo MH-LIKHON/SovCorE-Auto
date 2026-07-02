@@ -132,8 +132,13 @@ class TotpService:
             raise TotpError("The code is incorrect.")
 
         # ~~~~~~~~~ Issue full token pair ~~~~~~~~~
-        access = issue_access_token(user_id)
+        # Refresh first so its JTI can be embedded in the access token.
         refresh = issue_refresh_token(user_id)
+
+        from jose import jwt as _jwt
+        refresh_jti = _jwt.get_unverified_claims(refresh).get("jti", "")
+
+        access = issue_access_token(user_id, session_jti=refresh_jti)
 
         accounts = await self._accounts.get_user_accounts(user_id)
         account_id = str(accounts[0].id) if accounts else None
@@ -141,8 +146,6 @@ class TotpService:
         expires_in = _settings.jwt_access_token_expire_minutes * 60
 
         # ~~~~~~~~~ Single-session enforcement ~~~~~~~~~
-        from jose import jwt as _jwt
-        refresh_jti = _jwt.get_unverified_claims(refresh).get("jti", "")
 
         svc = SessionService(self._session)
         conflict: ConflictCheckResult = await svc.check_and_claim(

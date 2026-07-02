@@ -57,8 +57,18 @@ jti_blocklist: set[str] = set()
 # ------------------------------ Issue tokens --------------------------------
 
 
-def issue_access_token(user_id: uuid.UUID, extra: dict[str, Any] | None = None) -> str:
-    """Issue a short-lived access token for the given user."""
+def issue_access_token(
+    user_id: uuid.UUID,
+    extra: dict[str, Any] | None = None,
+    session_jti: str | None = None,
+) -> str:
+    """
+    Issue a short-lived access token for the given user.
+
+    session_jti: the JTI of the paired refresh token. When present it is
+    embedded as "session_jti" so get_current_user can verify the session
+    row still exists, enabling immediate revocation on session replace.
+    """
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=_settings.jwt_access_token_expire_minutes)
     payload: dict[str, Any] = {
@@ -69,6 +79,8 @@ def issue_access_token(user_id: uuid.UUID, extra: dict[str, Any] | None = None) 
         "exp": expire,
         "expires_in": _settings.jwt_access_token_expire_minutes * 60,
     }
+    if session_jti:
+        payload["session_jti"] = session_jti
     if extra:
         payload.update(extra)
     return jwt.encode(payload, _settings.app_secret_key, algorithm=_settings.jwt_algorithm)

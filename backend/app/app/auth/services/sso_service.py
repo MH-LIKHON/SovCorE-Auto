@@ -225,8 +225,10 @@ class MicrosoftSSOService:
                 subject=oid,
             )
 
-        access = issue_access_token(user.id)
+        # Refresh first so its JTI can be embedded in the access token.
         refresh = issue_refresh_token(user.id)
+        refresh_jti = jose_jwt.get_unverified_claims(refresh).get("jti", "")
+        access = issue_access_token(user.id, session_jti=refresh_jti)
 
         accounts = await self._account_repo.get_user_accounts(user.id)
         account_id = str(accounts[0].id) if accounts else None

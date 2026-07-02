@@ -224,11 +224,11 @@ class SessionService:
         )
 
         # Issue fresh tokens — pre-generated tokens are not carried in the JWT.
-        access = issue_access_token(user_id)
         refresh = issue_refresh_token(user_id)
-
-        # Extract the new JTI to write into user_sessions.
         new_jti = _jwt.get_unverified_claims(refresh).get("jti", "")
+        # Embed session_jti in the access token so get_current_user can
+        # detect revocation by checking the user_sessions row.
+        access = issue_access_token(user_id, session_jti=new_jti)
         await self._write_session(user_id, new_jti)
 
         logger.info("session_conflict_replaced", user_id=str(user_id))

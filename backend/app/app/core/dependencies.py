@@ -14,10 +14,19 @@
 #   Accepts only type="access" tokens; partial tokens are
 #   rejected here and must use require_partial_token instead.
 #
-#   require_partial_token: identical to get_current_user but
-#   accepts only type="partial" tokens. Used exclusively by
-#   the 2FA verify endpoint so a partial token cannot be
-#   replayed on any other protected route.
+#   Session revocation check:
+#     Every access token issued since the session_jti change
+#     carries a "session_jti" claim (= the paired refresh token's
+#     JTI). get_current_user queries user_sessions to confirm that
+#     row still exists. When a session is replaced (single-session
+#     enforcement) the old row is deleted, so the old device's
+#     access token is rejected immediately — not just when the
+#     access token expires. Older tokens without session_jti
+#     continue to work until natural expiry (max 30 min).
+#
+#   require_partial_token: accepts only type="partial" tokens.
+#   Used exclusively by the 2FA verify endpoint. No session check
+#   (partial tokens are pre-session).
 #
 #   require_verified_email: raises 403 if the user's email has
 #   not been verified. Composed on top of get_current_user.
@@ -41,6 +50,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
+from app.auth.models.session import UserSession
 from app.core.database import get_db
 from app.core.security import decode_token
 
@@ -109,6 +119,24 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or deactivated.",
         )
+
+    # ~~~~~~~~~ Session revocation check ~~~~~~~~~
+    # Tokens issued after the session_jti change carry the paired refresh
+    # token's JTI. Verify the matching user_sessions row still exists so
+    # that a replaced session is rejected immediately, not after expiry.
+    session_jti = payload.get("session_jti")
+    if session_jti:
+        sess_result = await db.execute(
+            select(UserSession).where(
+                UserSession.user_id == user_id,
+                UserSession.refresh_jti == session_jti,
+            )
+        )
+        if sess_result.scalar_one_or_none() is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session has been signed out on another device.",
+            )
 
     return user
 

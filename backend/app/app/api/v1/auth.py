@@ -269,7 +269,10 @@ async def refresh_token(
         )
 
     user_id = uuid.UUID(payload["sub"])
-    access = issue_access_token(user_id)
+    # Pass the refresh token's JTI as session_jti so get_current_user
+    # can validate the session row on each request.
+    session_jti = payload.get("jti", "")
+    access = issue_access_token(user_id, session_jti=session_jti)
     settings = get_settings()
 
     account_repo = AccountRepository(db)

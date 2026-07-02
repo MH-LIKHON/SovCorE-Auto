@@ -191,8 +191,14 @@ class AuthService:
             logger.info("auth_trusted_device_bypass", user_id=str(user.id))
 
         # ~~~~~~~~~ Issue full token pair ~~~~~~~~~
-        access = issue_access_token(user.id)
+        # Refresh is issued first so its JTI can be embedded in the access
+        # token as session_jti — used by get_current_user to detect revocation.
         refresh = issue_refresh_token(user.id)
+
+        from jose import jwt as _jwt
+        refresh_jti = _jwt.get_unverified_claims(refresh).get("jti", "")
+
+        access = issue_access_token(user.id, session_jti=refresh_jti)
 
         accounts = await self._accounts.get_user_accounts(user.id)
         account_id = str(accounts[0].id) if accounts else None
@@ -200,8 +206,6 @@ class AuthService:
         expires_in = _settings.jwt_access_token_expire_minutes * 60
 
         # ~~~~~~~~~ Single-session enforcement ~~~~~~~~~
-        from jose import jwt as _jwt
-        refresh_jti = _jwt.get_unverified_claims(refresh).get("jti", "")
 
         svc = SessionService(self._session)
         conflict = await svc.check_and_claim(
