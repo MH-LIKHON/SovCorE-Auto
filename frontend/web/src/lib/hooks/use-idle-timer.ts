@@ -16,6 +16,14 @@
 //   enough not to hurt performance, fine enough for a 5-minute
 //   minimum timeout.
 //
+//   Background tab handling:
+//     Chrome and Safari throttle setInterval to ~1 minute when a
+//     tab is in the background. A visibilitychange listener fires
+//     the moment the tab becomes visible again and immediately
+//     evaluates the elapsed idle time, so there is no 1-minute
+//     grace period given to a returning user who was already past
+//     the threshold.
+//
 //   Activity events: mousemove, keydown, pointerdown, scroll,
 //   touchstart. Stored on window so the same listener set works
 //   across nested iframes within the same origin.
@@ -96,35 +104,47 @@ export function useIdleTimer({
   }, []);
 
   useEffect(() => {
+    const timeoutMs = timeoutMinutes * 60 * 1_000;
+    const warnAtMs = timeoutMs - WARNING_LEAD_SECONDS * 1_000;
+
+    // ~~~~~~~~~ Shared idle evaluation ~~~~~~~~~
+    // Extracted so both the interval and the visibility handler use
+    // the same logic without duplicating it.
+    function _evaluate() {
+      const idleMs = Date.now() - lastActivityRef.current;
+      if (idleMs >= timeoutMs) {
+        clearInterval(intervalRef.current!);
+        onLogoutRef.current();
+        return;
+      }
+      if (idleMs >= warnAtMs && !warningSentRef.current) {
+        warningSentRef.current = true;
+        const secondsLeft = Math.ceil((timeoutMs - idleMs) / 1_000);
+        onWarnRef.current(secondsLeft);
+      }
+    }
+
     // ~~~~~~~~~ Register activity listeners ~~~~~~~~~
     const handler = resetActivity;
     ACTIVITY_EVENTS.forEach((ev) => window.addEventListener(ev, handler, { passive: true }));
 
     // ~~~~~~~~~ Poll for idle state ~~~~~~~~~
-    const timeoutMs = timeoutMinutes * 60 * 1_000;
-    const warnAtMs = timeoutMs - WARNING_LEAD_SECONDS * 1_000;
+    intervalRef.current = setInterval(_evaluate, POLL_MS);
 
-    intervalRef.current = setInterval(() => {
-      const idleMs = Date.now() - lastActivityRef.current;
-
-      if (idleMs >= timeoutMs) {
-        // Hard logout.
-        clearInterval(intervalRef.current!);
-        onLogoutRef.current();
-        return;
-      }
-
-      if (idleMs >= warnAtMs && !warningSentRef.current) {
-        // Warn — pass the remaining seconds so the modal can display a countdown.
-        warningSentRef.current = true;
-        const secondsLeft = Math.ceil((timeoutMs - idleMs) / 1_000);
-        onWarnRef.current(secondsLeft);
-      }
-    }, POLL_MS);
+    // ~~~~~~~~~ Visibility change handler ~~~~~~~~~
+    // Chrome/Safari throttle setInterval to ~1 minute in background tabs.
+    // On returning to the tab, immediately check whether the threshold was
+    // exceeded while the tab was hidden — no extra grace period is given.
+    function _handleVisibilityChange() {
+      if (document.visibilityState !== "visible") return;
+      _evaluate();
+    }
+    document.addEventListener("visibilitychange", _handleVisibilityChange);
 
     return () => {
       ACTIVITY_EVENTS.forEach((ev) => window.removeEventListener(ev, handler));
       if (intervalRef.current) clearInterval(intervalRef.current);
+      document.removeEventListener("visibilitychange", _handleVisibilityChange);
     };
   }, [timeoutMinutes, resetActivity]);
 }

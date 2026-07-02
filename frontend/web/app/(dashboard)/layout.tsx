@@ -34,7 +34,7 @@
 
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { Sidebar } from "@/src/components/dashboard/sidebar";
@@ -84,6 +84,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // Trigger the activity reset in the hook by dispatching a synthetic event.
     window.dispatchEvent(new Event("pointerdown"));
   }, []);
+
+  // ------------------------------ Session validity ping --------------------
+  // When the user returns to the tab after it was in the background, do a
+  // lightweight ping to /me. If the session was replaced on another device
+  // the 401 response propagates through apiFetch's refresh chain and
+  // redirects to /login automatically — the user is not left on a stale page.
+  useEffect(() => {
+    if (isLoading) return;
+    function _handleVisible() {
+      if (document.visibilityState !== "visible") return;
+      apiFetch("/api/v1/auth/me").catch(() => undefined);
+    }
+    document.addEventListener("visibilitychange", _handleVisible);
+    return () => document.removeEventListener("visibilitychange", _handleVisible);
+  }, [isLoading]);
 
   // ------------------------------ Idle timer hook --------------------------
   // Only mount when auth has resolved so the timeout does not start running

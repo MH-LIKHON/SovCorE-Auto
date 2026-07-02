@@ -239,6 +239,15 @@ class SessionService:
             account_id=account_id,
         )
 
+    # ------------------------------ Get session -----------------------------
+
+    async def get_session(self, user_id: uuid.UUID) -> UserSession | None:
+        """Return the active session row for this user, or None."""
+        result = await self._session.execute(
+            select(UserSession).where(UserSession.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
     # ------------------------------ Revoke on logout ------------------------
 
     async def revoke_session(self, user_id: uuid.UUID, refresh_jti: str | None) -> None:

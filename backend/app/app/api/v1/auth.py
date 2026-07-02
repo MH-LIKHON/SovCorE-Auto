@@ -41,6 +41,7 @@
 import time
 import uuid
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -269,6 +270,27 @@ async def refresh_token(
         )
 
     user_id = uuid.UUID(payload["sub"])
+
+    # ~~~~~~~~~ Backend idle timeout enforcement ~~~~~~~~~
+    # Check BEFORE issuing a new token and BEFORE touching last_seen_at.
+    # last_seen_at is updated by real API calls (get_current_user) so it
+    # reflects genuine user activity, not just refresh heartbeats.
+    # This catches the case where the browser was closed and reopened after
+    # the idle window elapsed — the frontend timer cannot fire then.
+    svc = SessionService(db)
+    sess = await svc.get_session(user_id)
+    if sess:
+        user_result = await db.execute(select(User).where(User.id == user_id))
+        db_user = user_result.scalar_one_or_none()
+        if db_user:
+            elapsed = (datetime.now(timezone.utc) - sess.last_seen_at).total_seconds()
+            if elapsed > db_user.idle_timeout_minutes * 60:
+                _clear_refresh_cookie(response)
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Session expired due to inactivity. Please sign in again.",
+                )
+
     # Pass the refresh token's JTI as session_jti so get_current_user
     # can validate the session row on each request.
     session_jti = payload.get("jti", "")
@@ -279,8 +301,8 @@ async def refresh_token(
     accounts = await account_repo.get_user_accounts(user_id)
     account_id = str(accounts[0].id) if accounts else None
 
-    # ~~~~~~~~~ Touch the session row (coarse activity tracking) ~~~~~~~~~
-    svc = SessionService(db)
+    # Touch the session row AFTER the idle check — updating last_seen_at
+    # before the check would defeat the purpose.
     await svc.touch_session(user_id)
 
     return TokenPairOut(

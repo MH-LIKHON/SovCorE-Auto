@@ -42,6 +42,7 @@
 # ============================================================
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -120,10 +121,14 @@ async def get_current_user(
             detail="User not found or deactivated.",
         )
 
-    # ~~~~~~~~~ Session revocation check ~~~~~~~~~
+    # ~~~~~~~~~ Session revocation check + activity touch ~~~~~~~~~
     # Tokens issued after the session_jti change carry the paired refresh
     # token's JTI. Verify the matching user_sessions row still exists so
     # that a replaced session is rejected immediately, not after expiry.
+    #
+    # While we have the row, also bump last_seen_at (throttled to once per
+    # minute) so the backend idle check in /refresh reflects real API activity
+    # rather than only refresh-call timestamps.
     session_jti = payload.get("session_jti")
     if session_jti:
         sess_result = await db.execute(
@@ -132,11 +137,17 @@ async def get_current_user(
                 UserSession.refresh_jti == session_jti,
             )
         )
-        if sess_result.scalar_one_or_none() is None:
+        session_row = sess_result.scalar_one_or_none()
+        if session_row is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session has been signed out on another device.",
             )
+        # Throttled write: at most one update per minute per session.
+        now = datetime.now(timezone.utc)
+        if (now - session_row.last_seen_at) > timedelta(seconds=60):
+            session_row.last_seen_at = now
+            # get_db commits at the end of the request; no explicit flush needed.
 
     return user
 
