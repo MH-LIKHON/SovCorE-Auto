@@ -6,18 +6,24 @@
 //   Account settings page. Displays the account name and type
 //   with an inline edit form, shows the current user's profile
 //   (email, 2FA status, member since), provides session security
-//   controls (idle timeout preference), and a danger zone for
-//   account-level actions.
+//   controls (idle timeout preference), lists and manages trusted
+//   browsers, and contains a danger zone for account deletion.
 //
 // Design:
 //   Each section is a Card. The account and session cards toggle
-//   to inline edit forms; all others are read-only views.
+//   to inline edit forms; the trusted browsers card is always
+//   expanded showing the device list with per-row remove buttons.
 //
 //   Session card:
 //     Idle timeout is stored per-user via PATCH /auth/me/preferences.
 //     On save it also updates "sva_idle_timeout" in sessionStorage
 //     so the running idle timer in the dashboard layout picks up
 //     the new value without a page reload.
+//
+//   Trusted browsers card:
+//     Lists all non-expired trusted devices from GET /auth/trusted-devices.
+//     Each row shows the browser label (e.g. "Chrome on Windows"),
+//     the expiry date, and a Remove button. Capped at 5 devices.
 //
 // Consumed by:
 //   - Routed at /dashboard/settings/account
@@ -37,8 +43,8 @@ import { toTitleCase } from "@/src/lib/text";
 // CONSTANTS
 // ==================================================
 
-// Valid idle timeout values in minutes (5-30, step 5).
 const IDLE_OPTIONS = [5, 10, 15, 20, 25, 30] as const;
+const MAX_TRUSTED_DEVICES = 5;
 
 // ==================================================
 // TYPES
@@ -61,6 +67,13 @@ interface UserMe {
   created_at: string;
 }
 
+interface TrustedDeviceData {
+  id: string;
+  label: string;
+  created_at: string;
+  expires_at: string;
+}
+
 // ==================================================
 // HELPERS
 // ==================================================
@@ -74,6 +87,14 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 
 function formatIdleLabel(minutes: number): string {
   return `${minutes} minutes`;
+}
+
+function formatExpiry(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 // ==================================================
@@ -97,6 +118,11 @@ export default function AccountSettingsPage() {
   const [savingSession, setSavingSession] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
+  // ------------------------------ Trusted devices --------------------------
+  const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceData[]>([]);
+  const [tdLoading, setTdLoading] = useState(true);
+  const [removingDeviceIds, setRemovingDeviceIds] = useState<Set<string>>(new Set());
+
   // ------------------------------ Data load --------------------------------
   useEffect(() => {
     const accountId = sessionStorage.getItem("sva_account_id");
@@ -112,6 +138,14 @@ export default function AccountSettingsPage() {
       setTypeInput(acct.type ?? "personal");
       setIdleInput(user.idle_timeout_minutes ?? 15);
     });
+
+    apiFetch("/api/v1/auth/trusted-devices")
+      .then((r) => r.json())
+      .then((devices: TrustedDeviceData[]) => {
+        setTrustedDevices(devices);
+        setTdLoading(false);
+      })
+      .catch(() => setTdLoading(false));
   }, []);
 
   // ------------------------------ Account save -----------------------------
@@ -150,9 +184,24 @@ export default function AccountSettingsPage() {
     }
     const updated: UserMe = await res.json();
     setMe(updated);
-    // Update the cached value so the running idle timer picks it up.
     sessionStorage.setItem("sva_idle_timeout", String(updated.idle_timeout_minutes));
     setEditingSession(false);
+  }
+
+  // ------------------------------ Remove trusted device --------------------
+  async function handleRemoveDevice(deviceId: string) {
+    setRemovingDeviceIds((prev) => new Set(prev).add(deviceId));
+    const res = await apiFetch(`/api/v1/auth/trusted-devices/${deviceId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setTrustedDevices((prev) => prev.filter((d) => d.id !== deviceId));
+    }
+    setRemovingDeviceIds((prev) => {
+      const next = new Set(prev);
+      next.delete(deviceId);
+      return next;
+    });
   }
 
   const memberSince = me
@@ -339,11 +388,44 @@ export default function AccountSettingsPage() {
               <dt>Active sessions</dt>
               <dd>One session allowed at a time</dd>
             </div>
-            <div>
-              <dt>Trusted browsers</dt>
-              <dd>Saved for 15 days after 2FA verification</dd>
-            </div>
           </dl>
+        )}
+      </Card>
+
+      {/* ========== Trusted browsers ========== */}
+      <Card>
+        <div className="set-section-head">
+          <h2 className="set-section">Trusted browsers</h2>
+          <span className="set-td-cap">Up to {MAX_TRUSTED_DEVICES} saved</span>
+        </div>
+        <p className="set-hint set-td-desc">
+          Browsers where you completed 2FA verification. These skip the authenticator step for 15 days.
+        </p>
+
+        {tdLoading ? (
+          <p className="set-hint">Loading...</p>
+        ) : trustedDevices.length === 0 ? (
+          <p className="set-hint">
+            No trusted browsers saved. Your 2FA code will be required on every sign-in.
+          </p>
+        ) : (
+          <ul className="set-td-list">
+            {trustedDevices.map((device) => (
+              <li key={device.id} className="set-td-row">
+                <div className="set-td-info">
+                  <span className="set-td-label">{device.label || "Unknown browser"}</span>
+                  <span className="set-td-meta">Expires {formatExpiry(device.expires_at)}</span>
+                </div>
+                <button
+                  className="set-td-remove"
+                  onClick={() => handleRemoveDevice(device.id)}
+                  disabled={removingDeviceIds.has(device.id)}
+                >
+                  {removingDeviceIds.has(device.id) ? "Removing..." : "Remove"}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </Card>
 
@@ -396,7 +478,7 @@ const SET_STYLES = `
   .set-form { display: flex; flex-direction: column; gap: var(--space-4); }
   .set-form .sov-field { max-width: 400px; }
   .set-error { font-size: var(--text-sm); color: var(--colour-error); }
-  .set-hint { font-size: var(--text-xs); color: var(--colour-text-muted); line-height: var(--leading-normal); max-width: 420px; }
+  .set-hint { font-size: var(--text-xs); color: var(--colour-text-muted); line-height: var(--leading-normal); max-width: 480px; }
   .set-form-actions { display: flex; gap: var(--space-3); }
   .set-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; transition: background 0.2s, color 0.2s, opacity 0.2s; border: none; }
   .set-btn--primary { background: var(--colour-accent); color: #fff; }
@@ -410,8 +492,21 @@ const SET_STYLES = `
   .set-link--error:hover { color: var(--colour-error); text-decoration: underline; }
   .set-danger-copy { color: var(--colour-text-muted); font-size: var(--text-sm); max-width: 560px; line-height: var(--leading-normal); }
 
+  /* Trusted browsers card */
+  .set-td-cap { font-size: var(--text-xs); color: var(--colour-text-muted); }
+  .set-td-desc { margin-bottom: var(--space-4); }
+  .set-td-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+  .set-td-row { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); background: rgba(255,255,255,0.025); border: 0.5px solid var(--colour-border); border-radius: var(--radius-sm); gap: var(--space-4); }
+  .set-td-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .set-td-label { font-size: var(--text-sm); color: var(--colour-text); }
+  .set-td-meta { font-size: var(--text-xs); color: var(--colour-text-muted); }
+  .set-td-remove { flex-shrink: 0; background: none; border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 4px 12px; font-size: var(--text-sm); color: var(--colour-error); cursor: none; transition: border-color 0.2s, opacity 0.2s; }
+  .set-td-remove:hover:not(:disabled) { border-color: var(--colour-error); }
+  .set-td-remove:disabled { opacity: 0.5; }
+
   @media (max-width: 640px) {
     .set-list > div { grid-template-columns: 1fr; gap: 4px; }
     .set-form .sov-field { max-width: 100%; }
+    .set-td-row { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
   }
 `;

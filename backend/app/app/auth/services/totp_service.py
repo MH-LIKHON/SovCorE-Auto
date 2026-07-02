@@ -117,6 +117,7 @@ class TotpService:
         user_id: uuid.UUID,
         code: str,
         remember_device: bool = False,
+        device_label: str = "",
     ) -> TotpLoginResult:
         """
         Called when requires_2fa=True was returned during code verification.
@@ -164,7 +165,7 @@ class TotpService:
             # If there is a conflict the login has not completed yet; the device
             # trust will be created by the resolve endpoint after "replace".
             td_svc = TrustedDeviceService(self._session)
-            device_token = await td_svc.create(user_id)
+            device_token = await td_svc.create(user_id, label=device_label)
 
         logger.info("totp_login_success", user_id=str(user_id))
 

@@ -24,9 +24,11 @@
 # ============================================================
 
 import re
+import uuid
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 # ==================================================
 # REQUEST SCHEMAS
@@ -207,3 +209,17 @@ class TotpVerifyOut(BaseModel):
     """Returned after a successful TOTP challenge during login."""
 
     ok: bool = True
+
+
+# ------------------------------ Trusted Device Out --------------------------
+
+
+class TrustedDeviceOut(BaseModel):
+    """Returned by GET /auth/trusted-devices — one saved trusted browser."""
+
+    id: uuid.UUID
+    label: str
+    created_at: datetime
+    expires_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

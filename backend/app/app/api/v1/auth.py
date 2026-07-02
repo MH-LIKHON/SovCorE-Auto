@@ -61,6 +61,7 @@ from app.auth.schemas.auth_schemas import (
     TotpChallengeIn,
     TotpSetupOut,
     TotpVerifyOut,
+    TrustedDeviceOut,
     VerifyCodeIn,
 )
 from app.auth.services.auth_service import AuthService, InvalidCodeError
@@ -136,6 +137,46 @@ def _set_trusted_device_cookie(response: Response, token: str) -> None:
         path="/",
         max_age=TRUSTED_DEVICE_COOKIE_MAX_AGE,
     )
+
+
+# ==================================================
+# HELPERS
+# ==================================================
+
+
+def _browser_label(user_agent: str) -> str:
+    """Derive a short human-readable label from the User-Agent string."""
+    ua = user_agent.lower()
+    # Check Edge before Chrome — Edge UAs contain both "edg/" and "chrome/".
+    if "edg/" in ua:
+        browser = "Edge"
+    elif "firefox/" in ua:
+        browser = "Firefox"
+    elif "opr/" in ua or "opera/" in ua:
+        browser = "Opera"
+    elif "chrome/" in ua:
+        browser = "Chrome"
+    elif "safari/" in ua:
+        browser = "Safari"
+    else:
+        browser = "Browser"
+
+    if "windows" in ua:
+        os_ = "Windows"
+    elif "android" in ua:
+        os_ = "Android"
+    elif "ipad" in ua:
+        os_ = "iPad"
+    elif "iphone" in ua:
+        os_ = "iPhone"
+    elif "mac os" in ua or "macos" in ua:
+        os_ = "Mac"
+    elif "linux" in ua:
+        os_ = "Linux"
+    else:
+        os_ = None
+
+    return f"{browser} on {os_}" if os_ else browser
 
 
 # ==================================================
@@ -426,11 +467,13 @@ async def verify_2fa_login(
     and a conflict_token; no cookies are set.
     """
     service = TotpService(db)
+    user_agent = request.headers.get("user-agent", "")
     try:
         result = await service.verify_login(
             current_user.id,
             body.totp_code,
             remember_device=body.remember_device,
+            device_label=_browser_label(user_agent),
         )
     except TotpError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
@@ -694,3 +737,51 @@ async def update_preferences(
 
     from app.accounts.schemas.account_schemas import UserMeOut
     return UserMeOut.model_validate(user).model_dump(mode="json")
+
+
+# ==================================================
+# TRUSTED BROWSER MANAGEMENT
+# ==================================================
+
+
+@router.get(
+    "/trusted-devices",
+    response_model=list[TrustedDeviceOut],
+    summary="List trusted browsers for the authenticated user",
+)
+async def list_trusted_devices(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[TrustedDeviceOut]:
+    """
+    Return all non-expired trusted browsers saved by the current user,
+    newest first. Each entry shows the browser label and expiry date so
+    the settings page can display them for review or removal.
+    """
+    svc = TrustedDeviceService(db)
+    devices = await svc.list_for_user(current_user.id)
+    return [TrustedDeviceOut.model_validate(d) for d in devices]
+
+
+@router.delete(
+    "/trusted-devices/{device_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a trusted browser by ID",
+)
+async def delete_trusted_device(
+    device_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Remove a specific trusted browser. Ownership is enforced: a user
+    cannot remove another user's device. Returns 404 if the device does
+    not exist or belongs to a different user.
+    """
+    svc = TrustedDeviceService(db)
+    deleted = await svc.delete_for_user(device_id, current_user.id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trusted device not found.",
+        )

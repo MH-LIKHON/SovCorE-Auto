@@ -55,6 +55,9 @@ class TrustedDevice(Base):
     # SHA-256 hex digest of the plaintext token that lives in the cookie.
     device_token_hash: Mapped[str] = mapped_column(Text(), nullable=False, unique=True)
 
+    # Human-readable label derived from the User-Agent at registration time.
+    label: Mapped[str] = mapped_column(Text(), nullable=False, default="")
+
     # ------------------------------ Timestamps ------------------------------
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
