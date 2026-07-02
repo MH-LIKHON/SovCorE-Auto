@@ -13,11 +13,18 @@
 #   by a field validator so the service does not need to repeat
 #   that step.
 #
+#   session_conflict in TokenPairOut signals to the frontend that
+#   a second concurrent session was detected. When True the
+#   access_token and account_id fields are empty; only
+#   conflict_token is populated. The frontend shows the conflict
+#   modal and calls /auth/session/resolve to choose an action.
+#
 # Consumed by:
 #   - backend/app/app/api/v1/auth.py (router)
 # ============================================================
 
 import re
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -76,6 +83,9 @@ class TotpChallengeIn(BaseModel):
     model_config = {"extra": "forbid"}
 
     totp_code: str = Field(min_length=6, max_length=6)
+    # When True the backend issues a trusted-device token and sets the sva_td
+    # cookie so future logins on this browser skip the TOTP step for 15 days.
+    remember_device: bool = False
 
     @field_validator("totp_code", mode="before")
     @classmethod
@@ -83,6 +93,42 @@ class TotpChallengeIn(BaseModel):
         v = v.strip()
         if not re.fullmatch(r"\d{6}", v):
             raise ValueError("TOTP code must be exactly six digits.")
+        return v
+
+
+# ------------------------------ Session resolve -----------------------------
+
+
+class SessionResolveIn(BaseModel):
+    """
+    POST /api/v1/auth/session/resolve — choose what to do with a session conflict.
+
+    action="replace" revokes the existing session and issues a full token pair
+    to the incoming login. action="cancel" discards the pending login; the
+    existing session is left intact.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    conflict_token: str
+    action: Literal["replace", "cancel"]
+
+
+# ------------------------------ Preferences --------------------------------
+
+
+class PreferencesIn(BaseModel):
+    """PATCH /api/v1/auth/me/preferences — update per-user session settings."""
+
+    model_config = {"extra": "forbid"}
+
+    idle_timeout_minutes: int = Field(ge=5, le=30)
+
+    @field_validator("idle_timeout_minutes", mode="before")
+    @classmethod
+    def validate_idle_timeout(cls, v: int) -> int:
+        if v % 5 != 0:
+            raise ValueError("idle_timeout_minutes must be a multiple of 5.")
         return v
 
 
@@ -110,13 +156,38 @@ class TokenPairOut(BaseModel):
     Returned after successful code verification or SSO callback.
     The refresh token is set as an HTTP-only cookie by the route handler;
     only the access token appears in this JSON body.
+
+    When session_conflict is True the caller detected a second concurrent
+    session. In that case access_token is empty and conflict_token must be
+    passed to /auth/session/resolve to proceed. account_id is also empty
+    until the conflict is resolved.
     """
 
-    access_token: str
+    access_token: str = ""
     token_type: str = "bearer"
-    expires_in: int  # Seconds until the access token expires.
-    requires_2fa: bool = False  # True means a TOTP challenge is needed next.
-    account_id: str | None = None  # Set once a default account is resolved.
+    expires_in: int = 0
+    requires_2fa: bool = False
+    account_id: str | None = None
+    # Session-conflict fields — only populated when a second session is detected.
+    session_conflict: bool = False
+    conflict_token: str | None = None
+
+
+# ------------------------------ Session resolve response --------------------
+
+
+class SessionResolveOut(BaseModel):
+    """
+    Returned by /auth/session/resolve.
+
+    On action="replace": populated with a full token pair.
+    On action="cancel": ok=True, everything else is empty.
+    """
+
+    ok: bool = True
+    access_token: str = ""
+    expires_in: int = 0
+    account_id: str | None = None
 
 
 # ------------------------------ TOTP Setup ----------------------------------

@@ -82,6 +82,10 @@ export function useRequireAuth(): AuthState {
         const meData = meRes.ok ? await meRes.json() : null;
         const email = meData?.email ?? null;
         if (email) sessionStorage.setItem("sva_email", email);
+        // Cache idle timeout so the dashboard layout does not need a second round-trip.
+        if (meData?.idle_timeout_minutes) {
+          sessionStorage.setItem("sva_idle_timeout", String(meData.idle_timeout_minutes));
+        }
 
         setState({
           token: data.access_token,
@@ -107,5 +111,6 @@ export function signOut(router: ReturnType<typeof useRouter>): void {
   sessionStorage.removeItem("sva_access");
   sessionStorage.removeItem("sva_account_id");
   sessionStorage.removeItem("sva_email");
+  sessionStorage.removeItem("sva_idle_timeout");
   router.push("/");
 }

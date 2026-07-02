@@ -5,12 +5,19 @@
 // Purpose:
 //   Account settings page. Displays the account name and type
 //   with an inline edit form, shows the current user's profile
-//   (email, 2FA status, member since), and provides a danger
-//   zone for account-level actions.
+//   (email, 2FA status, member since), provides session security
+//   controls (idle timeout preference), and a danger zone for
+//   account-level actions.
 //
 // Design:
-//   Each section is a Card. The account card toggles to an
-//   inline form on Edit; all others are read-only views.
+//   Each section is a Card. The account and session cards toggle
+//   to inline edit forms; all others are read-only views.
+//
+//   Session card:
+//     Idle timeout is stored per-user via PATCH /auth/me/preferences.
+//     On save it also updates "sva_idle_timeout" in sessionStorage
+//     so the running idle timer in the dashboard layout picks up
+//     the new value without a page reload.
 //
 // Consumed by:
 //   - Routed at /dashboard/settings/account
@@ -25,6 +32,13 @@ import { Card } from "@/src/components/ui/card";
 import { TextField } from "@/src/components/ui/input";
 import { apiFetch } from "@/src/lib/api/fetch";
 import { toTitleCase } from "@/src/lib/text";
+
+// ==================================================
+// CONSTANTS
+// ==================================================
+
+// Valid idle timeout values in minutes (5-30, step 5).
+const IDLE_OPTIONS = [5, 10, 15, 20, 25, 30] as const;
 
 // ==================================================
 // TYPES
@@ -43,6 +57,7 @@ interface UserMe {
   full_name: string;
   is_email_verified: boolean;
   totp_enabled: boolean;
+  idle_timeout_minutes: number;
   created_at: string;
 }
 
@@ -57,6 +72,10 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   fleet: "Fleet",
 };
 
+function formatIdleLabel(minutes: number): string {
+  return `${minutes} minutes`;
+}
+
 // ==================================================
 // PAGE
 // ==================================================
@@ -64,12 +83,21 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 export default function AccountSettingsPage() {
   const [account, setAccount] = useState<AccountData | null>(null);
   const [me, setMe] = useState<UserMe | null>(null);
-  const [editing, setEditing] = useState(false);
+
+  // ------------------------------ Account edit state -----------------------
+  const [editingAccount, setEditingAccount] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [typeInput, setTypeInput] = useState<string>("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
 
+  // ------------------------------ Session edit state -----------------------
+  const [editingSession, setEditingSession] = useState(false);
+  const [idleInput, setIdleInput] = useState<number>(15);
+  const [savingSession, setSavingSession] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+
+  // ------------------------------ Data load --------------------------------
   useEffect(() => {
     const accountId = sessionStorage.getItem("sva_account_id");
     if (!accountId) return;
@@ -77,31 +105,54 @@ export default function AccountSettingsPage() {
     Promise.all([
       apiFetch(`/api/v1/accounts/${accountId}`).then((r) => r.json()),
       apiFetch("/api/v1/auth/me").then((r) => r.json()),
-    ]).then(([acct, user]) => {
+    ]).then(([acct, user]: [AccountData, UserMe]) => {
       setAccount(acct);
       setMe(user);
       setNameInput(acct.name ?? "");
       setTypeInput(acct.type ?? "personal");
+      setIdleInput(user.idle_timeout_minutes ?? 15);
     });
   }, []);
 
-  async function handleSave() {
+  // ------------------------------ Account save -----------------------------
+  async function handleAccountSave() {
     if (!account) return;
-    setSaving(true);
-    setSaveError(null);
+    setSavingAccount(true);
+    setAccountError(null);
     const res = await apiFetch(`/api/v1/accounts/${account.id}`, {
       method: "PATCH",
       body: JSON.stringify({ name: nameInput, type: typeInput }),
     });
-    setSaving(false);
+    setSavingAccount(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setSaveError(data.detail ?? "Failed to save. Please try again.");
+      setAccountError((data as { detail?: string }).detail ?? "Failed to save. Please try again.");
       return;
     }
-    const updated = await res.json();
+    const updated: AccountData = await res.json();
     setAccount(updated);
-    setEditing(false);
+    setEditingAccount(false);
+  }
+
+  // ------------------------------ Session save -----------------------------
+  async function handleSessionSave() {
+    setSavingSession(true);
+    setSessionError(null);
+    const res = await apiFetch("/api/v1/auth/me/preferences", {
+      method: "PATCH",
+      body: JSON.stringify({ idle_timeout_minutes: idleInput }),
+    });
+    setSavingSession(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setSessionError((data as { detail?: string }).detail ?? "Failed to save. Please try again.");
+      return;
+    }
+    const updated: UserMe = await res.json();
+    setMe(updated);
+    // Update the cached value so the running idle timer picks it up.
+    sessionStorage.setItem("sva_idle_timeout", String(updated.idle_timeout_minutes));
+    setEditingSession(false);
   }
 
   const memberSince = me
@@ -119,18 +170,18 @@ export default function AccountSettingsPage() {
         <p className="set-sub">Account, profile, security, and danger zone.</p>
       </header>
 
-      {/* ---------- Account ---------- */}
+      {/* ========== Account ========== */}
       <Card>
         <div className="set-section-head">
           <h2 className="set-section">Account</h2>
-          {!editing && (
-            <button className="set-edit-btn" onClick={() => setEditing(true)}>
+          {!editingAccount && (
+            <button className="set-edit-btn" onClick={() => setEditingAccount(true)}>
               Edit
             </button>
           )}
         </div>
 
-        {editing ? (
+        {editingAccount ? (
           <div className="set-form">
             <TextField
               label="Account name"
@@ -155,14 +206,14 @@ export default function AccountSettingsPage() {
                 </select>
               </div>
             </div>
-            {saveError && <p className="set-error">{saveError}</p>}
+            {accountError && <p className="set-error">{accountError}</p>}
             <div className="set-form-actions">
-              <button className="set-btn set-btn--primary" onClick={handleSave} disabled={saving}>
-                {saving ? "Saving…" : "Save"}
+              <button className="set-btn set-btn--primary" onClick={handleAccountSave} disabled={savingAccount}>
+                {savingAccount ? "Saving..." : "Save"}
               </button>
               <button
                 className="set-btn set-btn--ghost"
-                onClick={() => { setEditing(false); setSaveError(null); }}
+                onClick={() => { setEditingAccount(false); setAccountError(null); }}
               >
                 Cancel
               </button>
@@ -182,7 +233,7 @@ export default function AccountSettingsPage() {
         )}
       </Card>
 
-      {/* ---------- Profile ---------- */}
+      {/* ========== Profile ========== */}
       <Card>
         <h2 className="set-section">Profile</h2>
         <dl className="set-list">
@@ -211,7 +262,7 @@ export default function AccountSettingsPage() {
         </dl>
       </Card>
 
-      {/* ---------- Security ---------- */}
+      {/* ========== Security ========== */}
       <Card>
         <h2 className="set-section">Security</h2>
         <dl className="set-list">
@@ -232,7 +283,71 @@ export default function AccountSettingsPage() {
         </dl>
       </Card>
 
-      {/* ---------- Danger zone ---------- */}
+      {/* ========== Session ========== */}
+      <Card>
+        <div className="set-section-head">
+          <h2 className="set-section">Session</h2>
+          {!editingSession && (
+            <button className="set-edit-btn" onClick={() => setEditingSession(true)}>
+              Edit
+            </button>
+          )}
+        </div>
+
+        {editingSession ? (
+          <div className="set-form">
+            <div className="sov-field" style={{ maxWidth: 260 }}>
+              <label htmlFor="set-idle-timeout" className="sov-field__label">
+                Idle sign-out after
+              </label>
+              <div className="sov-input-wrap">
+                <select
+                  id="set-idle-timeout"
+                  className="sov-field__control"
+                  value={idleInput}
+                  onChange={(e) => setIdleInput(Number(e.target.value))}
+                >
+                  {IDLE_OPTIONS.map((m) => (
+                    <option key={m} value={m}>{formatIdleLabel(m)}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="set-hint">
+              You will be signed out automatically after this period of inactivity on any device.
+            </p>
+            {sessionError && <p className="set-error">{sessionError}</p>}
+            <div className="set-form-actions">
+              <button className="set-btn set-btn--primary" onClick={handleSessionSave} disabled={savingSession}>
+                {savingSession ? "Saving..." : "Save"}
+              </button>
+              <button
+                className="set-btn set-btn--ghost"
+                onClick={() => { setEditingSession(false); setSessionError(null); setIdleInput(me?.idle_timeout_minutes ?? 15); }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <dl className="set-list">
+            <div>
+              <dt>Idle sign-out</dt>
+              <dd>{me ? formatIdleLabel(me.idle_timeout_minutes) : "-"}</dd>
+            </div>
+            <div>
+              <dt>Active sessions</dt>
+              <dd>One session allowed at a time</dd>
+            </div>
+            <div>
+              <dt>Trusted browsers</dt>
+              <dd>Saved for 15 days after 2FA verification</dd>
+            </div>
+          </dl>
+        )}
+      </Card>
+
+      {/* ========== Danger zone ========== */}
       <Card>
         <h2 className="set-section" style={{ color: "var(--colour-error)" }}>
           Danger zone
@@ -258,7 +373,7 @@ export default function AccountSettingsPage() {
 }
 
 // ==================================================
-// STYLES — mirror of SovCorE QR settings styles
+// STYLES
 // ==================================================
 
 const SET_STYLES = `
@@ -281,6 +396,7 @@ const SET_STYLES = `
   .set-form { display: flex; flex-direction: column; gap: var(--space-4); }
   .set-form .sov-field { max-width: 400px; }
   .set-error { font-size: var(--text-sm); color: var(--colour-error); }
+  .set-hint { font-size: var(--text-xs); color: var(--colour-text-muted); line-height: var(--leading-normal); max-width: 420px; }
   .set-form-actions { display: flex; gap: var(--space-3); }
   .set-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; transition: background 0.2s, color 0.2s, opacity 0.2s; border: none; }
   .set-btn--primary { background: var(--colour-accent); color: #fff; }
@@ -296,5 +412,6 @@ const SET_STYLES = `
 
   @media (max-width: 640px) {
     .set-list > div { grid-template-columns: 1fr; gap: 4px; }
+    .set-form .sov-field { max-width: 100%; }
   }
 `;

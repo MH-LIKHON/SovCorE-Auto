@@ -11,6 +11,8 @@
 # ============================================================
 
 from app.auth.models.auth_code import AuthCode
+from app.auth.models.session import UserSession
 from app.auth.models.sso_identity import SSOIdentity
+from app.auth.models.trusted_device import TrustedDevice
 
-__all__ = ["AuthCode", "SSOIdentity"]
+__all__ = ["AuthCode", "SSOIdentity", "UserSession", "TrustedDevice"]

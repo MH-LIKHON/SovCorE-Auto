@@ -25,22 +25,24 @@
 //     fires; otherwise the success overlay plays.
 //
 //   Stage 3 (TOTP — only when 2FA is enabled):
-//     A single six-digit TOTP field appears. On submit, calls
-//     POST /api/v1/auth/2fa/verify with the partial token.
+//     A single six-digit TOTP field appears, plus an optional
+//     "Remember this browser for 15 days" checkbox (unchecked by
+//     default). On submit, calls POST /api/v1/auth/2fa/verify with
+//     the partial token and the remember_device flag.
+//
+//   Session conflict:
+//     verify-code and 2fa/verify can return session_conflict=true
+//     with a conflict_token when a session already exists for the
+//     account. The SessionConflictModal is shown; the user either
+//     replaces the old session or cancels. SSO delivers the
+//     conflict token via ?conflict= query param on redirect.
 //
 //   Microsoft SSO:
 //     One button that redirects to /api/v1/auth/sso/microsoft/start.
-//     No Google or Yahoo — Auto only supports Microsoft in Phase 1.
 //
 //   Auth: custom backend API, not NextAuth. Access token is
 //   stored in sessionStorage only (cleared on tab close). The
 //   HTTP-only refresh cookie persists across tab reopens.
-//
-//   Components composed:
-//     - LoginBackground      — ambient orbs, particles, gradient lines
-//     - LoginCard            — glass card with 3D tilt and entrance
-//     - LoginSuccessOverlay  — ring burst + "Access granted"
-//     - BrandLockup          — shared logo + name + subtitle (lg size)
 //
 // Consumed by:
 //   - Next.js App Router (renders at /login)
@@ -56,6 +58,7 @@ import { LoginBackground } from '@/src/components/login/login-background'
 import { LoginCard } from '@/src/components/login/login-card'
 import { LOGIN_KEYFRAMES } from '@/src/components/login/login-keyframes'
 import { LoginSuccessOverlay, SUCCESS_ANIMATION_MS } from '@/src/components/login/login-success-overlay'
+import { SessionConflictModal } from '@/src/components/auth/session-conflict-modal'
 import { BrandLockup } from '@/src/components/ui/brand-lockup'
 import { safeNextPath } from '@/src/lib/safe-redirect'
 
@@ -122,6 +125,9 @@ function LoginPageInner() {
   // TOTP — partial token issued when requires_2fa=true
   const partialTokenRef = useRef<string | null>(null)
 
+  // ------------------------------ Conflict modal ----------------------------
+  const [conflictToken, setConflictToken] = useState<string | null>(null)
+
   // ------------------------------ Entrance Animation Timing ------------------
   const [mounted, setMounted] = useState(false)
 
@@ -137,18 +143,36 @@ function LoginPageInner() {
     return () => { document.body.style.overflow = prev }
   }, [])
 
-  // ------------------------------ SSO error from redirect -------------------
+  // ------------------------------ SSO error / conflict from redirect ---------
   useEffect(() => {
     const ssoError = params.get('sso_error')
-    if (!ssoError) return
-    const messages: Record<string, string> = {
-      access_denied:   'Microsoft sign-in was cancelled or access was denied.',
-      state_mismatch:  'Sign-in session expired. Please start again.',
-      missing_code:    'Microsoft did not return an authorisation code. Please try again.',
-      sso_failed:      'Could not complete Microsoft sign-in. Contact support if this keeps happening.',
+    if (ssoError) {
+      const messages: Record<string, string> = {
+        access_denied:   'Microsoft sign-in was cancelled or access was denied.',
+        state_mismatch:  'Sign-in session expired. Please start again.',
+        missing_code:    'Microsoft did not return an authorisation code. Please try again.',
+        sso_failed:      'Could not complete Microsoft sign-in. Contact support if this keeps happening.',
+      }
+      setError(messages[ssoError] ?? 'Microsoft sign-in failed. Please try again.')
     }
-    setError(messages[ssoError] ?? 'Microsoft sign-in failed. Please try again.')
+
+    // SSO conflict: Microsoft redirected to /login?conflict=<token>
+    const ssoConflict = params.get('conflict')
+    if (ssoConflict) {
+      setConflictToken(ssoConflict)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ------------------------------ After success ----------------------------
+
+  function _completeLogin(accessToken: string, accountId: string | null) {
+    if (accessToken) {
+      sessionStorage.setItem('sva_access', accessToken)
+      if (accountId) sessionStorage.setItem('sva_account_id', accountId)
+    }
+    setSuccess(true)
+    setTimeout(() => router.push(next), SUCCESS_ANIMATION_MS)
+  }
 
   // ------------------------------ Stage 1: Request Code ----------------------
 
@@ -196,6 +220,8 @@ function LoginPageInner() {
         access_token?: string
         account_id?: string
         requires_2fa?: boolean
+        session_conflict?: boolean
+        conflict_token?: string
         detail?: string
       }
 
@@ -204,29 +230,29 @@ function LoginPageInner() {
         return
       }
 
+      // ~~~~~~~~~ Session conflict ~~~~~~~~~
+      if (data.session_conflict && data.conflict_token) {
+        setConflictToken(data.conflict_token)
+        return
+      }
+
       if (data.requires_2fa) {
-        // Partial token — gated to 2FA challenge endpoint only.
         partialTokenRef.current = data.access_token ?? null
         setStage('totp')
         return
       }
 
-      if (data.access_token) {
-        sessionStorage.setItem('sva_access', data.access_token)
-        if (data.account_id) sessionStorage.setItem('sva_account_id', data.account_id)
-      }
-      setSuccess(true)
-      setTimeout(() => router.push(next), SUCCESS_ANIMATION_MS)
+      _completeLogin(data.access_token ?? '', data.account_id ?? null)
     } catch {
       setError('Could not reach the server. Check your connection.')
     } finally {
       setIsLoading(false)
     }
-  }, [email, next, router])
+  }, [email, next, router]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------ Stage 3: TOTP Verify ----------------------
 
-  const verifyTotp = useCallback(async function verifyTotp(totpCode: string) {
+  const verifyTotp = useCallback(async function verifyTotp(totpCode: string, rememberDevice: boolean) {
     const partial = partialTokenRef.current
     if (!partial) {
       setError('Session expired. Please sign in again.')
@@ -242,12 +268,14 @@ function LoginPageInner() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${partial}`,
         },
-        body: JSON.stringify({ totp_code: totpCode }),
+        body: JSON.stringify({ totp_code: totpCode, remember_device: rememberDevice }),
         credentials: 'include',
       })
       const data = await res.json().catch(() => ({})) as {
         access_token?: string
         account_id?: string
+        session_conflict?: boolean
+        conflict_token?: string
         detail?: string
       }
 
@@ -256,24 +284,38 @@ function LoginPageInner() {
         return
       }
 
-      if (data.access_token) {
-        sessionStorage.setItem('sva_access', data.access_token)
-        if (data.account_id) sessionStorage.setItem('sva_account_id', data.account_id)
+      // ~~~~~~~~~ Session conflict after TOTP ~~~~~~~~~
+      if (data.session_conflict && data.conflict_token) {
+        setConflictToken(data.conflict_token)
+        return
       }
-      setSuccess(true)
-      setTimeout(() => router.push(next), SUCCESS_ANIMATION_MS)
+
+      _completeLogin(data.access_token ?? '', data.account_id ?? null)
     } catch {
       setError('Could not reach the server. Check your connection.')
     } finally {
       setIsLoading(false)
     }
-  }, [next, router])
+  }, [next, router]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------ Microsoft SSO ------------------------------
 
   function handleMicrosoftSSO() {
     setSsoLoading(true)
     window.location.href = `${API}/api/v1/auth/sso/microsoft/start`
+  }
+
+  // ------------------------------ Conflict modal callbacks ------------------
+
+  function handleConflictReplaced(accessToken: string, accountId: string | null) {
+    setConflictToken(null)
+    _completeLogin(accessToken, accountId)
+  }
+
+  function handleConflictCancelled() {
+    setConflictToken(null)
+    setStage('email')
+    setError(null)
   }
 
   // ------------------------------ Render ------------------------------------
@@ -465,6 +507,15 @@ function LoginPageInner() {
         </div>
       </LoginCard>
 
+      {/* ── Session conflict modal ─────────────────────────── */}
+      {conflictToken && (
+        <SessionConflictModal
+          conflictToken={conflictToken}
+          onReplaced={handleConflictReplaced}
+          onCancel={handleConflictCancelled}
+        />
+      )}
+
       {/* ── Keyframe Animations ─────────────────────────────── */}
       <style>{LOGIN_KEYFRAMES}</style>
       <style>{`html, body { overflow: hidden !important; }`}</style>
@@ -646,7 +697,6 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
     inputRefs.current[0]?.focus()
   }, [])
 
-  // Auto-submit when all six digits are present.
   useEffect(() => {
     const full = digits.join('')
     if (full.length === 6 && digits.every(d => /^\d$/.test(d))) {
@@ -657,7 +707,6 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
   function handleDigitInput(index: number, value: string) {
     const sanitised = value.replace(/\D/g, '')
 
-    // Handle paste of a full code into the first box.
     if (sanitised.length > 1) {
       const chars = sanitised.slice(0, 6).split('')
       const next = [...digits]
@@ -781,16 +830,17 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
 interface TotpStageProps {
   isLoading: boolean
   error: string | null
-  onVerify: (code: string) => void
+  onVerify: (code: string, rememberDevice: boolean) => void
 }
 
 function TotpStage({ isLoading, error, onVerify }: TotpStageProps) {
   const [code, setCode] = useState('')
   const [focused, setFocused] = useState(false)
+  const [rememberDevice, setRememberDevice] = useState(false)
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (code.length === 6) onVerify(code)
+    if (code.length === 6) onVerify(code, rememberDevice)
   }
 
   return (
@@ -828,6 +878,60 @@ function TotpStage({ isLoading, error, onVerify }: TotpStageProps) {
             }}
           />
         </div>
+
+        {/* ~~~~~~~~~ Remember this browser ~~~~~~~~~ */}
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            cursor: 'pointer',
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: '0.5px solid rgba(255,255,255,0.06)',
+            background: rememberDevice ? 'rgba(108,99,255,0.06)' : 'transparent',
+            transition: 'background 0.2s, border-color 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            if (!rememberDevice) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'
+          }}
+          onMouseLeave={(e) => {
+            if (!rememberDevice) e.currentTarget.style.background = 'transparent'
+          }}
+        >
+          {/* Custom checkbox */}
+          <div
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: 4,
+              border: `1.5px solid ${rememberDevice ? '#6c63ff' : 'rgba(255,255,255,0.2)'}`,
+              background: rememberDevice ? '#6c63ff' : 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              transition: 'border-color 0.2s, background 0.2s',
+            }}
+          >
+            {rememberDevice && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                <path d="M2 5l2.5 2.5L8 2.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
+          <input
+            type="checkbox"
+            checked={rememberDevice}
+            onChange={(e) => setRememberDevice(e.target.checked)}
+            style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+            aria-label="Remember this browser for 15 days"
+          />
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4 }}>
+            Remember this browser for 15 days
+          </span>
+        </label>
+
         {error && (
           <div role="alert" style={{ fontSize: 12, color: 'var(--colour-error, #ff6b6b)', textAlign: 'center', padding: '8px 12px', borderRadius: 8, background: 'rgba(255,107,107,0.08)' }}>
             {error}

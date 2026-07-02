@@ -175,6 +175,8 @@ class UserMeOut(BaseModel):
     full_name: str
     is_email_verified: bool
     totp_enabled: bool
+    # Idle-session timeout preference in minutes (5-30, multiples of 5).
+    idle_timeout_minutes: int
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -21,24 +21,78 @@
 //     hamburger button that opens the drawer, and the backdrop
 //     overlay allows the user to close it by tapping outside.
 //
+//   Idle timer:
+//     idle_timeout_minutes is read from /api/v1/auth/me on mount
+//     (the same call useRequireAuth already makes and caches in
+//     sessionStorage as "sva_idle_timeout"). The useIdleTimer hook
+//     drives activity tracking; IdleWarningModal renders when the
+//     user is near the threshold.
+//
 // Consumed by:
 //   - All routes under app/(dashboard)/*
 // ============================================================
 
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import { Sidebar } from "@/src/components/dashboard/sidebar";
-import { useRequireAuth } from "@/src/lib/hooks/use-auth";
+import { IdleWarningModal } from "@/src/components/auth/idle-warning-modal";
+import { useRequireAuth, signOut } from "@/src/lib/hooks/use-auth";
+import { useIdleTimer } from "@/src/lib/hooks/use-idle-timer";
+import { apiFetch } from "@/src/lib/api/fetch";
 
 // ==================================================
 // LAYOUT
 // ==================================================
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const { email, isLoading } = useRequireAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // ------------------------------ Idle timer state -------------------------
+  const [idleWarning, setIdleWarning] = useState<{ secondsLeft: number } | null>(null);
+  // Read the user's idle preference; default to 15 until /me resolves.
+  const idleMinutes = _readIdleTimeout();
+
+  // ------------------------------ Idle callbacks ---------------------------
+
+  const handleIdleLogout = useCallback(async () => {
+    setIdleWarning(null);
+    // Fire the backend logout to revoke the refresh token.
+    await apiFetch("/api/v1/auth/logout", { method: "POST" });
+    sessionStorage.clear();
+    router.replace("/login?reason=idle");
+  }, [router]);
+
+  const handleIdleWarn = useCallback((secondsLeft: number) => {
+    setIdleWarning({ secondsLeft });
+  }, []);
+
+  const handleIdleActivity = useCallback(() => {
+    setIdleWarning(null);
+  }, []);
+
+  const handleStaySignedIn = useCallback(() => {
+    setIdleWarning(null);
+    // Touching sessionStorage is enough — the hook's activity listener
+    // resets the timestamp on the next real event. Explicitly bump it here
+    // in case the user only interacted with the modal (no underlying DOM event).
+    sessionStorage.setItem("sva_idle_ping", String(Date.now()));
+    // Trigger the activity reset in the hook by dispatching a synthetic event.
+    window.dispatchEvent(new Event("pointerdown"));
+  }, []);
+
+  // ------------------------------ Idle timer hook --------------------------
+  // Only mount when auth has resolved so the timeout does not start running
+  // while the loading screen is displayed.
+  useIdleTimer(
+    isLoading
+      ? { timeoutMinutes: 999, onWarn: () => undefined, onLogout: () => undefined, onActivity: () => undefined }
+      : { timeoutMinutes: idleMinutes, onWarn: handleIdleWarn, onLogout: handleIdleLogout, onActivity: handleIdleActivity }
+  );
 
   if (isLoading) {
     return (
@@ -96,9 +150,30 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
       </main>
 
+      {/* ~~~~~~~~~ Idle warning modal ~~~~~~~~~ */}
+      {idleWarning && (
+        <IdleWarningModal
+          initialSeconds={idleWarning.secondsLeft}
+          onStay={handleStaySignedIn}
+          onLogout={handleIdleLogout}
+        />
+      )}
+
       <style>{SHELL_STYLES}</style>
     </div>
   );
+}
+
+// ==================================================
+// HELPERS
+// ==================================================
+
+function _readIdleTimeout(): number {
+  if (typeof window === "undefined") return 15;
+  const raw = sessionStorage.getItem("sva_idle_timeout");
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  // Clamp to valid range 5-30. Fall back to 15 if unset or invalid.
+  return isNaN(parsed) || parsed < 5 || parsed > 30 ? 15 : parsed;
 }
 
 // ==================================================

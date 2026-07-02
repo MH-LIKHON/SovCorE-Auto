@@ -5,21 +5,34 @@
 # Purpose:
 #   FastAPI router for /api/v1/auth/*. Handles the passwordless
 #   login flow (request-code, verify-code), token refresh,
-#   logout, TOTP two-factor authentication, and Microsoft
-#   OpenID Connect SSO.
+#   logout, TOTP two-factor authentication, Microsoft OpenID
+#   Connect SSO, session conflict resolution, and per-user
+#   session preferences.
 #
 # Design:
 #   The router owns HTTP concerns only: request parsing, cookie
-#   setting, response status codes. Business rules live in
-#   AuthService. Refresh tokens are stored exclusively in
-#   HTTP-only, Secure, SameSite=Lax cookies so they are never
-#   accessible to JavaScript running on the page (XSS protection).
+#   setting, response status codes. Business rules live in the
+#   respective service classes.
 #
-#   refresh endpoint: reads the cookie, verifies the refresh token,
-#   issues a new access token. Does not rotate the refresh token
-#   in Phase 1 (rotation is a Phase 8 hardening item).
+#   Cookies managed by this router:
+#     sva_refresh   — HTTP-only refresh token (30-day lifetime,
+#                     path restricted to /api/v1/auth).
+#     sva_td        — trusted-device token for 2FA bypass
+#                     (15-day lifetime, path="/").
 #
-#   logout endpoint: clears the refresh-token cookie.
+#   Session conflict flow:
+#     verify_code / 2fa/verify / SSO callback detect a second
+#     concurrent session. Instead of issuing tokens they return
+#     session_conflict=True + conflict_token in the JSON body
+#     (no cookie is set). The frontend shows a modal; the user
+#     either calls POST /session/resolve with action="replace"
+#     (revokes old session, issues new tokens + cookie) or
+#     action="cancel" (discards the new login).
+#
+#   Idle timeout preference:
+#     PATCH /me/preferences updates idle_timeout_minutes on the
+#     User row. The frontend reads it from GET /me on load and
+#     uses it to configure the idle timer.
 #
 # Consumed by:
 #   - backend/app/app/api/v1/router.py
@@ -32,13 +45,17 @@ from collections import defaultdict
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from jose import JWTError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.accounts.models.user import User
 from app.accounts.repositories.account_repository import AccountRepository
 from app.auth.schemas.auth_schemas import (
+    PreferencesIn,
     RequestCodeIn,
     RequestCodeOut,
+    SessionResolveIn,
+    SessionResolveOut,
     TokenPairOut,
     TotpChallengeIn,
     TotpSetupOut,
@@ -46,12 +63,18 @@ from app.auth.schemas.auth_schemas import (
     VerifyCodeIn,
 )
 from app.auth.services.auth_service import AuthService, InvalidCodeError
+from app.auth.services.session_service import SessionService
 from app.auth.services.sso_service import (
     MicrosoftSSOService,
     SSOError,
     generate_state,
 )
 from app.auth.services.totp_service import TotpError, TotpService
+from app.auth.services.trusted_device_service import (
+    TRUSTED_DEVICE_COOKIE_MAX_AGE,
+    TRUSTED_DEVICE_COOKIE_NAME,
+    TrustedDeviceService,
+)
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_partial_token
 from app.core.rate_limit import limiter
@@ -67,18 +90,17 @@ _settings = get_settings()
 
 # In-memory tracker for per-email request-code rate limiting.
 # Stores a list of monotonic timestamps per email address.
-# Must be moved to Redis before horizontal scaling (same caveat as jti_blocklist).
+# Must be moved to Redis before horizontal scaling.
 _EMAIL_RATE_WINDOW = 600  # 10 minutes in seconds
 _EMAIL_RATE_MAX = 5
 _email_request_times: defaultdict[str, list[float]] = defaultdict(list)
 
 # ==================================================
-# COOKIE HELPER
+# COOKIE HELPERS
 # ==================================================
 
-# ------------------------------ Cookie config --------------------------------
-# The refresh token is a long-lived HTTP-only cookie. The path is
-# restricted to /api/v1/auth so it is not sent on every request.
+# ------------------------------ Refresh cookie config -----------------------
+# Restricted to /api/v1/auth so the browser does not send it on every request.
 
 REFRESH_COOKIE_NAME = "sva_refresh"
 REFRESH_COOKIE_PATH = "/api/v1/auth"
@@ -90,7 +112,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         key=REFRESH_COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=_settings.app_env == "production",  # HTTPS-only in production
+        secure=_settings.app_env == "production",
         samesite="lax",
         path=REFRESH_COOKIE_PATH,
         max_age=REFRESH_COOKIE_MAX_AGE,
@@ -98,9 +120,20 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
 
 
 def _clear_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(
-        key=REFRESH_COOKIE_NAME,
-        path=REFRESH_COOKIE_PATH,
+    response.delete_cookie(key=REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
+
+
+# ------------------------------ Trusted-device cookie config ----------------
+
+def _set_trusted_device_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=TRUSTED_DEVICE_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=_settings.app_env == "production",
+        samesite="lax",
+        path="/",
+        max_age=TRUSTED_DEVICE_COOKIE_MAX_AGE,
     )
 
 
@@ -128,10 +161,6 @@ async def request_code(
     is registered — prevents user enumeration.
     """
     # ~~~~~~~~~ Per-email rate limit ~~~~~~~~~
-    # Sliding window: 5 requests per 10 minutes per email address.
-    # Complements the IP-level @limiter.limit above; an attacker who rotates
-    # IPs could otherwise spam codes to a single mailbox without triggering
-    # the IP limit.
     now = time.monotonic()
     cutoff = now - _EMAIL_RATE_WINDOW
     recent = [t for t in _email_request_times[body.email] if t > cutoff]
@@ -161,22 +190,35 @@ async def verify_code(
     body: VerifyCodeIn,
     response: Response,
     db: AsyncSession = Depends(get_db),
+    sva_td: str | None = Cookie(default=None),
 ) -> TokenPairOut:
     """
     Verify the six-digit code. On success, issues a JWT access token
     (JSON body) and a refresh token (HTTP-only cookie).
-    If the user has TOTP enabled, returns requires_2fa=true and no
-    refresh cookie; the 2FA challenge endpoint issues the real tokens.
+
+    If the user has TOTP enabled and the browser is not trusted,
+    returns requires_2fa=true and no refresh cookie; the 2FA challenge
+    endpoint issues the real tokens.
+
+    If a concurrent session is detected, returns session_conflict=true
+    and a conflict_token. No cookie is set; the frontend must call
+    POST /session/resolve to proceed.
     """
     service = AuthService(db)
     try:
-        result = await service.verify_code(email=body.email, code=body.code)
+        result = await service.verify_code(
+            email=body.email,
+            code=body.code,
+            sva_td_cookie=sva_td,
+        )
     except InvalidCodeError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
 
+    # Only set the cookie when we actually have a refresh token (not 2FA
+    # pending and not a session conflict).
     if result.refresh_token:
         _set_refresh_cookie(response, result.refresh_token)
 
@@ -200,9 +242,9 @@ async def refresh_token(
 ) -> TokenPairOut:
     """
     Read the HTTP-only refresh cookie and issue a new access token.
+    Also bumps last_seen_at on the session row so the audit trail
+    reflects real activity.
     Returns 401 if the cookie is missing or the token is invalid.
-    Includes account_id so SSO users who land via redirect get it
-    stored in sessionStorage without an extra roundtrip.
     """
     if not sva_refresh:
         raise HTTPException(
@@ -234,6 +276,10 @@ async def refresh_token(
     accounts = await account_repo.get_user_accounts(user_id)
     account_id = str(accounts[0].id) if accounts else None
 
+    # ~~~~~~~~~ Touch the session row (coarse activity tracking) ~~~~~~~~~
+    svc = SessionService(db)
+    await svc.touch_session(user_id)
+
     return TokenPairOut(
         access_token=access,
         expires_in=settings.jwt_access_token_expire_minutes * 60,
@@ -247,26 +293,79 @@ async def refresh_token(
 @router.post(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Revoke the refresh token",
+    summary="Revoke the refresh token and clear the session",
 )
 async def logout(
     response: Response,
+    db: AsyncSession = Depends(get_db),
     sva_refresh: str | None = Cookie(default=None),
 ) -> None:
     """
-    Revoke the refresh token by adding its jti to the blocklist, then
-    clear the cookie. The access token expires on its own schedule;
-    the frontend should discard it immediately.
+    Revoke the refresh token by adding its JTI to the blocklist,
+    remove the user_sessions row, and clear the cookies. The access
+    token expires on its own schedule; the frontend discards it.
     """
     if sva_refresh:
         try:
             payload = decode_token(sva_refresh)
+            user_id_str = payload.get("sub")
             jti = payload.get("jti")
-            if jti:
-                jti_blocklist.add(jti)
-        except JWTError:
-            pass  # Already invalid — nothing to revoke.
+            if user_id_str and jti:
+                svc = SessionService(db)
+                await svc.revoke_session(uuid.UUID(user_id_str), jti)
+        except (JWTError, ValueError):
+            # Already invalid or malformed — still clear the cookie.
+            pass
+
     _clear_refresh_cookie(response)
+    # Also clear the trusted-device cookie on explicit logout so the
+    # user must re-verify 2FA on the next login from this browser.
+    response.delete_cookie(key=TRUSTED_DEVICE_COOKIE_NAME, path="/")
+
+
+# ==================================================
+# SESSION CONFLICT RESOLUTION
+# ==================================================
+
+
+@router.post(
+    "/session/resolve",
+    response_model=SessionResolveOut,
+    summary="Resolve a concurrent-session conflict",
+)
+async def resolve_session(
+    body: SessionResolveIn,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+) -> SessionResolveOut:
+    """
+    Called by the frontend session-conflict modal.
+
+    action="replace": revoke the existing session, claim the new one,
+    set the refresh cookie, and return the new access token.
+
+    action="cancel": discard the pending login. No cookie is set;
+    the frontend redirects the user back to /login.
+    """
+    svc = SessionService(db)
+    result = await svc.resolve_conflict(body.conflict_token, body.action)
+
+    if result is None:
+        if body.action == "cancel":
+            return SessionResolveOut(ok=True)
+        # conflict_token was not found or expired.
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Conflict token has expired or is invalid. Please sign in again.",
+        )
+
+    _set_refresh_cookie(response, result.refresh_token)
+    return SessionResolveOut(
+        ok=True,
+        access_token=result.access_token,
+        expires_in=result.expires_in,
+        account_id=result.account_id,
+    )
 
 
 # ==================================================
@@ -293,14 +392,30 @@ async def verify_2fa_login(
     Called when verify-code returned requires_2fa=true. Verifies the
     six-digit TOTP code and issues the full access + refresh token pair.
     Requires a type=partial token; full access tokens are rejected here.
+
+    When body.remember_device=True and no session conflict exists, a
+    trusted-device token is set in an HTTP-only cookie (sva_td) so
+    future logins on this browser skip the TOTP step for 15 days.
+
+    When a session conflict is detected, returns session_conflict=True
+    and a conflict_token; no cookies are set.
     """
     service = TotpService(db)
     try:
-        result = await service.verify_login(current_user.id, body.totp_code)
+        result = await service.verify_login(
+            current_user.id,
+            body.totp_code,
+            remember_device=body.remember_device,
+        )
     except TotpError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
-    _set_refresh_cookie(response, result.refresh_token)
+    if result.refresh_token:
+        _set_refresh_cookie(response, result.refresh_token)
+
+    if result.device_token:
+        _set_trusted_device_cookie(response, result.device_token)
+
     return result.token_pair
 
 
@@ -377,9 +492,6 @@ async def disable_2fa(
 # ==================================================
 
 # ------------------------------ Cookie config --------------------------------
-# The CSRF state token lives in an HTTP-only cookie for the duration of the
-# redirect round-trip. It expires after 5 minutes; that is more than enough
-# for the user to complete the Microsoft sign-in screen.
 
 _STATE_COOKIE_NAME = "sva_oauth_state"
 _STATE_COOKIE_MAX_AGE = 300  # seconds
@@ -396,8 +508,7 @@ _STATE_COOKIE_MAX_AGE = 300  # seconds
 async def sso_microsoft_start(response: Response) -> RedirectResponse:
     """
     Generate a CSRF state token, set it as an HTTP-only cookie, and
-    redirect the browser to Microsoft's authorization endpoint. Microsoft
-    redirects back to /sso/microsoft/callback with the code and state.
+    redirect the browser to Microsoft's authorization endpoint.
     """
     settings = get_settings()
     if not settings.ms_client_id or not settings.ms_client_secret:
@@ -434,14 +545,12 @@ async def sso_microsoft_callback(
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
-    error_description: str | None = None,  # accepted to avoid 422; not used in logic
+    error_description: str | None = None,
 ) -> RedirectResponse:
     """
-    Receive the callback from Microsoft. Any error from Microsoft
-    (consent denied, app not consented) redirects to /login with a
-    query param so the frontend can show a friendly message instead
-    of a raw 422 or JSON blob.
-    On success, sets the refresh cookie and redirects to the dashboard.
+    Receive the callback from Microsoft. On success sets the refresh cookie
+    and redirects to the dashboard. On session conflict redirects to
+    /login?conflict=<token> so the frontend can show the conflict modal.
     """
     settings = get_settings()
     frontend = settings.cors_origins_list[0] if settings.cors_origins_list else "http://localhost:3000"
@@ -468,12 +577,35 @@ async def sso_microsoft_callback(
     try:
         result = await service.login(code)
     except Exception as exc:  # noqa: BLE001
-        # Log the real error so it appears in server logs, then redirect
-        # gracefully rather than serving a raw 500 to the browser.
         import structlog as _sl
         _sl.get_logger(__name__).error("sso_callback_error", error=str(exc), exc_info=True)
         return RedirectResponse(
             url=f"{frontend}/login?sso_error=sso_failed",
+            status_code=status.HTTP_302_FOUND,
+        )
+
+    # ~~~~~~~~~ Single-session enforcement ~~~~~~~~~
+    # Decode user_id from the access token rather than adding user_id to SSOResult.
+    from jose import jwt as _jwt
+    access_claims = _jwt.get_unverified_claims(result.token_pair.access_token)
+    sso_user_id = uuid.UUID(access_claims["sub"])
+    refresh_jti = _jwt.get_unverified_claims(result.refresh_token).get("jti", "")
+
+    sso_svc = SessionService(db)
+    conflict = await sso_svc.check_and_claim(
+        user_id=sso_user_id,
+        access_token=result.token_pair.access_token,
+        refresh_token=result.refresh_token,
+        refresh_jti=refresh_jti,
+        expires_in=result.token_pair.expires_in,
+        account_id=result.token_pair.account_id,
+    )
+
+    if conflict.session_conflict:
+        # Cannot set tokens via redirect; send the conflict token as a query
+        # param so the login page can show the conflict modal.
+        return RedirectResponse(
+            url=f"{frontend}/login?conflict={conflict.conflict_token}",
             status_code=status.HTTP_302_FOUND,
         )
 
@@ -484,7 +616,7 @@ async def sso_microsoft_callback(
     redirect.delete_cookie(key=_STATE_COOKIE_NAME, samesite="lax")
     redirect.set_cookie(
         key=REFRESH_COOKIE_NAME,
-        value=result.refresh_token,
+        value=conflict.refresh_token,
         httponly=True,
         secure=settings.app_env == "production",
         samesite="lax",
@@ -505,10 +637,35 @@ async def sso_microsoft_callback(
 )
 async def me(current_user: User = Depends(get_current_user)) -> dict:
     """
-    Returns id, email, full_name, is_email_verified, totp_enabled, and
-    created_at for the bearer-token holder. Used by the dashboard to
-    display user info without an additional account lookup.
+    Returns id, email, full_name, is_email_verified, totp_enabled,
+    idle_timeout_minutes, and created_at for the bearer-token holder.
     """
-    from app.accounts.schemas.account_schemas import UserMeOut  # local import avoids circular
-
+    from app.accounts.schemas.account_schemas import UserMeOut
     return UserMeOut.model_validate(current_user).model_dump(mode="json")
+
+
+# ==================================================
+# USER PREFERENCES
+# ==================================================
+
+
+@router.patch(
+    "/me/preferences",
+    summary="Update per-user session preferences",
+)
+async def update_preferences(
+    body: PreferencesIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Update idle_timeout_minutes for the authenticated user.
+    Accepted values: 5, 10, 15, 20, 25, 30.
+    """
+    result = await db.execute(select(User).where(User.id == current_user.id))
+    user = result.scalar_one()
+    user.idle_timeout_minutes = body.idle_timeout_minutes
+    await db.flush()
+
+    from app.accounts.schemas.account_schemas import UserMeOut
+    return UserMeOut.model_validate(user).model_dump(mode="json")

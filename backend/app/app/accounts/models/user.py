@@ -77,6 +77,13 @@ class User(Base):
     totp_secret_enc: Mapped[str | None] = mapped_column(String(512), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # ------------------------------ Session preferences ---------------------
+    # Idle-logout threshold in minutes. Default 15; valid range 5-30 (step 5).
+    # The frontend enforces the timer; this value is just the user's preference.
+    idle_timeout_minutes: Mapped[int] = mapped_column(
+        nullable=False, default=15, server_default="15"
+    )
+
     # ------------------------------ Timestamps ------------------------------
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
@@ -93,6 +100,12 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     sso_identities: Mapped[list["SSOIdentity"]] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    session: Mapped["UserSession | None"] = relationship(  # noqa: F821
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
+    trusted_devices: Mapped[list["TrustedDevice"]] = relationship(  # noqa: F821
         back_populates="user", cascade="all, delete-orphan"
     )
 
