@@ -39,7 +39,7 @@ import { useRouter } from "next/navigation";
 
 import { Sidebar } from "@/src/components/dashboard/sidebar";
 import { IdleWarningModal } from "@/src/components/auth/idle-warning-modal";
-import { useRequireAuth, signOut } from "@/src/lib/hooks/use-auth";
+import { useRequireAuth } from "@/src/lib/hooks/use-auth";
 import { useIdleTimer } from "@/src/lib/hooks/use-idle-timer";
 import { apiFetch } from "@/src/lib/api/fetch";
 
