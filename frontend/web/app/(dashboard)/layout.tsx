@@ -85,19 +85,42 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     window.dispatchEvent(new Event("pointerdown"));
   }, []);
 
-  // ------------------------------ Session validity ping --------------------
-  // When the user returns to the tab after it was in the background, do a
-  // lightweight ping to /me. If the session was replaced on another device
-  // the 401 response propagates through apiFetch's refresh chain and
-  // redirects to /login automatically — the user is not left on a stale page.
+  // ------------------------------ Session validity checks ------------------
+  // Two complementary checks keep the old browser from sitting on a stale
+  // page after its session is replaced on another device:
+  //
+  // 1. Heartbeat (30 s): active poll while the tab is in the foreground.
+  //    Catches the case where the user is looking at the old browser but
+  //    not interacting — no API calls are made, so nothing triggers a 401
+  //    naturally. The heartbeat does it proactively.
+  //
+  // 2. Visibility ping: instant check when the tab returns to the foreground
+  //    after being in the background. Catches the tab-switch case without
+  //    waiting for the next heartbeat tick.
+  //
+  // In both cases: apiFetch gets a 401 from the session_jti check, tries
+  // /refresh (which also returns 401 because the old JTI is blocklisted),
+  // then calls _redirectToLogin() — no extra logic needed here.
   useEffect(() => {
     if (isLoading) return;
+
+    // Heartbeat — skip when tab is hidden to avoid waking the radio.
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      apiFetch("/api/v1/auth/me").catch(() => undefined);
+    }, 30_000);
+
+    // Instant check on returning to the tab.
     function _handleVisible() {
       if (document.visibilityState !== "visible") return;
       apiFetch("/api/v1/auth/me").catch(() => undefined);
     }
     document.addEventListener("visibilitychange", _handleVisible);
-    return () => document.removeEventListener("visibilitychange", _handleVisible);
+
+    return () => {
+      clearInterval(heartbeat);
+      document.removeEventListener("visibilitychange", _handleVisible);
+    };
   }, [isLoading]);
 
   // ------------------------------ Idle timer hook --------------------------
