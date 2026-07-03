@@ -178,5 +178,9 @@ class UserMeOut(BaseModel):
     # Idle-session timeout preference in minutes (5-30, multiples of 5).
     idle_timeout_minutes: int
     created_at: datetime
+    # Password: True when the user has set a password for their account.
+    # Computed from the has_password @property on the User model.
+    has_password: bool = False
+    password_updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}

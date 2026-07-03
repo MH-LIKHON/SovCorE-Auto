@@ -7,23 +7,25 @@
 //   with an inline edit form, shows the current user's profile
 //   (email, 2FA status, member since), provides session security
 //   controls (idle timeout preference), lists and manages trusted
-//   browsers, and contains a danger zone for account deletion.
+//   browsers, controls password authentication, and contains a
+//   danger zone for account deletion.
 //
 // Design:
-//   Each section is a Card. The account and session cards toggle
-//   to inline edit forms; the trusted browsers card is always
-//   expanded showing the device list with per-row remove buttons.
+//   Each section is a Card. The account, session, and password
+//   cards toggle to inline edit forms; the trusted browsers card
+//   is always expanded showing the device list with per-row
+//   remove buttons.
 //
-//   Session card:
-//     Idle timeout is stored per-user via PATCH /auth/me/preferences.
-//     On save it also updates "sva_idle_timeout" in sessionStorage
-//     so the running idle timer in the dashboard layout picks up
-//     the new value without a page reload.
+//   2FA badge:
+//     Uses the "error" Badge tone (red) when 2FA is not set up,
+//     making it visually prominent that it should be enabled.
 //
-//   Trusted browsers card:
-//     Lists all non-expired trusted devices from GET /auth/trusted-devices.
-//     Each row shows the browser label (e.g. "Chrome on Windows"),
-//     the expiry date, and a Remove button. Capped at 5 devices.
+//   Password card:
+//     Users can set a password as an alternative sign-in method
+//     alongside email OTP. Setting a password does not replace
+//     the passwordless flow — both work simultaneously.
+//     ISO 27001 / NIST 800-63B: min 12 chars, common-password
+//     check enforced on the backend.
 //
 // Consumed by:
 //   - Routed at /dashboard/settings/account
@@ -65,6 +67,8 @@ interface UserMe {
   totp_enabled: boolean;
   idle_timeout_minutes: number;
   created_at: string;
+  has_password: boolean;
+  password_updated_at: string | null;
 }
 
 interface TrustedDeviceData {
@@ -97,6 +101,14 @@ function formatExpiry(iso: string): string {
   });
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 // ==================================================
 // PAGE
 // ==================================================
@@ -122,6 +134,16 @@ export default function AccountSettingsPage() {
   const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceData[]>([]);
   const [tdLoading, setTdLoading] = useState(true);
   const [removingDeviceIds, setRemovingDeviceIds] = useState<Set<string>>(new Set());
+
+  // ------------------------------ Password state ---------------------------
+  const [passwordMode, setPasswordMode] = useState<"view" | "set" | "change" | "remove">("view");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // ------------------------------ Data load --------------------------------
   useEffect(() => {
@@ -202,6 +224,77 @@ export default function AccountSettingsPage() {
       next.delete(deviceId);
       return next;
     });
+  }
+
+  // ------------------------------ Password operations ----------------------
+  function _resetPasswordForm() {
+    setNewPassword("");
+    setConfirmPassword("");
+    setCurrentPassword("");
+    setShowNewPw(false);
+    setShowCurrentPw(false);
+    setPasswordError(null);
+    setPasswordMode("view");
+  }
+
+  async function handleSetPassword() {
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+    setSavingPassword(true);
+    setPasswordError(null);
+    const res = await apiFetch("/api/v1/auth/password/set", {
+      method: "POST",
+      body: JSON.stringify({ password: newPassword }),
+    });
+    setSavingPassword(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setPasswordError((data as { detail?: string }).detail ?? "Failed to set password.");
+      return;
+    }
+    // Re-fetch /me to update has_password + password_updated_at
+    apiFetch("/api/v1/auth/me").then((r) => r.json()).then((user: UserMe) => setMe(user));
+    _resetPasswordForm();
+  }
+
+  async function handleChangePassword() {
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match.");
+      return;
+    }
+    setSavingPassword(true);
+    setPasswordError(null);
+    const res = await apiFetch("/api/v1/auth/password/change", {
+      method: "POST",
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    setSavingPassword(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setPasswordError((data as { detail?: string }).detail ?? "Failed to change password.");
+      return;
+    }
+    apiFetch("/api/v1/auth/me").then((r) => r.json()).then((user: UserMe) => setMe(user));
+    _resetPasswordForm();
+  }
+
+  async function handleRemovePassword() {
+    setSavingPassword(true);
+    setPasswordError(null);
+    const res = await apiFetch("/api/v1/auth/password/remove", {
+      method: "POST",
+      body: JSON.stringify({ current_password: currentPassword }),
+    });
+    setSavingPassword(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setPasswordError((data as { detail?: string }).detail ?? "Failed to remove password.");
+      return;
+    }
+    apiFetch("/api/v1/auth/me").then((r) => r.json()).then((user: UserMe) => setMe(user));
+    _resetPasswordForm();
   }
 
   const memberSince = me
@@ -323,8 +416,8 @@ export default function AccountSettingsPage() {
             <dt>Two-factor authentication</dt>
             <dd>
               {me ? (
-                <Badge tone={me.totp_enabled ? "success" : "muted"}>
-                  {me.totp_enabled ? "ENABLED" : "NOT SET UP"}
+                <Badge tone={me.totp_enabled ? "success" : "error"}>
+                  {me.totp_enabled ? "ENABLED" : "DEFAULT OFF"}
                 </Badge>
               ) : "-"}
             </dd>
@@ -429,6 +522,202 @@ export default function AccountSettingsPage() {
         )}
       </Card>
 
+      {/* ========== Password ========== */}
+      <Card>
+        <div className="set-section-head">
+          <h2 className="set-section">Password</h2>
+          {passwordMode === "view" && me?.has_password && (
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <button className="set-edit-btn" onClick={() => setPasswordMode("change")}>
+                Change
+              </button>
+              <button className="set-edit-btn set-edit-btn--danger" onClick={() => setPasswordMode("remove")}>
+                Remove
+              </button>
+            </div>
+          )}
+          {passwordMode === "view" && !me?.has_password && (
+            <button className="set-edit-btn" onClick={() => setPasswordMode("set")}>
+              Set password
+            </button>
+          )}
+        </div>
+
+        {passwordMode === "view" && (
+          <>
+            {me?.has_password ? (
+              <dl className="set-list">
+                <div>
+                  <dt>Status</dt>
+                  <dd><Badge tone="success">SET</Badge></dd>
+                </div>
+                <div>
+                  <dt>Last updated</dt>
+                  <dd>{me.password_updated_at ? formatDate(me.password_updated_at) : "-"}</dd>
+                </div>
+                <div>
+                  <dt>Use</dt>
+                  <dd>Sign in with email and password at login</dd>
+                </div>
+              </dl>
+            ) : (
+              <>
+                <dl className="set-list">
+                  <div>
+                    <dt>Status</dt>
+                    <dd><Badge tone="muted">NOT SET</Badge></dd>
+                  </div>
+                </dl>
+                <p className="set-hint" style={{ marginTop: "var(--space-3)" }}>
+                  Add a password as an alternative to the email code. Both methods work at the
+                  same time. Min 12 characters, common passwords are blocked.
+                </p>
+              </>
+            )}
+          </>
+        )}
+
+        {passwordMode === "set" && (
+          <div className="set-form">
+            <div className="set-pw-field">
+              <div className="sov-field">
+                <label className="sov-field__label">New password</label>
+                <div className="sov-input-wrap set-pw-wrap">
+                  <input
+                    type={showNewPw ? "text" : "password"}
+                    className="sov-field__control"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Min 12 characters"
+                    autoComplete="new-password"
+                    autoFocus
+                  />
+                  <button type="button" className="set-pw-toggle" onClick={() => setShowNewPw((v) => !v)}>
+                    {showNewPw ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+              <div className="sov-field">
+                <label className="sov-field__label">Confirm password</label>
+                <div className="sov-input-wrap">
+                  <input
+                    type={showNewPw ? "text" : "password"}
+                    className="sov-field__control"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat password"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+            </div>
+            {passwordError && <p className="set-error">{passwordError}</p>}
+            <div className="set-form-actions">
+              <button className="set-btn set-btn--primary" onClick={handleSetPassword} disabled={savingPassword || !newPassword}>
+                {savingPassword ? "Saving..." : "Set password"}
+              </button>
+              <button className="set-btn set-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {passwordMode === "change" && (
+          <div className="set-form">
+            <div className="set-pw-field">
+              <div className="sov-field">
+                <label className="sov-field__label">Current password</label>
+                <div className="sov-input-wrap set-pw-wrap">
+                  <input
+                    type={showCurrentPw ? "text" : "password"}
+                    className="sov-field__control"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    autoComplete="current-password"
+                    autoFocus
+                  />
+                  <button type="button" className="set-pw-toggle" onClick={() => setShowCurrentPw((v) => !v)}>
+                    {showCurrentPw ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+              <div className="sov-field">
+                <label className="sov-field__label">New password</label>
+                <div className="sov-input-wrap set-pw-wrap">
+                  <input
+                    type={showNewPw ? "text" : "password"}
+                    className="sov-field__control"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Min 12 characters"
+                    autoComplete="new-password"
+                  />
+                  <button type="button" className="set-pw-toggle" onClick={() => setShowNewPw((v) => !v)}>
+                    {showNewPw ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+              <div className="sov-field">
+                <label className="sov-field__label">Confirm new password</label>
+                <div className="sov-input-wrap">
+                  <input
+                    type={showNewPw ? "text" : "password"}
+                    className="sov-field__control"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat new password"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+            </div>
+            {passwordError && <p className="set-error">{passwordError}</p>}
+            <div className="set-form-actions">
+              <button className="set-btn set-btn--primary" onClick={handleChangePassword} disabled={savingPassword || !currentPassword || !newPassword}>
+                {savingPassword ? "Saving..." : "Change password"}
+              </button>
+              <button className="set-btn set-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {passwordMode === "remove" && (
+          <div className="set-form">
+            <p className="set-hint">
+              Confirm your current password to remove it. After removal, only email code and SSO sign-in will work.
+            </p>
+            <div className="sov-field" style={{ maxWidth: 400 }}>
+              <label className="sov-field__label">Current password</label>
+              <div className="sov-input-wrap set-pw-wrap">
+                <input
+                  type={showCurrentPw ? "text" : "password"}
+                  className="sov-field__control"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  autoComplete="current-password"
+                  autoFocus
+                />
+                <button type="button" className="set-pw-toggle" onClick={() => setShowCurrentPw((v) => !v)}>
+                  {showCurrentPw ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+            {passwordError && <p className="set-error">{passwordError}</p>}
+            <div className="set-form-actions">
+              <button
+                className="set-btn set-btn--danger"
+                onClick={handleRemovePassword}
+                disabled={savingPassword || !currentPassword}
+              >
+                {savingPassword ? "Removing..." : "Remove password"}
+              </button>
+              <button className="set-btn set-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* ========== Danger zone ========== */}
       <Card>
         <h2 className="set-section" style={{ color: "var(--colour-error)" }}>
@@ -474,17 +763,22 @@ const SET_STYLES = `
 
   .set-edit-btn { background: none; border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 4px 14px; font-size: var(--text-sm); color: var(--colour-text-muted); cursor: none; transition: border-color 0.2s, color 0.2s; }
   .set-edit-btn:hover { border-color: var(--colour-accent); color: var(--colour-text); }
+  .set-edit-btn--danger { color: var(--colour-error); }
+  .set-edit-btn--danger:hover { border-color: var(--colour-error); color: var(--colour-error); }
 
   .set-form { display: flex; flex-direction: column; gap: var(--space-4); }
   .set-form .sov-field { max-width: 400px; }
   .set-error { font-size: var(--text-sm); color: var(--colour-error); }
   .set-hint { font-size: var(--text-xs); color: var(--colour-text-muted); line-height: var(--leading-normal); max-width: 480px; }
-  .set-form-actions { display: flex; gap: var(--space-3); }
+  .set-form-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
   .set-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; transition: background 0.2s, color 0.2s, opacity 0.2s; border: none; }
   .set-btn--primary { background: var(--colour-accent); color: #fff; }
   .set-btn--primary:disabled { opacity: 0.55; }
   .set-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
   .set-btn--ghost:hover { color: var(--colour-text); border-color: var(--colour-text-muted); }
+  .set-btn--danger { background: none; border: 1px solid rgba(255,80,80,0.35); color: var(--colour-error); }
+  .set-btn--danger:hover { border-color: var(--colour-error); }
+  .set-btn--danger:disabled { opacity: 0.55; }
 
   .set-link { color: var(--colour-accent2); text-decoration: none; font-size: var(--text-sm); }
   .set-link:hover { color: var(--colour-accent); }
@@ -504,9 +798,16 @@ const SET_STYLES = `
   .set-td-remove:hover:not(:disabled) { border-color: var(--colour-error); }
   .set-td-remove:disabled { opacity: 0.5; }
 
+  /* Password card */
+  .set-pw-field { display: flex; flex-direction: column; gap: var(--space-3); }
+  .set-pw-wrap { position: relative; }
+  .set-pw-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: var(--text-xs); color: var(--colour-text-muted); cursor: none; padding: 4px; transition: color 0.2s; }
+  .set-pw-toggle:hover { color: var(--colour-text); }
+
   @media (max-width: 640px) {
     .set-list > div { grid-template-columns: 1fr; gap: 4px; }
     .set-form .sov-field { max-width: 100%; }
     .set-td-row { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+    .set-pw-field .sov-field { max-width: 100% !important; }
   }
 `;

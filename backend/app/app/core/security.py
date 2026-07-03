@@ -31,6 +31,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from argon2 import PasswordHasher as _PasswordHasher
+from argon2 import exceptions as _argon2_exc
 from jose import JWTError, jwt
 
 from app.core.settings import get_settings
@@ -40,6 +42,72 @@ from app.core.settings import get_settings
 # ==================================================
 
 _settings = get_settings()
+
+# ==================================================
+# ARGON2 PASSWORD HASHING
+# ==================================================
+
+# OWASP-recommended Argon2id parameters (2024).
+_ph = _PasswordHasher(
+    time_cost=2,
+    memory_cost=65536,  # 64 MB
+    parallelism=2,
+    hash_len=32,
+    salt_len=16,
+)
+
+# Common password base words. Trailing digits/specials are stripped before
+# checking so "Password123!" and "password1234" are both caught.
+_COMMON_BASES: frozenset[str] = frozenset({
+    "password", "passw0rd", "p@ssword", "p@ssw0rd",
+    "qwerty", "qwertyuiop", "keyboard",
+    "letmein", "welcome", "iloveyou",
+    "admin", "master", "root", "login", "test",
+    "sunshine", "princess", "dragon", "monkey", "football",
+    "baseball", "soccer", "hockey", "batman", "superman",
+    "shadow", "trustno", "hello", "charlie", "donald",
+    "changeme", "abcdefgh", "zxcvbn", "1234567890",
+})
+
+
+def hash_password(plaintext: str) -> str:
+    """Return an Argon2id hash of the plaintext password."""
+    return _ph.hash(plaintext)
+
+
+def verify_password(plaintext: str, hashed: str) -> bool:
+    """Return True if plaintext matches the Argon2id hash. Never raises."""
+    try:
+        return _ph.verify(hashed, plaintext)
+    except (
+        _argon2_exc.VerifyMismatchError,
+        _argon2_exc.VerificationError,
+        _argon2_exc.InvalidHashError,
+    ):
+        return False
+
+
+def validate_password_strength(password: str, email: str = "") -> list[str]:
+    """
+    ISO 27001 / NIST SP 800-63B checks.
+    Returns a list of human-readable error strings; empty list = pass.
+    """
+    errors: list[str] = []
+    if len(password) < 12:
+        errors.append("Password must be at least 12 characters.")
+    if len(password) > 128:
+        errors.append("Password must be 128 characters or fewer.")
+    # Strip trailing digits and symbols to find the base word.
+    stripped = password.lower().rstrip("0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~ ")
+    if stripped in _COMMON_BASES or password.lower() in _COMMON_BASES:
+        errors.append("This password is too common. Choose something more unique.")
+    # Block if password contains the email local-part (4+ chars, case-insensitive).
+    if email:
+        local = email.split("@")[0].lower()
+        if len(local) >= 4 and local in password.lower():
+            errors.append("Password must not contain your email address.")
+    return errors
+
 
 # ==================================================
 # JTI BLOCKLIST

@@ -29,7 +29,7 @@ import type { ReactNode } from "react";
 // ==================================================
 
 interface BadgeProps {
-  tone?: "muted" | "accent" | "info" | "success";
+  tone?: "muted" | "accent" | "info" | "success" | "error";
   children: ReactNode;
   className?: string;
 }
@@ -90,5 +90,12 @@ const BADGE_STYLES = `
     color: #9ce6cf;
     background: rgba(0, 212, 170, 0.10);
     border: 1px solid rgba(0, 212, 170, 0.28);
+  }
+
+  /* ---------- Error tone ---------- */
+  .sov-badge--error {
+    color: #ffb3b3;
+    background: rgba(255, 80, 80, 0.12);
+    border: 1px solid rgba(255, 80, 80, 0.30);
   }
 `;

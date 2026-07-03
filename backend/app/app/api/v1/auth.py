@@ -52,11 +52,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.accounts.models.user import User
 from app.accounts.repositories.account_repository import AccountRepository
 from app.auth.schemas.auth_schemas import (
+    ChangePasswordIn,
+    PasswordLoginIn,
     PreferencesIn,
+    RemovePasswordIn,
     RequestCodeIn,
     RequestCodeOut,
     SessionResolveIn,
     SessionResolveOut,
+    SetPasswordIn,
     TokenPairOut,
     TotpChallengeIn,
     TotpSetupOut,
@@ -64,7 +68,7 @@ from app.auth.schemas.auth_schemas import (
     TrustedDeviceOut,
     VerifyCodeIn,
 )
-from app.auth.services.auth_service import AuthService, InvalidCodeError
+from app.auth.services.auth_service import AuthService, InvalidCodeError, InvalidPasswordError
 from app.auth.services.session_service import SessionService
 from app.auth.services.sso_service import (
     MicrosoftSSOService,
@@ -80,7 +84,14 @@ from app.auth.services.trusted_device_service import (
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_partial_token
 from app.core.rate_limit import limiter
-from app.core.security import decode_token, issue_access_token, jti_blocklist
+from app.core.security import (
+    decode_token,
+    hash_password,
+    issue_access_token,
+    jti_blocklist,
+    validate_password_strength,
+    verify_password,
+)
 from app.core.settings import get_settings
 
 router = APIRouter()
@@ -785,3 +796,147 @@ async def delete_trusted_device(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Trusted device not found.",
         )
+
+
+# ==================================================
+# PASSWORD MANAGEMENT
+# ==================================================
+
+
+@router.post(
+    "/password/login",
+    response_model=TokenPairOut,
+    summary="Sign in with email and password",
+)
+@limiter.limit("5/minute")
+async def password_login(
+    request: Request,
+    body: PasswordLoginIn,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    sva_td: str | None = Cookie(default=None),
+) -> TokenPairOut:
+    """
+    Alternative to the email-OTP flow. Accepts email + password and
+    returns the same token pair. Session conflict and TOTP flow are
+    identical to verify-code. Rate limit is stricter (5/min) to reduce
+    brute-force exposure.
+    """
+    service = AuthService(db)
+    try:
+        result = await service.login_with_password(
+            email=body.email,
+            password=body.password,
+            sva_td_cookie=sva_td,
+        )
+    except InvalidPasswordError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    if result.refresh_token:
+        _set_refresh_cookie(response, result.refresh_token)
+
+    return result.token_pair
+
+
+@router.post(
+    "/password/set",
+    summary="Set a password for the account (no existing password required)",
+)
+async def set_password(
+    body: SetPasswordIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Set an initial password. Requires an active session (not available
+    before login). Rejects weak passwords per ISO 27001 / NIST 800-63B.
+    If a password is already set, use /password/change instead.
+    """
+    if current_user.password_hash is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A password is already set. Use change-password to update it.",
+        )
+
+    errors = validate_password_strength(body.password, current_user.email)
+    if errors:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors[0])
+
+    result = await db.execute(select(User).where(User.id == current_user.id))
+    user = result.scalar_one()
+    from datetime import datetime, timezone as _tz
+    user.password_hash = hash_password(body.password)
+    user.password_updated_at = datetime.now(_tz.utc)
+    await db.flush()
+    return {"ok": True}
+
+
+@router.post(
+    "/password/change",
+    summary="Change an existing password",
+)
+async def change_password(
+    body: ChangePasswordIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Replace an existing password. Requires the current password to
+    prevent account takeover via a stolen session token.
+    """
+    if not current_user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No password is set on this account. Use set-password first.",
+        )
+
+    if not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect.",
+        )
+
+    errors = validate_password_strength(body.new_password, current_user.email)
+    if errors:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors[0])
+
+    result = await db.execute(select(User).where(User.id == current_user.id))
+    user = result.scalar_one()
+    from datetime import datetime, timezone as _tz
+    user.password_hash = hash_password(body.new_password)
+    user.password_updated_at = datetime.now(_tz.utc)
+    await db.flush()
+    return {"ok": True}
+
+
+@router.post(
+    "/password/remove",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove the password from the account",
+)
+async def remove_password(
+    body: RemovePasswordIn,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Remove the password from the account. Requires the current password
+    as confirmation. After removal, only email OTP and SSO can be used.
+    """
+    if not current_user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No password is set on this account.",
+        )
+
+    if not verify_password(body.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect.",
+        )
+
+    result = await db.execute(select(User).where(User.id == current_user.id))
+    user = result.scalar_one()
+    user.password_hash = None
+    user.password_updated_at = None
+    await db.flush()

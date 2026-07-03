@@ -63,6 +63,7 @@ from app.core.security import (
     generate_six_digit_code,
     issue_access_token,
     issue_refresh_token,
+    verify_password,
 )
 from app.core.settings import get_settings
 from app.integrations.resend_client import build_email_html, build_otp_content, send_email
@@ -221,6 +222,74 @@ class AuthService:
         return _conflict_to_verify_result(conflict, expires_in)
 
 
+    # ------------------------------ Password login --------------------------
+
+    async def login_with_password(
+        self,
+        email: str,
+        password: str,
+        sva_td_cookie: str | None = None,
+    ) -> VerifyResult:
+        """
+        Authenticate with email + password. Mirrors the verify_code flow:
+        trusted-device TOTP bypass, session conflict detection, and the
+        same VerifyResult shape so the router can reuse the same handler.
+
+        Generic 401 on failure — no difference between "no account",
+        "no password set", and "wrong password" to prevent enumeration.
+        """
+        user = await self._codes.get_user_by_email(email)
+        if user is None or not user.password_hash:
+            raise InvalidPasswordError("Invalid email or password.")
+
+        if not verify_password(password, user.password_hash):
+            raise InvalidPasswordError("Invalid email or password.")
+
+        # ~~~~~~~~~ Check for TOTP requirement (same logic as verify_code) ~~~~~~~~~
+        if user.totp_enabled:
+            td_service = TrustedDeviceService(self._session)
+            device_trusted = await td_service.is_trusted(user.id, sva_td_cookie)
+
+            if not device_trusted:
+                partial = issue_access_token(
+                    user.id, extra={"requires_2fa": True, "type": "partial"}
+                )
+                logger.info("auth_password_2fa_required", user_id=str(user.id))
+                return VerifyResult(
+                    token_pair=TokenPairOut(
+                        access_token=partial,
+                        expires_in=_settings.jwt_access_token_expire_minutes * 60,
+                        requires_2fa=True,
+                    ),
+                    refresh_token=None,
+                )
+            logger.info("auth_password_trusted_device_bypass", user_id=str(user.id))
+
+        # ~~~~~~~~~ Issue full token pair ~~~~~~~~~
+        refresh = issue_refresh_token(user.id)
+
+        from jose import jwt as _jwt
+        refresh_jti = _jwt.get_unverified_claims(refresh).get("jti", "")
+
+        access = issue_access_token(user.id, session_jti=refresh_jti)
+        accounts = await self._accounts.get_user_accounts(user.id)
+        account_id = str(accounts[0].id) if accounts else None
+        expires_in = _settings.jwt_access_token_expire_minutes * 60
+
+        svc = SessionService(self._session)
+        conflict = await svc.check_and_claim(
+            user_id=user.id,
+            access_token=access,
+            refresh_token=refresh,
+            refresh_jti=refresh_jti,
+            expires_in=expires_in,
+            account_id=account_id,
+        )
+
+        logger.info("auth_password_success", user_id=str(user.id))
+        return _conflict_to_verify_result(conflict, expires_in)
+
+
 # ==================================================
 # EXCEPTIONS
 # ==================================================
@@ -228,6 +297,10 @@ class AuthService:
 
 class InvalidCodeError(Exception):
     """The supplied code is wrong, expired, or already consumed."""
+
+
+class InvalidPasswordError(Exception):
+    """Password is wrong, or the account has no password set."""
 
 
 # ==================================================

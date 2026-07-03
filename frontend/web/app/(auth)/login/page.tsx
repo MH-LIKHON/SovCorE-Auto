@@ -95,7 +95,7 @@ function MicrosoftIcon() {
 // LOGIN PAGE
 // ==================================================
 
-type Stage = 'email' | 'code' | 'totp'
+type Stage = 'email' | 'code' | 'totp' | 'password'
 
 export default function LoginPage() {
   return (
@@ -298,6 +298,51 @@ function LoginPageInner() {
     }
   }, [next, router]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ------------------------------ Password login ----------------------------
+
+  const loginWithPassword = useCallback(async function loginWithPassword(password: string) {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API}/api/v1/auth/password/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({})) as {
+        access_token?: string
+        account_id?: string
+        requires_2fa?: boolean
+        session_conflict?: boolean
+        conflict_token?: string
+        detail?: string
+      }
+
+      if (!res.ok) {
+        setError(data.detail ?? 'Invalid email or password.')
+        return
+      }
+
+      if (data.session_conflict && data.conflict_token) {
+        setConflictToken(data.conflict_token)
+        return
+      }
+
+      if (data.requires_2fa) {
+        partialTokenRef.current = data.access_token ?? null
+        setStage('totp')
+        return
+      }
+
+      _completeLogin(data.access_token ?? '', data.account_id ?? null)
+    } catch {
+      setError('Could not reach the server. Check your connection.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [email]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ------------------------------ Microsoft SSO ------------------------------
 
   function handleMicrosoftSSO() {
@@ -452,6 +497,7 @@ function LoginPageInner() {
               error={error}
               onChange={(val) => { setEmail(val); setEmailAttempted(false) }}
               onAdvance={requestCode}
+              onSignInWithPassword={() => { if (emailValid) { setError(null); setStage('password') } else { setEmailAttempted(true) } }}
             />
           )}
 
@@ -472,6 +518,17 @@ function LoginPageInner() {
               isLoading={isLoading}
               error={error}
               onVerify={verifyTotp}
+            />
+          )}
+
+          {/* ~~~~~~~~~ Stage 4: Password ~~~~~~~~~ */}
+          {stage === 'password' && (
+            <PasswordStage
+              email={email}
+              isLoading={isLoading}
+              error={error}
+              onVerify={loginWithPassword}
+              onGoBack={() => { setStage('email'); setError(null) }}
             />
           )}
 
@@ -536,6 +593,7 @@ interface EmailStageProps {
   error: string | null
   onChange: (value: string) => void
   onAdvance: () => void
+  onSignInWithPassword?: () => void
 }
 
 function EmailStage({
@@ -547,6 +605,7 @@ function EmailStage({
   error,
   onChange,
   onAdvance,
+  onSignInWithPassword,
 }: EmailStageProps) {
   const [focused, setFocused] = useState(false)
   const [arrowHovered, setArrowHovered] = useState(false)
@@ -665,6 +724,20 @@ function EmailStage({
       <div style={{ fontSize: 11, color: emailAttempted && !emailValid ? 'var(--colour-error, #ff6b6b)' : 'rgba(255,255,255,0.2)', textAlign: 'center', marginTop: 12, transition: 'color 0.3s' }}>
         {emailAttempted && !emailValid ? 'Enter a valid email address' : 'Press Enter or the arrow to continue'}
       </div>
+
+      {onSignInWithPassword && (
+        <div style={{ textAlign: 'center', marginTop: 8 }}>
+          <button
+            type="button"
+            onClick={onSignInWithPassword}
+            style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'color 0.25s', padding: '6px 10px', margin: '-6px -10px' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#6c63ff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.25)' }}
+          >
+            Sign in with password instead
+          </button>
+        </div>
+      )}
 
       <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', lineHeight: 1.6, marginTop: 12, marginBottom: 0 }}>
         By signing in you agree to the{' '}
@@ -959,6 +1032,164 @@ function TotpStage({ isLoading, error, onVerify }: TotpStageProps) {
           {isLoading ? 'Verifying...' : 'Verify'}
         </button>
       </form>
+    </div>
+  )
+}
+
+// ==================================================
+// PASSWORD STAGE (INTERNAL)
+// ==================================================
+
+interface PasswordStageProps {
+  email: string
+  isLoading: boolean
+  error: string | null
+  onVerify: (password: string) => void
+  onGoBack: () => void
+}
+
+function PasswordStage({ email, isLoading, error, onVerify, onGoBack }: PasswordStageProps) {
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (password) onVerify(password)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ~~~~~~~~~ Email pill ~~~~~~~~~ */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div style={{ padding: '6px 14px', borderRadius: 20, background: 'rgba(108,99,255,0.12)', color: '#6c63ff', fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 8, animation: 'pillIn 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
+          <span>{email}</span>
+          <span
+            onClick={onGoBack}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter') onGoBack() }}
+            aria-label="Change email"
+            style={{ cursor: 'pointer', color: 'rgba(255,255,255,0.35)', fontSize: 10, transition: 'color 0.2s, transform 0.2s' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#ff6b6b'; e.currentTarget.style.transform = 'scale(1.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.transform = 'scale(1)' }}
+          >
+            ✕
+          </span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <label
+          style={{
+            display: 'block',
+            fontSize: 11,
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase' as const,
+            textAlign: 'center',
+            color: 'var(--colour-text-muted)',
+            marginBottom: 4,
+          }}
+        >
+          Password
+        </label>
+
+        <div className="sov-input-wrap">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter your password"
+            autoComplete="current-password"
+            autoFocus
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              padding: '14px 52px 14px 16px',
+              borderRadius: 12,
+              border: '0.5px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.03)',
+              color: 'var(--colour-text)',
+              fontSize: 15,
+              fontFamily: 'inherit',
+              outline: 'none',
+              boxSizing: 'border-box' as const,
+              transition: 'border-color 0.3s, background 0.3s, box-shadow 0.3s',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(108,99,255,0.5)'
+              e.currentTarget.style.background = 'rgba(255,255,255,0.05)'
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108,99,255,0.1), 0 0 20px rgba(108,99,255,0.06)'
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+              e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            style={{
+              position: 'absolute',
+              right: 14,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              color: 'rgba(255,255,255,0.3)',
+              fontSize: 11,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              padding: '4px',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.7)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)' }}
+          >
+            {showPassword ? 'Hide' : 'Show'}
+          </button>
+        </div>
+
+        {error && (
+          <div role="alert" style={{ fontSize: 12, color: 'var(--colour-error, #ff6b6b)', textAlign: 'center', padding: '8px 12px', borderRadius: 8, background: 'rgba(255,107,107,0.08)' }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={isLoading || !password}
+          style={{
+            width: '100%',
+            padding: 14,
+            borderRadius: 12,
+            border: 'none',
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: 500,
+            fontFamily: 'inherit',
+            cursor: password && !isLoading ? 'pointer' : 'default',
+            opacity: !password ? 0.4 : 1,
+            animation: password ? 'loginGradShift 3s ease-in-out infinite' : 'none',
+            background: 'linear-gradient(135deg, #6c63ff, #5548e0)',
+            transition: 'opacity 0.3s',
+          }}
+        >
+          {isLoading ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
+
+      <div style={{ textAlign: 'center' }}>
+        <button
+          type="button"
+          onClick={onGoBack}
+          style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'color 0.25s' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#00d4ff' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)' }}
+        >
+          Use email code instead
+        </button>
+      </div>
     </div>
   )
 }

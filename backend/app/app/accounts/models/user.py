@@ -77,6 +77,18 @@ class User(Base):
     totp_secret_enc: Mapped[str | None] = mapped_column(String(512), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
+    # ------------------------------ Password (optional) ---------------------
+    # Null means the user has not set a password; they must use email OTP or SSO.
+    # When set, either method (password or email OTP) can be used to sign in.
+    password_hash: Mapped[str | None] = mapped_column(nullable=True)
+    password_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    @property
+    def has_password(self) -> bool:
+        return self.password_hash is not None
+
     # ------------------------------ Session preferences ---------------------
     # Idle-logout threshold in minutes. Default 15; valid range 5-30 (step 5).
     # The frontend enforces the timer; this value is just the user's preference.

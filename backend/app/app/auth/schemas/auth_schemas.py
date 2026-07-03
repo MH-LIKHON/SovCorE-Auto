@@ -223,3 +223,45 @@ class TrustedDeviceOut(BaseModel):
     expires_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ------------------------------ Password --------------------------------
+
+
+class SetPasswordIn(BaseModel):
+    """POST /auth/password/set — set an initial password for the account."""
+
+    model_config = {"extra": "forbid"}
+
+    password: str = Field(min_length=12, max_length=128)
+
+
+class ChangePasswordIn(BaseModel):
+    """POST /auth/password/change — replace an existing password."""
+
+    model_config = {"extra": "forbid"}
+
+    current_password: str
+    new_password: str = Field(min_length=12, max_length=128)
+
+
+class RemovePasswordIn(BaseModel):
+    """POST /auth/password/remove — confirm and delete the password."""
+
+    model_config = {"extra": "forbid"}
+
+    current_password: str
+
+
+class PasswordLoginIn(BaseModel):
+    """POST /auth/password/login — sign in with email and password."""
+
+    model_config = {"extra": "forbid"}
+
+    email: EmailStr
+    password: str
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalise_email(cls, v: str) -> str:
+        return v.strip().lower()
