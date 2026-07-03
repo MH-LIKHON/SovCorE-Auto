@@ -1162,8 +1162,9 @@ const VD_STYLES = `
     text-align: left; transition: background var(--duration-normal) var(--ease-smooth);
   }
   .vd-accordion__head:hover { background: rgba(255,255,255,0.03); }
-  .vd-accordion__chevron { color: var(--colour-text-muted); transition: transform var(--duration-normal) var(--ease-smooth); }
+  .vd-accordion__chevron { color: var(--colour-text-muted); transition: color var(--duration-normal) var(--ease-smooth), transform var(--duration-normal) var(--ease-smooth); }
   .vd-accordion__chevron--open { transform: rotate(180deg); }
+  .vd-accordion__head:hover .vd-accordion__chevron { color: var(--colour-accent2); }
   .vd-accordion__body { padding: 4px 16px 16px; border-top: 1px solid var(--colour-border); }
 
   /* ---- Responsive ---- */
