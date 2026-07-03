@@ -104,7 +104,7 @@ export function IdleWarningModal({ initialSeconds, onStay, onLogout }: IdleWarni
             Stay signed in
           </button>
           <button
-            className="rec-btn rec-btn--ghost"
+            className="rec-btn rec-btn--danger"
             onClick={onLogout}
             style={{ width: "100%", fontSize: "var(--text-sm)" }}
           >

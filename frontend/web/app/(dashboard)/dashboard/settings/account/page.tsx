@@ -354,7 +354,7 @@ export default function AccountSettingsPage() {
                 {savingAccount ? "Saving..." : "Save"}
               </button>
               <button
-                className="rec-btn rec-btn--ghost"
+                className="rec-btn rec-btn--danger"
                 onClick={() => { setEditingAccount(false); setAccountError(null); }}
               >
                 Cancel
@@ -464,7 +464,7 @@ export default function AccountSettingsPage() {
                 {savingSession ? "Saving..." : "Save"}
               </button>
               <button
-                className="rec-btn rec-btn--ghost"
+                className="rec-btn rec-btn--danger"
                 onClick={() => { setEditingSession(false); setSessionError(null); setIdleInput(me?.idle_timeout_minutes ?? 15); }}
               >
                 Cancel
@@ -616,7 +616,7 @@ export default function AccountSettingsPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleSetPassword} disabled={savingPassword || !newPassword}>
                 {savingPassword ? "Saving..." : "Set password"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+              <button className="rec-btn rec-btn--danger" onClick={_resetPasswordForm}>Cancel</button>
             </div>
           </div>
         )}
@@ -676,7 +676,7 @@ export default function AccountSettingsPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleChangePassword} disabled={savingPassword || !currentPassword || !newPassword}>
                 {savingPassword ? "Saving..." : "Change password"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+              <button className="rec-btn rec-btn--danger" onClick={_resetPasswordForm}>Cancel</button>
             </div>
           </div>
         )}
@@ -712,7 +712,7 @@ export default function AccountSettingsPage() {
               >
                 {savingPassword ? "Removing..." : "Remove password"}
               </button>
-              <button className="rec-btn rec-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+              <button className="rec-btn rec-btn--danger" onClick={_resetPasswordForm}>Cancel</button>
             </div>
           </div>
         )}

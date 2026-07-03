@@ -236,7 +236,7 @@ export function SessionConflictModal({ conflictToken, onReplaced, onCancel }: Se
             {loading === "replace" ? "Signing out other session..." : "Sign out other device"}
           </button>
           <button
-            className="rec-btn rec-btn--ghost"
+            className="rec-btn rec-btn--danger"
             onClick={handleCancel}
             disabled={!!loading}
             style={{ width: "100%", fontSize: "var(--text-sm)" }}

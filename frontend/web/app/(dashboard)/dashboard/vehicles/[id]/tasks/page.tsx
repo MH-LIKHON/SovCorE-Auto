@@ -230,7 +230,7 @@ export default function TasksPage() {
             </p>
           </div>
           {showForm ? (
-            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add task" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -280,7 +280,7 @@ export default function TasksPage() {
                 {saving ? "Saving…" : "Save task"}
               </button>
               <button
-                className="rec-btn--danger-sm"
+                className="rec-btn rec-btn--danger-sm"
                 onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }}
                 disabled={saving}
               >
