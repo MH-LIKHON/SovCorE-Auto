@@ -206,7 +206,7 @@ export default function BackupsPage() {
         </p>
         {triggerError && <p className="set-error" style={{ marginBottom: "var(--space-3)" }}>{triggerError}</p>}
         <button
-          className="set-btn set-btn--primary"
+          className="rec-btn rec-btn--primary"
           onClick={handleTrigger}
           disabled={triggering}
         >

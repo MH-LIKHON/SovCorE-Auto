@@ -274,7 +274,7 @@ export default function UsersPage() {
             {inviteSuccess && <p className="set-success">Invitation added. They can sign in with their email.</p>}
             <div className="set-form-actions">
               <button
-                className="set-btn set-btn--primary"
+                className="rec-btn rec-btn--primary"
                 onClick={handleInvite}
                 disabled={inviting || !inviteEmail.trim()}
               >
@@ -317,7 +317,7 @@ export default function UsersPage() {
             {transferError && <p className="set-error">{transferError}</p>}
             <div className="set-form-actions">
               <button
-                className="set-btn set-btn--ghost"
+                className="rec-btn rec-btn--danger"
                 onClick={handleTransferOwnership}
                 disabled={transferring || !transferTarget}
                 style={{ borderColor: "var(--colour-error)", color: "var(--colour-error)" }}
@@ -361,12 +361,6 @@ const SET_STYLES = `
   .set-form { display: flex; flex-direction: column; gap: var(--space-4); }
   .set-form .sov-field { max-width: 400px; }
   .set-form-actions { display: flex; gap: var(--space-3); }
-  .set-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; transition: background 0.2s, color 0.2s, opacity 0.2s; border: none; }
-  .set-btn--primary { background: var(--colour-accent); color: #fff; }
-  .set-btn--primary:disabled { opacity: 0.55; }
-  .set-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
-  .set-btn--ghost:disabled { opacity: 0.55; }
-
   .mem-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .mem-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
   .mem-table th { text-align: left; color: var(--colour-text-muted); font-weight: 500; padding: 0 12px 10px 0; border-bottom: 1px solid var(--colour-border); white-space: nowrap; }
