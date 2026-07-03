@@ -37,7 +37,7 @@ import { useEffect, useState } from "react";
 
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
-import { TextField } from "@/src/components/ui/input";
+import { PasswordField, TextField } from "@/src/components/ui/input";
 import { apiFetch } from "@/src/lib/api/fetch";
 import { toTitleCase } from "@/src/lib/text";
 
@@ -140,8 +140,6 @@ export default function AccountSettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
-  const [showNewPw, setShowNewPw] = useState(false);
-  const [showCurrentPw, setShowCurrentPw] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
@@ -231,8 +229,6 @@ export default function AccountSettingsPage() {
     setNewPassword("");
     setConfirmPassword("");
     setCurrentPassword("");
-    setShowNewPw(false);
-    setShowCurrentPw(false);
     setPasswordError(null);
     setPasswordMode("view");
   }
@@ -580,36 +576,23 @@ export default function AccountSettingsPage() {
         {passwordMode === "set" && (
           <div className="set-form">
             <div className="set-pw-field">
-              <div className="sov-field">
-                <label className="sov-field__label">New password</label>
-                <div className="sov-input-wrap set-pw-wrap">
-                  <input
-                    type={showNewPw ? "text" : "password"}
-                    className="sov-field__control"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Min 12 characters"
-                    autoComplete="new-password"
-                    autoFocus
-                  />
-                  <button type="button" className="set-pw-toggle" onClick={() => setShowNewPw((v) => !v)}>
-                    {showNewPw ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-              <div className="sov-field">
-                <label className="sov-field__label">Confirm password</label>
-                <div className="sov-input-wrap">
-                  <input
-                    type={showNewPw ? "text" : "password"}
-                    className="sov-field__control"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
+              <PasswordField
+                label="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min 12 characters"
+                autoComplete="new-password"
+                autoFocus
+                disabled={savingPassword}
+              />
+              <PasswordField
+                label="Confirm password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repeat password"
+                autoComplete="new-password"
+                disabled={savingPassword}
+              />
             </div>
             {passwordError && <p className="set-error">{passwordError}</p>}
             <div className="set-form-actions">
@@ -624,52 +607,31 @@ export default function AccountSettingsPage() {
         {passwordMode === "change" && (
           <div className="set-form">
             <div className="set-pw-field">
-              <div className="sov-field">
-                <label className="sov-field__label">Current password</label>
-                <div className="sov-input-wrap set-pw-wrap">
-                  <input
-                    type={showCurrentPw ? "text" : "password"}
-                    className="sov-field__control"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="Enter current password"
-                    autoComplete="current-password"
-                    autoFocus
-                  />
-                  <button type="button" className="set-pw-toggle" onClick={() => setShowCurrentPw((v) => !v)}>
-                    {showCurrentPw ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-              <div className="sov-field">
-                <label className="sov-field__label">New password</label>
-                <div className="sov-input-wrap set-pw-wrap">
-                  <input
-                    type={showNewPw ? "text" : "password"}
-                    className="sov-field__control"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Min 12 characters"
-                    autoComplete="new-password"
-                  />
-                  <button type="button" className="set-pw-toggle" onClick={() => setShowNewPw((v) => !v)}>
-                    {showNewPw ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </div>
-              <div className="sov-field">
-                <label className="sov-field__label">Confirm new password</label>
-                <div className="sov-input-wrap">
-                  <input
-                    type={showNewPw ? "text" : "password"}
-                    className="sov-field__control"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repeat new password"
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
+              <PasswordField
+                label="Current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+                autoComplete="current-password"
+                autoFocus
+                disabled={savingPassword}
+              />
+              <PasswordField
+                label="New password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Min 12 characters"
+                autoComplete="new-password"
+                disabled={savingPassword}
+              />
+              <PasswordField
+                label="Confirm new password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Repeat new password"
+                autoComplete="new-password"
+                disabled={savingPassword}
+              />
             </div>
             {passwordError && <p className="set-error">{passwordError}</p>}
             <div className="set-form-actions">
@@ -686,23 +648,16 @@ export default function AccountSettingsPage() {
             <p className="set-hint">
               Confirm your current password to remove it. After removal, only email code and SSO sign-in will work.
             </p>
-            <div className="sov-field" style={{ maxWidth: 400 }}>
-              <label className="sov-field__label">Current password</label>
-              <div className="sov-input-wrap set-pw-wrap">
-                <input
-                  type={showCurrentPw ? "text" : "password"}
-                  className="sov-field__control"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter current password"
-                  autoComplete="current-password"
-                  autoFocus
-                />
-                <button type="button" className="set-pw-toggle" onClick={() => setShowCurrentPw((v) => !v)}>
-                  {showCurrentPw ? "Hide" : "Show"}
-                </button>
-              </div>
-            </div>
+            <PasswordField
+              label="Current password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Enter current password"
+              autoComplete="current-password"
+              autoFocus
+              disabled={savingPassword}
+              style={{ maxWidth: 400 }}
+            />
             {passwordError && <p className="set-error">{passwordError}</p>}
             <div className="set-form-actions">
               <button
@@ -784,9 +739,6 @@ const SET_STYLES = `
 
   /* Password card */
   .set-pw-field { display: flex; flex-direction: column; gap: var(--space-3); }
-  .set-pw-wrap { position: relative; }
-  .set-pw-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: var(--text-xs); color: var(--colour-text-muted); cursor: none; padding: 4px; transition: color 0.2s; }
-  .set-pw-toggle:hover { color: var(--colour-text); }
 
   @media (max-width: 640px) {
     .set-list > div { grid-template-columns: 1fr; gap: 4px; }

@@ -910,6 +910,18 @@ function TotpStage({ isLoading, error, onVerify }: TotpStageProps) {
   const [code, setCode] = useState('')
   const [focused, setFocused] = useState(false)
   const [rememberDevice, setRememberDevice] = useState(false)
+  const pulseRingRef = useRef<HTMLDivElement>(null)
+
+  function fireKeystrokePulse() {
+    const ring = pulseRingRef.current
+    if (!ring) return
+    const dot = document.createElement('div')
+    const colors = ['#6c63ff', '#7b73ff', '#5548e0', '#00d4ff']
+    const color = colors[Math.floor(Math.random() * colors.length)] ?? '#6c63ff'
+    dot.style.cssText = `position:absolute;height:100%;width:20px;border-radius:1px;background:${color};left:${Math.random() * 80 + 10}%;animation:keystrokePulse 0.5s ease-out forwards`
+    ring.appendChild(dot)
+    setTimeout(() => dot.remove(), 500)
+  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -922,13 +934,13 @@ function TotpStage({ isLoading, error, onVerify }: TotpStageProps) {
         Enter the six-digit code from your authenticator app.
       </p>
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div className="sov-input-wrap">
+        <div className="sov-input-wrap" style={{ position: 'relative' }}>
           <input
             type="text"
             inputMode="numeric"
             maxLength={6}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); fireKeystrokePulse() }}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             autoFocus
@@ -950,6 +962,7 @@ function TotpStage({ isLoading, error, onVerify }: TotpStageProps) {
               transition: 'border-color 0.3s, background 0.3s',
             }}
           />
+          <div ref={pulseRingRef} aria-hidden="true" style={{ position: 'absolute', bottom: -2, left: 12, right: 12, height: 2, borderRadius: 1, overflow: 'hidden' }} />
         </div>
 
         {/* ~~~~~~~~~ Remember this browser ~~~~~~~~~ */}
@@ -1051,6 +1064,18 @@ interface PasswordStageProps {
 function PasswordStage({ email, isLoading, error, onVerify, onGoBack }: PasswordStageProps) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const pulseRingRef = useRef<HTMLDivElement>(null)
+
+  function fireKeystrokePulse() {
+    const ring = pulseRingRef.current
+    if (!ring) return
+    const dot = document.createElement('div')
+    const colors = ['#6c63ff', '#7b73ff', '#5548e0', '#00d4ff']
+    const color = colors[Math.floor(Math.random() * colors.length)] ?? '#6c63ff'
+    dot.style.cssText = `position:absolute;height:100%;width:20px;border-radius:1px;background:${color};left:${Math.random() * 80 + 10}%;animation:keystrokePulse 0.5s ease-out forwards`
+    ring.appendChild(dot)
+    setTimeout(() => dot.remove(), 500)
+  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -1097,7 +1122,7 @@ function PasswordStage({ email, isLoading, error, onVerify, onGoBack }: Password
           <input
             type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); fireKeystrokePulse() }}
             placeholder="Enter your password"
             autoComplete="current-password"
             autoFocus
@@ -1148,6 +1173,7 @@ function PasswordStage({ email, isLoading, error, onVerify, onGoBack }: Password
           >
             {showPassword ? 'Hide' : 'Show'}
           </button>
+          <div ref={pulseRingRef} aria-hidden="true" style={{ position: 'absolute', bottom: -2, left: 12, right: 12, height: 2, borderRadius: 1, overflow: 'hidden' }} />
         </div>
 
         {error && (

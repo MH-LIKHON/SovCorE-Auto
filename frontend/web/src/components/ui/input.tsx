@@ -25,7 +25,7 @@
 "use client";
 
 import clsx from "clsx";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 // ==================================================
@@ -40,7 +40,7 @@ interface FieldProps {
 
 const PULSE_COLOURS = ["#6c63ff", "#7b73ff", "#5548e0", "#00d4ff"];
 
-function usePulse() {
+export function usePulse() {
   const ringRef = useRef<HTMLDivElement>(null);
   function fire() {
     const ring = ringRef.current;
@@ -54,7 +54,7 @@ function usePulse() {
   return { ringRef, fire };
 }
 
-const PULSE_RING_STYLE: React.CSSProperties = {
+export const PULSE_RING_STYLE: React.CSSProperties = {
   position: "absolute",
   bottom: -2,
   left: 12,
@@ -85,6 +85,45 @@ export function TextField({ label, helper, error, className, id, onChange, ...re
           onChange={(e) => { fire(); onChange?.(e); }}
           {...rest}
         />
+        <div ref={ringRef} aria-hidden="true" style={PULSE_RING_STYLE} />
+      </div>
+      {(error || helper) && <p className="sov-field__hint">{error ?? helper}</p>}
+      <style>{FIELD_STYLES}</style>
+    </div>
+  );
+}
+
+// ==================================================
+// PASSWORD FIELD
+// ==================================================
+
+type PasswordFieldProps = FieldProps & Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
+
+export function PasswordField({ label, helper, error, className, id, onChange, ...rest }: PasswordFieldProps) {
+  const inputId = id ?? `field-${label.replace(/\s+/g, "-").toLowerCase()}`;
+  const { ringRef, fire } = usePulse();
+  const [show, setShow] = useState(false);
+  return (
+    <div className={clsx("sov-field", error && "sov-field--error", className)}>
+      <label htmlFor={inputId} className="sov-field__label">
+        {label}
+      </label>
+      <div className="sov-input-wrap">
+        <input
+          id={inputId}
+          type={show ? "text" : "password"}
+          className="sov-field__control sov-field__control--pw"
+          onChange={(e) => { fire(); onChange?.(e); }}
+          {...rest}
+        />
+        <button
+          type="button"
+          className="sov-pw-toggle"
+          onClick={() => setShow((v) => !v)}
+          tabIndex={-1}
+        >
+          {show ? "Hide" : "Show"}
+        </button>
         <div ref={ringRef} aria-hidden="true" style={PULSE_RING_STYLE} />
       </div>
       {(error || helper) && <p className="sov-field__hint">{error ?? helper}</p>}
@@ -226,6 +265,23 @@ const FIELD_STYLES = `
     border-color: var(--colour-border-active);
     box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.18);
   }
+
+  /* ---------- Password modifier ---------- */
+  .sov-field__control--pw { padding-right: 52px; }
+  .sov-pw-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: var(--text-xs);
+    color: var(--colour-text-muted);
+    cursor: none;
+    padding: 4px;
+    transition: color 0.2s;
+  }
+  .sov-pw-toggle:hover { color: var(--colour-text); }
 
   /* ---------- Textarea modifier ---------- */
   .sov-field__control--area {
