@@ -406,7 +406,7 @@ export default function DamagePage() {
             <p className="rec-sub">Scratches, dents, paintwork, glass damage and accident records for this vehicle.</p>
           </div>
           {showForm ? (
-            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add entry" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -464,7 +464,7 @@ export default function DamagePage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAdd} disabled={saving}>
                 {saving ? "Saving…" : "Save entry"}
               </button>
-              <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
+              <button className="rec-btn rec-btn--danger-sm" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }} disabled={saving}>
                 Cancel
               </button>
             </div>

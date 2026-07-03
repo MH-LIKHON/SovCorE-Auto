@@ -448,7 +448,7 @@ export default function AlertsPage() {
             <p className="rec-sub">{active} active · {total} total</p>
           </div>
           {showForm ? (
-            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add alert" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -646,7 +646,7 @@ export default function AlertsPage() {
                 {saving ? "Saving…" : "Save alert"}
               </button>
               <button
-                className="rec-btn--danger-sm"
+                className="rec-btn rec-btn--danger-sm"
                 onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }}
                 disabled={saving}
               >
@@ -699,7 +699,7 @@ export default function AlertsPage() {
                           {savingLog ? "Saving…" : "Save"}
                         </button>
                         <button
-                          className="rec-btn--danger-sm"
+                          className="rec-btn rec-btn--danger-sm"
                           onClick={() => { setEditingLog(false); setLogDay(String(logSettings.reminder_day)); }}
                           disabled={savingLog}
                         >

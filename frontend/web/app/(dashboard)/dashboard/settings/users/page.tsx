@@ -371,9 +371,6 @@ const SET_STYLES = `
 
   .mem-actions { display: flex; align-items: center; gap: 8px; }
   .mem-role-select { background: var(--colour-bg); border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 4px 8px; font-size: var(--text-xs); color: var(--colour-text); cursor: none; }
-  .mem-remove-btn { background: none; border: none; color: var(--colour-error); font-size: var(--text-xs); cursor: none; padding: 4px 6px; border-radius: var(--radius-sm); transition: background 0.2s; }
-  .mem-remove-btn:hover { background: rgba(239,68,68,0.1); }
-
   @media (max-width: 640px) {
     .mem-col--name { display: none; }
     .mem-col--since { display: none; }

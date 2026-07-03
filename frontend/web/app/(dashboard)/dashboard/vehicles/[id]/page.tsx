@@ -607,7 +607,7 @@ export default function VehicleProfilePage() {
                 </select>
               </div>
               <button
-                className="vd-btn vd-btn--primary"
+                className="rec-btn rec-btn--primary"
                 onClick={applyLifecycle}
                 disabled={settingLifecycle || lifecycleState === vehicle.lifecycle_state}
               >
@@ -627,7 +627,7 @@ export default function VehicleProfilePage() {
               Deleting a vehicle removes all records, documents, expenses and timeline entries.
               Consider setting the lifecycle to sold or archived instead.
             </p>
-            <button className="vd-btn vd-btn--danger" onClick={handleDelete}>
+            <button className="rec-btn rec-btn--danger" onClick={handleDelete} style={{ borderColor: "var(--colour-error)", color: "var(--colour-error)" }}>
               Delete vehicle
             </button>
           </Card>
@@ -688,10 +688,10 @@ export default function VehicleProfilePage() {
               />
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">
-                <button className="vd-btn vd-btn--primary" onClick={saveInfo} disabled={saving}>
+                <button className="rec-btn rec-btn--primary" onClick={saveInfo} disabled={saving}>
                   {saving ? "Saving…" : "Save"}
                 </button>
-                <button className="vd-btn vd-btn--ghost" onClick={() => { setEditingInfo(false); setInfoMileageError(null); }}>Cancel</button>
+                <button className="rec-btn rec-btn--danger" onClick={() => { setEditingInfo(false); setInfoMileageError(null); }}>Cancel</button>
               </div>
             </div>
           ) : (
@@ -756,10 +756,10 @@ export default function VehicleProfilePage() {
               ))}
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">
-                <button className="vd-btn vd-btn--primary" onClick={saveOwnership} disabled={saving}>
+                <button className="rec-btn rec-btn--primary" onClick={saveOwnership} disabled={saving}>
                   {saving ? "Saving…" : "Save"}
                 </button>
-                <button className="vd-btn vd-btn--ghost" onClick={() => setEditingOwnership(false)}>Cancel</button>
+                <button className="rec-btn rec-btn--danger" onClick={() => setEditingOwnership(false)}>Cancel</button>
               </div>
             </div>
           ) : (
@@ -909,15 +909,6 @@ const VD_STYLES = `
   .vd-form .sov-field { max-width: 480px; }
   .vd-error { font-size: var(--text-sm); color: var(--colour-error); }
   .vd-form-actions { display: flex; gap: var(--space-3); }
-
-  /* ---- Buttons ---- */
-  .vd-btn { padding: 8px 18px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; border: none; transition: opacity 0.2s, background 0.2s, color 0.2s; }
-  .vd-btn--primary { background: var(--colour-accent); color: #fff; }
-  .vd-btn--primary:disabled { opacity: 0.55; }
-  .vd-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
-  .vd-btn--ghost:hover { color: var(--colour-text); }
-  .vd-btn--danger { background: none; border: 1px solid var(--colour-error); color: var(--colour-error); }
-  .vd-btn--danger:hover { background: rgba(239,68,68,0.1); }
 
   /* ---- Responsive ---- */
   @media (max-width: 767px) {

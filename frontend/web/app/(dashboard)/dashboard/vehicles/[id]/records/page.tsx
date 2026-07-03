@@ -721,7 +721,7 @@ export default function VehicleRecordsPage() {
             <p className="rec-sub">Every action taken on this vehicle, all in one place.</p>
           </div>
           {showForm ? (
-            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add record" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -1078,7 +1078,7 @@ export default function VehicleRecordsPage() {
                       </button>
                       <button
                         type="button"
-                        className="rec-btn--danger-sm"
+                        className="rec-btn rec-btn--danger-sm"
                         onClick={() => { setShowFaultCodeForm(false); setDiagFaultCodeForm({ ...EMPTY_FC }); setEditingFcIndex(null); setTriggerMileageError(null); }}
                       >
                         Cancel
@@ -1170,7 +1170,7 @@ export default function VehicleRecordsPage() {
               <button className="rec-btn rec-btn--primary" onClick={handleAddRecord} disabled={saving}>
                 {saving ? "Saving…" : "Save record"}
               </button>
-              <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setMileageError(null); setTriggerMileageError(null); setNewAttachFiles([]); setNewAttachLabel(""); setDiagFaultCodes([]); setDiagFaultCodeForm({ ...EMPTY_FC }); setShowFaultCodeForm(false); setEditingFcIndex(null); }} disabled={saving}>
+              <button className="rec-btn rec-btn--danger-sm" onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); setMileageError(null); setTriggerMileageError(null); setNewAttachFiles([]); setNewAttachLabel(""); setDiagFaultCodes([]); setDiagFaultCodeForm({ ...EMPTY_FC }); setShowFaultCodeForm(false); setEditingFcIndex(null); }} disabled={saving}>
                 Cancel
               </button>
             </div>
@@ -1415,7 +1415,7 @@ export default function VehicleRecordsPage() {
                                   Choose file
                                 </button>
                                 <button
-                                  className="rec-attach-cancel"
+                                  className="rec-btn rec-btn--danger-sm"
                                   onClick={() => { setShowAttachForm(false); setAttachKind(""); }}
                                 >
                                   Cancel

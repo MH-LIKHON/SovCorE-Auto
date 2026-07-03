@@ -263,7 +263,7 @@ function ExportModal({ accountId, vehicles, onClose }: ExportModalProps) {
         </div>
 
         <footer className="xpm-footer">
-          <button className="rec-btn--danger-sm" onClick={onClose}>Cancel</button>
+          <button className="rec-btn rec-btn--danger-sm" onClick={onClose}>Cancel</button>
           <button className="rec-btn rec-btn--primary" onClick={handleGenerate} disabled={busy}>
             {busy ? "Generating…" : "Generate PDF"}
           </button>

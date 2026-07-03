@@ -319,7 +319,7 @@ export default function RemindersPage() {
             </p>
           </div>
           {showForm ? (
-            <button className="rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
+            <button className="rec-btn rec-btn--danger-sm" onClick={() => { setShowForm(false); setSaveError(null); }}>Cancel</button>
           ) : (
             <button className="rec-btn rec-btn--primary rec-btn--icon" title="Add reminder" onClick={() => { setShowForm(true); setSaveError(null); }}>+</button>
           )}
@@ -395,7 +395,7 @@ export default function RemindersPage() {
                 {saving ? "Saving…" : "Save reminder"}
               </button>
               <button
-                className="rec-btn--danger-sm"
+                className="rec-btn rec-btn--danger-sm"
                 onClick={() => { setShowForm(false); setForm(EMPTY_FORM); setSaveError(null); }}
                 disabled={saving}
               >
@@ -524,7 +524,7 @@ export default function RemindersPage() {
                       <button className="rec-btn--primary-sm" onClick={handleEditSave} disabled={editSaving}>
                         {editSaving ? "Saving…" : "Save"}
                       </button>
-                      <button className="rec-btn--danger-sm" onClick={cancelEdit} disabled={editSaving}>
+                      <button className="rec-btn rec-btn--danger-sm" onClick={cancelEdit} disabled={editSaving}>
                         Cancel
                       </button>
                     </div>
