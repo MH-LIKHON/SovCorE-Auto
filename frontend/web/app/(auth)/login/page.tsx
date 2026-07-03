@@ -196,7 +196,10 @@ function LoginPageInner() {
         setError((data as { detail?: string }).detail ?? 'Something went wrong. Try again.')
         return
       }
-      setStage('code')
+      const data = await res.json().catch(() => ({})) as { has_password?: boolean }
+      // Email code is always sent as fallback. Route to password stage if the
+      // user has one set — "Use email code instead" remains available there.
+      setStage(data.has_password ? 'password' : 'code')
     } catch {
       setError('Could not reach the server. Check your connection.')
     } finally {

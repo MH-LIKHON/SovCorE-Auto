@@ -148,6 +148,10 @@ class RequestCodeOut(BaseModel):
     message: str = (
         "A six-digit code has been sent to that address. It expires in ten minutes."
     )
+    # True when the registered user has a password set. The frontend uses this
+    # to route directly to the password stage. False for unknown addresses so
+    # account existence is not revealed via this field alone.
+    has_password: bool = False
 
 
 # ------------------------------ Token Pair ----------------------------------

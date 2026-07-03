@@ -119,8 +119,13 @@ class AuthService:
         # ~~~~~~~~~ Send the code via Resend ~~~~~~~~~
         await _send_login_code(email=email, code=plaintext)
 
+        # Check has_password so the frontend can route to the password stage.
+        # Unknown addresses return False — account existence is not revealed.
+        user = await self._codes.get_user_by_email(email)
+        has_password = user.password_hash is not None if user else False
+
         logger.info("auth_code_sent", email=email)
-        return RequestCodeOut()
+        return RequestCodeOut(has_password=has_password)
 
     # ------------------------------ Verify Code -----------------------------
 
