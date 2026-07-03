@@ -209,14 +209,14 @@ function LoginPageInner() {
 
   // ------------------------------ Stage 2: Verify Code -----------------------
 
-  const verifyCode = useCallback(async function verifyCode(code: string) {
+  const verifyCode = useCallback(async function verifyCode(code: string, rememberDevice: boolean) {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`${API}/api/v1/auth/verify-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code }),
+        body: JSON.stringify({ email, code, remember_device: rememberDevice }),
         credentials: 'include',
       })
       const data = await res.json().catch(() => ({})) as {
@@ -303,14 +303,14 @@ function LoginPageInner() {
 
   // ------------------------------ Password login ----------------------------
 
-  const loginWithPassword = useCallback(async function loginWithPassword(password: string) {
+  const loginWithPassword = useCallback(async function loginWithPassword(password: string, rememberDevice: boolean) {
     setIsLoading(true)
     setError(null)
     try {
       const res = await fetch(`${API}/api/v1/auth/password/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember_device: rememberDevice }),
         credentials: 'include',
       })
       const data = await res.json().catch(() => ({})) as {
@@ -760,13 +760,14 @@ interface CodeStageProps {
   email: string
   isLoading: boolean
   error: string | null
-  onVerify: (code: string) => void
+  onVerify: (code: string, rememberDevice: boolean) => void
   onGoBack: () => void
 }
 
 function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStageProps) {
   const [digits, setDigits] = useState(['', '', '', '', '', ''])
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
+  const [rememberDevice, setRememberDevice] = useState(false)
   const inputRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null, null, null])
 
   useEffect(() => {
@@ -776,9 +777,9 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
   useEffect(() => {
     const full = digits.join('')
     if (full.length === 6 && digits.every(d => /^\d$/.test(d))) {
-      onVerify(full)
+      onVerify(full, rememberDevice)
     }
-  }, [digits, onVerify])
+  }, [digits, onVerify, rememberDevice])
 
   function handleDigitInput(index: number, value: string) {
     const sanitised = value.replace(/\D/g, '')
@@ -883,6 +884,33 @@ function CodeStage({ email, isLoading, error, onVerify, onGoBack }: CodeStagePro
       {isLoading && (
         <div style={{ textAlign: 'center', fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Verifying...</div>
       )}
+
+      {/* ~~~~~~~~~ Remember this browser ~~~~~~~~~ */}
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          cursor: 'pointer',
+          padding: '10px 12px',
+          borderRadius: 8,
+          border: '0.5px solid rgba(255,255,255,0.06)',
+          background: rememberDevice ? 'rgba(108,99,255,0.06)' : 'transparent',
+          transition: 'background 0.2s, border-color 0.2s',
+        }}
+        onMouseEnter={(e) => { if (!rememberDevice) e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
+        onMouseLeave={(e) => { if (!rememberDevice) e.currentTarget.style.background = 'transparent' }}
+      >
+        <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${rememberDevice ? '#6c63ff' : 'rgba(255,255,255,0.2)'}`, background: rememberDevice ? '#6c63ff' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'border-color 0.2s, background 0.2s' }}>
+          {rememberDevice && (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+              <path d="M2 5l2.5 2.5L8 2.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </div>
+        <input type="checkbox" checked={rememberDevice} onChange={(e) => setRememberDevice(e.target.checked)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} aria-label="Remember this browser for 15 days" />
+        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4 }}>Remember this browser for 15 days</span>
+      </label>
 
       <div style={{ textAlign: 'center' }}>
         <button
@@ -1060,13 +1088,14 @@ interface PasswordStageProps {
   email: string
   isLoading: boolean
   error: string | null
-  onVerify: (password: string) => void
+  onVerify: (password: string, rememberDevice: boolean) => void
   onGoBack: () => void
 }
 
 function PasswordStage({ email, isLoading, error, onVerify, onGoBack }: PasswordStageProps) {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [rememberDevice, setRememberDevice] = useState(false)
   const pulseRingRef = useRef<HTMLDivElement>(null)
 
   function fireKeystrokePulse() {
@@ -1082,7 +1111,7 @@ function PasswordStage({ email, isLoading, error, onVerify, onGoBack }: Password
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (password) onVerify(password)
+    if (password) onVerify(password, rememberDevice)
   }
 
   return (
@@ -1184,6 +1213,33 @@ function PasswordStage({ email, isLoading, error, onVerify, onGoBack }: Password
             {error}
           </div>
         )}
+
+        {/* ~~~~~~~~~ Remember this browser ~~~~~~~~~ */}
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            cursor: 'pointer',
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: '0.5px solid rgba(255,255,255,0.06)',
+            background: rememberDevice ? 'rgba(108,99,255,0.06)' : 'transparent',
+            transition: 'background 0.2s, border-color 0.2s',
+          }}
+          onMouseEnter={(e) => { if (!rememberDevice) e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
+          onMouseLeave={(e) => { if (!rememberDevice) e.currentTarget.style.background = 'transparent' }}
+        >
+          <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${rememberDevice ? '#6c63ff' : 'rgba(255,255,255,0.2)'}`, background: rememberDevice ? '#6c63ff' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'border-color 0.2s, background 0.2s' }}>
+            {rememberDevice && (
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                <path d="M2 5l2.5 2.5L8 2.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </div>
+          <input type="checkbox" checked={rememberDevice} onChange={(e) => setRememberDevice(e.target.checked)} style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }} aria-label="Remember this browser for 15 days" />
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4 }}>Remember this browser for 15 days</span>
+        </label>
 
         <button
           type="submit"

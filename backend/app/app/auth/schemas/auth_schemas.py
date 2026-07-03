@@ -60,6 +60,7 @@ class VerifyCodeIn(BaseModel):
 
     email: EmailStr
     code: str = Field(min_length=6, max_length=6)
+    remember_device: bool = False
 
     @field_validator("email", mode="before")
     @classmethod
@@ -264,6 +265,7 @@ class PasswordLoginIn(BaseModel):
 
     email: EmailStr
     password: str
+    remember_device: bool = False
 
     @field_validator("email", mode="before")
     @classmethod

@@ -258,11 +258,14 @@ async def verify_code(
     POST /session/resolve to proceed.
     """
     service = AuthService(db)
+    user_agent = request.headers.get("user-agent", "")
     try:
         result = await service.verify_code(
             email=body.email,
             code=body.code,
             sva_td_cookie=sva_td,
+            remember_device=body.remember_device,
+            device_label=_browser_label(user_agent),
         )
     except InvalidCodeError as exc:
         raise HTTPException(
@@ -274,6 +277,9 @@ async def verify_code(
     # pending and not a session conflict).
     if result.refresh_token:
         _set_refresh_cookie(response, result.refresh_token)
+
+    if result.device_token:
+        _set_trusted_device_cookie(response, result.device_token)
 
     return result.token_pair
 
@@ -823,17 +829,23 @@ async def password_login(
     brute-force exposure.
     """
     service = AuthService(db)
+    user_agent = request.headers.get("user-agent", "")
     try:
         result = await service.login_with_password(
             email=body.email,
             password=body.password,
             sva_td_cookie=sva_td,
+            remember_device=body.remember_device,
+            device_label=_browser_label(user_agent),
         )
     except InvalidPasswordError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
     if result.refresh_token:
         _set_refresh_cookie(response, result.refresh_token)
+
+    if result.device_token:
+        _set_trusted_device_cookie(response, result.device_token)
 
     return result.token_pair
 

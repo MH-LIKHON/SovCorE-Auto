@@ -86,6 +86,8 @@ class VerifyResult:
     token_pair: TokenPairOut
     # None when 2FA is pending (partial token) or when session_conflict=True.
     refresh_token: str | None
+    # Populated when remember_device=True and login succeeded without conflict.
+    device_token: str | None = None
 
 
 # ==================================================
@@ -134,6 +136,8 @@ class AuthService:
         email: str,
         code: str,
         sva_td_cookie: str | None = None,
+        remember_device: bool = False,
+        device_label: str = "",
     ) -> VerifyResult:
         """
         Verify the supplied code and issue tokens. Creates a user and
@@ -223,9 +227,15 @@ class AuthService:
             account_id=account_id,
         )
 
-        logger.info("auth_success", user_id=str(user.id))
-        return _conflict_to_verify_result(conflict, expires_in)
+        result = _conflict_to_verify_result(conflict, expires_in)
 
+        # Issue a trusted device token so this browser bypasses 2FA in future.
+        if remember_device and not result.token_pair.session_conflict:
+            td_svc = TrustedDeviceService(self._session)
+            result.device_token = await td_svc.create(user.id, label=device_label)
+
+        logger.info("auth_success", user_id=str(user.id))
+        return result
 
     # ------------------------------ Password login --------------------------
 
@@ -234,6 +244,8 @@ class AuthService:
         email: str,
         password: str,
         sva_td_cookie: str | None = None,
+        remember_device: bool = False,
+        device_label: str = "",
     ) -> VerifyResult:
         """
         Authenticate with email + password. Mirrors the verify_code flow:
@@ -291,8 +303,14 @@ class AuthService:
             account_id=account_id,
         )
 
+        result = _conflict_to_verify_result(conflict, expires_in)
+
+        if remember_device and not result.token_pair.session_conflict:
+            td_svc = TrustedDeviceService(self._session)
+            result.device_token = await td_svc.create(user.id, label=device_label)
+
         logger.info("auth_password_success", user_id=str(user.id))
-        return _conflict_to_verify_result(conflict, expires_in)
+        return result
 
 
 # ==================================================
