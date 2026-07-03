@@ -317,7 +317,7 @@ export default function AccountSettingsPage() {
         <div className="set-section-head">
           <h2 className="set-section">Account</h2>
           {!editingAccount && (
-            <button className="set-edit-btn" onClick={() => setEditingAccount(true)}>
+            <button className="rec-btn rec-btn--ghost-sm" onClick={() => setEditingAccount(true)}>
               Edit
             </button>
           )}
@@ -350,11 +350,11 @@ export default function AccountSettingsPage() {
             </div>
             {accountError && <p className="set-error">{accountError}</p>}
             <div className="set-form-actions">
-              <button className="set-btn set-btn--primary" onClick={handleAccountSave} disabled={savingAccount}>
+              <button className="rec-btn rec-btn--primary" onClick={handleAccountSave} disabled={savingAccount}>
                 {savingAccount ? "Saving..." : "Save"}
               </button>
               <button
-                className="set-btn set-btn--ghost"
+                className="rec-btn rec-btn--ghost"
                 onClick={() => { setEditingAccount(false); setAccountError(null); }}
               >
                 Cancel
@@ -430,7 +430,7 @@ export default function AccountSettingsPage() {
         <div className="set-section-head">
           <h2 className="set-section">Session</h2>
           {!editingSession && (
-            <button className="set-edit-btn" onClick={() => setEditingSession(true)}>
+            <button className="rec-btn rec-btn--ghost-sm" onClick={() => setEditingSession(true)}>
               Edit
             </button>
           )}
@@ -460,11 +460,11 @@ export default function AccountSettingsPage() {
             </p>
             {sessionError && <p className="set-error">{sessionError}</p>}
             <div className="set-form-actions">
-              <button className="set-btn set-btn--primary" onClick={handleSessionSave} disabled={savingSession}>
+              <button className="rec-btn rec-btn--primary" onClick={handleSessionSave} disabled={savingSession}>
                 {savingSession ? "Saving..." : "Save"}
               </button>
               <button
-                className="set-btn set-btn--ghost"
+                className="rec-btn rec-btn--ghost"
                 onClick={() => { setEditingSession(false); setSessionError(null); setIdleInput(me?.idle_timeout_minutes ?? 15); }}
               >
                 Cancel
@@ -510,7 +510,7 @@ export default function AccountSettingsPage() {
                   <span className="set-td-meta">Expires {formatExpiry(device.expires_at)}</span>
                 </div>
                 <button
-                  className="set-td-remove"
+                  className="rec-btn rec-btn--danger-sm"
                   onClick={() => handleRemoveDevice(device.id)}
                   disabled={removingDeviceIds.has(device.id)}
                 >
@@ -528,16 +528,16 @@ export default function AccountSettingsPage() {
           <h2 className="set-section">Password</h2>
           {passwordMode === "view" && me?.has_password && (
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <button className="set-edit-btn" onClick={() => setPasswordMode("change")}>
+              <button className="rec-btn rec-btn--ghost-sm" onClick={() => setPasswordMode("change")}>
                 Change
               </button>
-              <button className="set-edit-btn set-edit-btn--danger" onClick={() => setPasswordMode("remove")}>
+              <button className="rec-btn rec-btn--danger-sm" onClick={() => setPasswordMode("remove")}>
                 Remove
               </button>
             </div>
           )}
           {passwordMode === "view" && !me?.has_password && (
-            <button className="set-edit-btn" onClick={() => setPasswordMode("set")}>
+            <button className="rec-btn rec-btn--ghost-sm" onClick={() => setPasswordMode("set")}>
               Set password
             </button>
           )}
@@ -613,10 +613,10 @@ export default function AccountSettingsPage() {
             </div>
             {passwordError && <p className="set-error">{passwordError}</p>}
             <div className="set-form-actions">
-              <button className="set-btn set-btn--primary" onClick={handleSetPassword} disabled={savingPassword || !newPassword}>
+              <button className="rec-btn rec-btn--primary" onClick={handleSetPassword} disabled={savingPassword || !newPassword}>
                 {savingPassword ? "Saving..." : "Set password"}
               </button>
-              <button className="set-btn set-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+              <button className="rec-btn rec-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
             </div>
           </div>
         )}
@@ -673,10 +673,10 @@ export default function AccountSettingsPage() {
             </div>
             {passwordError && <p className="set-error">{passwordError}</p>}
             <div className="set-form-actions">
-              <button className="set-btn set-btn--primary" onClick={handleChangePassword} disabled={savingPassword || !currentPassword || !newPassword}>
+              <button className="rec-btn rec-btn--primary" onClick={handleChangePassword} disabled={savingPassword || !currentPassword || !newPassword}>
                 {savingPassword ? "Saving..." : "Change password"}
               </button>
-              <button className="set-btn set-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+              <button className="rec-btn rec-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
             </div>
           </div>
         )}
@@ -706,13 +706,13 @@ export default function AccountSettingsPage() {
             {passwordError && <p className="set-error">{passwordError}</p>}
             <div className="set-form-actions">
               <button
-                className="set-btn set-btn--danger"
+                className="rec-btn rec-btn--danger"
                 onClick={handleRemovePassword}
                 disabled={savingPassword || !currentPassword}
               >
                 {savingPassword ? "Removing..." : "Remove password"}
               </button>
-              <button className="set-btn set-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
+              <button className="rec-btn rec-btn--ghost" onClick={_resetPasswordForm}>Cancel</button>
             </div>
           </div>
         )}
@@ -761,24 +761,11 @@ const SET_STYLES = `
   .set-list dt { font-size: var(--text-sm); color: var(--colour-text-muted); margin: 0; }
   .set-list dd { font-size: var(--text-sm); color: var(--colour-text); margin: 0; }
 
-  .set-edit-btn { background: none; border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 4px 14px; font-size: var(--text-sm); color: var(--colour-text-muted); cursor: none; transition: border-color 0.2s, color 0.2s; }
-  .set-edit-btn:hover { border-color: var(--colour-accent); color: var(--colour-text); }
-  .set-edit-btn--danger { color: var(--colour-error); }
-  .set-edit-btn--danger:hover { border-color: var(--colour-error); color: var(--colour-error); }
-
   .set-form { display: flex; flex-direction: column; gap: var(--space-4); }
   .set-form .sov-field { max-width: 400px; }
   .set-error { font-size: var(--text-sm); color: var(--colour-error); }
   .set-hint { font-size: var(--text-xs); color: var(--colour-text-muted); line-height: var(--leading-normal); max-width: 480px; }
-  .set-form-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
-  .set-btn { padding: 8px 20px; border-radius: var(--radius-sm); font-size: var(--text-sm); cursor: none; transition: background 0.2s, color 0.2s, opacity 0.2s; border: none; }
-  .set-btn--primary { background: var(--colour-accent); color: #fff; }
-  .set-btn--primary:disabled { opacity: 0.55; }
-  .set-btn--ghost { background: none; border: 1px solid var(--colour-border); color: var(--colour-text-muted); }
-  .set-btn--ghost:hover { color: var(--colour-text); border-color: var(--colour-text-muted); }
-  .set-btn--danger { background: none; border: 1px solid rgba(255,80,80,0.35); color: var(--colour-error); }
-  .set-btn--danger:hover { border-color: var(--colour-error); }
-  .set-btn--danger:disabled { opacity: 0.55; }
+  .set-form-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
 
   .set-link { color: var(--colour-accent2); text-decoration: none; font-size: var(--text-sm); }
   .set-link:hover { color: var(--colour-accent); }
@@ -794,9 +781,6 @@ const SET_STYLES = `
   .set-td-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .set-td-label { font-size: var(--text-sm); color: var(--colour-text); }
   .set-td-meta { font-size: var(--text-xs); color: var(--colour-text-muted); }
-  .set-td-remove { flex-shrink: 0; background: none; border: 1px solid var(--colour-border); border-radius: var(--radius-sm); padding: 4px 12px; font-size: var(--text-sm); color: var(--colour-error); cursor: none; transition: border-color 0.2s, opacity 0.2s; }
-  .set-td-remove:hover:not(:disabled) { border-color: var(--colour-error); }
-  .set-td-remove:disabled { opacity: 0.5; }
 
   /* Password card */
   .set-pw-field { display: flex; flex-direction: column; gap: var(--space-3); }
