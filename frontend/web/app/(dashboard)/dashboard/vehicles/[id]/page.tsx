@@ -28,7 +28,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Card } from "@/src/components/ui/card";
 import { ConfirmDeleteModal } from "@/src/components/ui/confirm-delete-modal";
@@ -70,6 +70,39 @@ interface VehicleDetail {
   lifecycle_state: "active" | "sold" | "scrapped" | "archived";
   created_at: string;
   updated_at: string;
+  // ~~~~~~~~~ V5C fields ~~~~~~~~~
+  v5c_reference_number: string | null;
+  type_designation: string | null;
+  version: string | null;
+  date_first_registered: string | null;
+  date_first_registered_uk: string | null;
+  wheelplan: string | null;
+  suspension_type: string | null;
+  engine_number: string | null;
+  standing_places: number | null;
+  is_automated_vehicle: boolean | null;
+  max_net_power_kw: number | null;
+  power_to_weight_ratio: number | null;
+  taxation_class: string | null;
+  vehicle_category: string | null;
+  type_approval_number: string | null;
+  euro_status: string | null;
+  real_driving_emissions: string | null;
+  co2_emissions: number | null;
+  exhaust_co: number | null;
+  exhaust_hc: number | null;
+  exhaust_nox: number | null;
+  exhaust_hc_nox: number | null;
+  exhaust_particulates: number | null;
+  kerb_weight: number | null;
+  max_permissible_mass: number | null;
+  revenue_weight: number | null;
+  max_towable_mass_braked: number | null;
+  max_towable_mass_unbraked: number | null;
+  sound_level_stationary: number | null;
+  sound_level_engine_speed: number | null;
+  sound_level_drive_by: number | null;
+  number_of_previous_keepers: number | null;
 }
 
 interface Ownership {
@@ -216,6 +249,176 @@ function buildStatusRows(
 }
 
 // ==================================================
+// VEHICLE DETAILS FIELD CONFIG
+// ==================================================
+// Drives both the read-only accordion and the edit-mode form on the Details
+// tab. Categories mirror the UK V5C (Registration Certificate) grouping so
+// the 42-field panel stays navigable instead of one long list.
+
+type FieldKind = "text" | "allcaps" | "number" | "float" | "bool" | "date";
+
+interface FieldDef {
+  key: keyof VehicleDetail;
+  label: string;
+  kind: FieldKind;
+  unit?: string;
+  // false for fields shown in the read-only view but without an edit control
+  // (e.g. body_type, which needs a select rather than free text).
+  editable?: boolean;
+}
+
+interface DetailCategory {
+  title: string;
+  fields: FieldDef[];
+}
+
+const DETAIL_CATEGORIES: DetailCategory[] = [
+  {
+    title: "Identity & Registration",
+    fields: [
+      { key: "registration", label: "Registration", kind: "allcaps" },
+      { key: "vin", label: "VIN / Chassis number", kind: "allcaps" },
+      { key: "v5c_reference_number", label: "V5C document reference number", kind: "allcaps" },
+      { key: "make", label: "Make", kind: "text" },
+      { key: "model", label: "Model", kind: "text" },
+      { key: "variant", label: "Variant", kind: "text" },
+      { key: "type_designation", label: "Type", kind: "text" },
+      { key: "version", label: "Version", kind: "text" },
+      { key: "date_first_registered", label: "Date of first registration", kind: "date" },
+      { key: "date_first_registered_uk", label: "Date of first registration in the UK", kind: "date" },
+      { key: "year", label: "Year of manufacture", kind: "number" },
+    ],
+  },
+  {
+    title: "Specification",
+    fields: [
+      { key: "colour", label: "Colour", kind: "text" },
+      { key: "body_type", label: "Body type", kind: "text", editable: false },
+      { key: "wheelplan", label: "Wheelplan", kind: "text" },
+      { key: "suspension_type", label: "Suspension type", kind: "text" },
+      { key: "fuel_type", label: "Fuel type", kind: "text" },
+      { key: "transmission", label: "Transmission", kind: "text" },
+      { key: "engine", label: "Engine capacity", kind: "text" },
+      { key: "engine_number", label: "Engine number", kind: "allcaps" },
+      { key: "doors", label: "Doors", kind: "number" },
+      { key: "seats", label: "Seats", kind: "number" },
+      { key: "standing_places", label: "Number of standing places", kind: "number" },
+      { key: "is_automated_vehicle", label: "Automated vehicle (AV)", kind: "bool" },
+    ],
+  },
+  {
+    title: "Performance",
+    fields: [
+      { key: "horsepower", label: "Horsepower", kind: "number", unit: "bhp" },
+      { key: "max_net_power_kw", label: "Max net power", kind: "number", unit: "kW" },
+      { key: "torque", label: "Torque", kind: "number", unit: "Nm" },
+      { key: "power_to_weight_ratio", label: "Power/weight ratio (motorcycles only)", kind: "float", unit: "kW/kg" },
+    ],
+  },
+  {
+    title: "Emissions & Tax",
+    fields: [
+      { key: "taxation_class", label: "Taxation class", kind: "text" },
+      { key: "vehicle_category", label: "Vehicle category", kind: "allcaps" },
+      { key: "type_approval_number", label: "Type approval number", kind: "allcaps" },
+      { key: "emission_class", label: "Emission class", kind: "text" },
+      { key: "euro_status", label: "Euro status", kind: "text" },
+      { key: "real_driving_emissions", label: "Real driving emissions", kind: "text" },
+      { key: "co2_emissions", label: "CO2 emissions", kind: "number", unit: "g/km" },
+      { key: "exhaust_co", label: "Exhaust CO", kind: "float", unit: "g/km or g/kWh" },
+      { key: "exhaust_hc", label: "Exhaust HC", kind: "float", unit: "g/km or g/kWh" },
+      { key: "exhaust_nox", label: "Exhaust NOx", kind: "float", unit: "g/km or g/kWh" },
+      { key: "exhaust_hc_nox", label: "Exhaust HC+NOx", kind: "float", unit: "g/km" },
+      { key: "exhaust_particulates", label: "Exhaust particulates", kind: "float", unit: "g/km or g/kWh" },
+    ],
+  },
+  {
+    title: "Weights & Towing",
+    fields: [
+      { key: "kerb_weight", label: "Mass in service (kerb weight)", kind: "number", unit: "kg" },
+      { key: "max_permissible_mass", label: "Max permissible mass, excl. motorcycle", kind: "number", unit: "kg" },
+      { key: "revenue_weight", label: "Revenue weight", kind: "number", unit: "kg" },
+      { key: "max_towable_mass_braked", label: "Max towable trailer mass, braked", kind: "number", unit: "kg" },
+      { key: "max_towable_mass_unbraked", label: "Max towable trailer mass, unbraked", kind: "number", unit: "kg" },
+    ],
+  },
+  {
+    title: "Wheels & Tyres",
+    fields: [
+      { key: "tyre_sizes", label: "Tyre sizes", kind: "text" },
+      { key: "wheel_sizes", label: "Wheel sizes", kind: "text" },
+      { key: "battery_size", label: "Battery size", kind: "text" },
+    ],
+  },
+  {
+    title: "Sound Level",
+    fields: [
+      { key: "sound_level_stationary", label: "Stationary", kind: "number", unit: "dB(A)" },
+      { key: "sound_level_engine_speed", label: "Engine speed", kind: "number", unit: "min⁻¹" },
+      { key: "sound_level_drive_by", label: "Drive-by", kind: "number", unit: "dB(A)" },
+    ],
+  },
+  {
+    title: "Usage",
+    fields: [
+      { key: "mileage", label: "Mileage", kind: "number", unit: "mi" },
+      { key: "number_of_previous_keepers", label: "Number of previous keepers", kind: "number" },
+    ],
+  },
+];
+
+const ALL_DETAIL_FIELD_KEYS = DETAIL_CATEGORIES.flatMap((c) => c.fields.map((f) => f.key));
+
+function formatFieldValue(field: FieldDef, value: unknown): string {
+  if (value === null || value === undefined || value === "") return "-";
+  switch (field.kind) {
+    case "bool":
+      return value ? "Yes" : "No";
+    case "date":
+      return formatDateLong(value as string);
+    case "number":
+      return field.unit ? `${(value as number).toLocaleString("en-GB")} ${field.unit}` : (value as number).toLocaleString("en-GB");
+    case "float":
+      return field.unit ? `${value} ${field.unit}` : String(value);
+    default:
+      return String(value);
+  }
+}
+
+// ------------------------------ Accordion section ---------------------------
+// Independent open/closed state per section — not exclusive, so more than one
+// category can be expanded at once. defaultOpen controls the initial state
+// (only the first category opens by default).
+
+function AccordionSection({
+  title,
+  defaultOpen,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  return (
+    <div className="vd-accordion">
+      <button
+        type="button"
+        className="vd-accordion__head"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span>{title}</span>
+        <span className={open ? "vd-accordion__chevron vd-accordion__chevron--open" : "vd-accordion__chevron"}>
+          ▾
+        </span>
+      </button>
+      {open && <div className="vd-accordion__body">{children}</div>}
+    </div>
+  );
+}
+
+// ==================================================
 // PAGE
 // ==================================================
 
@@ -293,34 +496,115 @@ export default function VehicleProfilePage() {
     }
   }
 
+  function setInfoField(key: keyof VehicleDetail, value: unknown) {
+    setInfoForm((form) => ({ ...form, [key]: value } as Partial<VehicleDetail>));
+  }
+
+  // Renders the edit control for a single field, keyed by kind. Falls back
+  // to the odometer's dedicated validation UI for the mileage field so the
+  // "no reading below current" check keeps working inside the accordion.
+  function renderEditField(f: FieldDef) {
+    if (f.editable === false) return null;
+    if (f.key === "mileage") {
+      return (
+        <WholeNumberField
+          key={f.key}
+          label="Odometer"
+          placeholder="e.g. 52000"
+          value={infoForm.mileage ?? ""}
+          onChange={(v) => { setInfoField("mileage", v ? parseInt(v, 10) : null); setInfoMileageError(null); }}
+          onBlur={handleInfoMileageBlur}
+          error={infoMileageError ?? undefined}
+          disabled={saving}
+          maxLength={7}
+        />
+      );
+    }
+    const label = f.unit ? `${f.label} (${f.unit})` : f.label;
+    if (f.kind === "number") {
+      return (
+        <WholeNumberField
+          key={f.key}
+          label={label}
+          value={(infoForm[f.key] as number | null) ?? ""}
+          onChange={(v) => setInfoField(f.key, v ? parseInt(v, 10) : null)}
+          disabled={saving}
+        />
+      );
+    }
+    if (f.kind === "float") {
+      return (
+        <TextField
+          key={f.key}
+          label={label}
+          inputMode="decimal"
+          value={(infoForm[f.key] as number | null) ?? ""}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "") { setInfoField(f.key, null); return; }
+            const parsed = parseFloat(raw);
+            if (!Number.isNaN(parsed)) setInfoField(f.key, parsed);
+          }}
+          disabled={saving}
+        />
+      );
+    }
+    if (f.kind === "bool") {
+      const value = infoForm[f.key] as boolean | null | undefined;
+      return (
+        <div className="sov-field" key={f.key}>
+          <label className="sov-field__label">{f.label}</label>
+          <div className="sov-input-wrap">
+            <select
+              className="sov-field__control"
+              value={value === true ? "yes" : value === false ? "no" : ""}
+              onChange={(e) => setInfoField(f.key, e.target.value === "yes" ? true : e.target.value === "no" ? false : null)}
+              disabled={saving}
+            >
+              <option value="">Unknown</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+        </div>
+      );
+    }
+    if (f.kind === "date") {
+      return (
+        <TextField
+          key={f.key}
+          label={f.label}
+          type="date"
+          value={(infoForm[f.key] as string | null) ?? ""}
+          onChange={(e) => setInfoField(f.key, e.target.value || null)}
+          disabled={saving}
+        />
+      );
+    }
+    // "text" and "allcaps"
+    return (
+      <TextField
+        key={f.key}
+        label={f.label}
+        value={(infoForm[f.key] as string | null) ?? ""}
+        onChange={(e) => setInfoField(f.key, (f.kind === "allcaps" ? toAllCaps(e.target.value) : toTitleCase(e.target.value)) || null)}
+        disabled={saving}
+      />
+    );
+  }
+
   async function saveInfo() {
     if (!accountId || !vehicle) return;
     if (infoMileageError) { setSaveError("Please correct the odometer reading before saving."); return; }
     setSaving(true);
     setSaveError(null);
+    const body: Record<string, unknown> = {};
+    for (const key of ALL_DETAIL_FIELD_KEYS) {
+      body[key] = (infoForm as Record<string, unknown>)[key] ?? null;
+    }
     const res = await apiFetch(`/api/v1/accounts/${accountId}/vehicles/${vehicle.id}`, {
       method: "PATCH",
-      body: JSON.stringify({
-        registration: infoForm.registration ?? null,
-        make: infoForm.make ?? null,
-        model: infoForm.model ?? null,
-        variant: infoForm.variant ?? null,
-        year: infoForm.year ?? null,
-        colour: infoForm.colour ?? null,
-        fuel_type: infoForm.fuel_type ?? null,
-        transmission: infoForm.transmission ?? null,
-        engine: infoForm.engine ?? null,
-        body_type: infoForm.body_type ?? null,
-        mileage: infoForm.mileage ?? null,
-        doors: infoForm.doors ?? null,
-        seats: infoForm.seats ?? null,
-        horsepower: infoForm.horsepower ?? null,
-        torque: infoForm.torque ?? null,
-        emission_class: infoForm.emission_class ?? null,
-        tyre_sizes: infoForm.tyre_sizes ?? null,
-        battery_size: infoForm.battery_size ?? null,
-        wheel_sizes: infoForm.wheel_sizes ?? null,
-      }),
+      body: JSON.stringify(body),
     });
     setSaving(false);
     if (!res.ok) {
@@ -640,52 +924,21 @@ export default function VehicleProfilePage() {
       {tab === "info" && (
         <Card>
           <div className="vd-section-head">
-            <h2 className="vd-card-title">Basic information</h2>
+            <h2 className="vd-card-title">Vehicle details</h2>
             {!editingInfo && (
               <button className="vd-edit-btn" onClick={startEditInfo}>Edit</button>
             )}
           </div>
 
           {editingInfo ? (
-            <div className="vd-form">
-              {([
-                ["registration", "Registration"],
-                ["make", "Make"],
-                ["model", "Model"],
-                ["variant", "Variant"],
-                ["year", "Year"],
-                ["colour", "Colour"],
-                ["fuel_type", "Fuel type"],
-                ["transmission", "Transmission"],
-                ["engine", "Engine"],
-                ["doors", "Doors"],
-                ["seats", "Seats"],
-                ["horsepower", "Horsepower (bhp)"],
-                ["torque", "Torque (Nm)"],
-                ["emission_class", "Emission class"],
-                ["tyre_sizes", "Tyre sizes"],
-                ["battery_size", "Battery size"],
-                ["wheel_sizes", "Wheel sizes"],
-                ["vin", "VIN"],
-              ] as [keyof VehicleDetail, string][]).map(([field, label]) => (
-                <TextField
-                  key={field}
-                  label={label}
-                  value={(infoForm[field] as string | number | null) ?? ""}
-                  onChange={(e) => setInfoForm((f) => ({ ...f, [field]: (field === "registration" || field === "vin") ? toAllCaps(e.target.value) || null : toTitleCase(e.target.value) || null }))}
-                  disabled={saving}
-                />
+            <div className="vd-accordions" key="edit">
+              {DETAIL_CATEGORIES.map((cat, i) => (
+                <AccordionSection key={cat.title} title={cat.title} defaultOpen={i === 0}>
+                  <div className="vd-form">
+                    {cat.fields.map((f) => renderEditField(f))}
+                  </div>
+                </AccordionSection>
               ))}
-              <WholeNumberField
-                label="Odometer"
-                placeholder="e.g. 52000"
-                value={infoForm.mileage ?? ""}
-                onChange={(v) => { setInfoForm((f) => ({ ...f, mileage: v ? parseInt(v, 10) : null })); setInfoMileageError(null); }}
-                onBlur={handleInfoMileageBlur}
-                error={infoMileageError ?? undefined}
-                disabled={saving}
-                maxLength={7}
-              />
               {saveError && <p className="vd-error">{saveError}</p>}
               <div className="vd-form-actions">
                 <button className="rec-btn rec-btn--primary" onClick={saveInfo} disabled={saving}>
@@ -695,28 +948,17 @@ export default function VehicleProfilePage() {
               </div>
             </div>
           ) : (
-            <dl className="vd-dl">
-              <div><dt>Registration</dt><dd>{vehicle.registration ?? "-"}</dd></div>
-              <div><dt>VIN</dt><dd>{vehicle.vin ?? "-"}</dd></div>
-              <div><dt>Make</dt><dd>{vehicle.make ?? "-"}</dd></div>
-              <div><dt>Model</dt><dd>{vehicle.model ?? "-"}</dd></div>
-              <div><dt>Variant</dt><dd>{vehicle.variant ?? "-"}</dd></div>
-              <div><dt>Year</dt><dd>{vehicle.year ?? "-"}</dd></div>
-              <div><dt>Colour</dt><dd>{vehicle.colour ?? "-"}</dd></div>
-              <div><dt>Body type</dt><dd>{vehicle.body_type ?? "-"}</dd></div>
-              <div><dt>Fuel type</dt><dd>{vehicle.fuel_type ?? "-"}</dd></div>
-              <div><dt>Transmission</dt><dd>{vehicle.transmission ?? "-"}</dd></div>
-              <div><dt>Engine</dt><dd>{vehicle.engine ?? "-"}</dd></div>
-              <div><dt>Mileage</dt><dd>{vehicle.mileage !== null ? vehicle.mileage.toLocaleString("en-GB") + " mi" : "-"}</dd></div>
-              <div><dt>Doors</dt><dd>{vehicle.doors ?? "-"}</dd></div>
-              <div><dt>Seats</dt><dd>{vehicle.seats ?? "-"}</dd></div>
-              <div><dt>Horsepower</dt><dd>{vehicle.horsepower !== null ? vehicle.horsepower + " bhp" : "-"}</dd></div>
-              <div><dt>Torque</dt><dd>{vehicle.torque !== null ? vehicle.torque + " Nm" : "-"}</dd></div>
-              <div><dt>Emission class</dt><dd>{vehicle.emission_class ?? "-"}</dd></div>
-              <div><dt>Tyre sizes</dt><dd>{vehicle.tyre_sizes ?? "-"}</dd></div>
-              <div><dt>Battery size</dt><dd>{vehicle.battery_size ?? "-"}</dd></div>
-              <div><dt>Wheel sizes</dt><dd>{vehicle.wheel_sizes ?? "-"}</dd></div>
-            </dl>
+            <div className="vd-accordions" key="view">
+              {DETAIL_CATEGORIES.map((cat, i) => (
+                <AccordionSection key={cat.title} title={cat.title} defaultOpen={i === 0}>
+                  <dl className="vd-dl">
+                    {cat.fields.map((f) => (
+                      <div key={f.key}><dt>{f.label}</dt><dd>{formatFieldValue(f, vehicle[f.key])}</dd></div>
+                    ))}
+                  </dl>
+                </AccordionSection>
+              ))}
+            </div>
           )}
         </Card>
       )}
@@ -909,6 +1151,20 @@ const VD_STYLES = `
   .vd-form .sov-field { max-width: 480px; }
   .vd-error { font-size: var(--text-sm); color: var(--colour-error); }
   .vd-form-actions { display: flex; gap: var(--space-3); }
+
+  /* ---- Accordion (Vehicle details categories) ---- */
+  .vd-accordions { display: flex; flex-direction: column; gap: var(--space-3); }
+  .vd-accordion { border: 1px solid var(--colour-border); border-radius: var(--radius-md); overflow: hidden; }
+  .vd-accordion__head {
+    width: 100%; display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: none; border: none; cursor: none;
+    font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--colour-text);
+    text-align: left; transition: background var(--duration-normal) var(--ease-smooth);
+  }
+  .vd-accordion__head:hover { background: rgba(255,255,255,0.03); }
+  .vd-accordion__chevron { color: var(--colour-text-muted); transition: transform var(--duration-normal) var(--ease-smooth); }
+  .vd-accordion__chevron--open { transform: rotate(180deg); }
+  .vd-accordion__body { padding: 4px 16px 16px; border-top: 1px solid var(--colour-border); }
 
   /* ---- Responsive ---- */
   @media (max-width: 767px) {

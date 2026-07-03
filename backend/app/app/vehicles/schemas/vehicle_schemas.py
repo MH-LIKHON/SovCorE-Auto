@@ -64,10 +64,58 @@ class RenewalRag(BaseModel):
 # VEHICLE CREATE / PATCH
 # ==================================================
 
+# ------------------------------ V5C fields mixin -----------------------------
+# Shared by VehicleCreateIn, VehiclePatchIn and VehicleOut so the 32 UK V5C
+# (Registration Certificate) fields are declared once. Grouped to mirror the
+# Vehicle Details accordion categories in the frontend.
+
+
+class VehicleV5CFields(BaseModel):
+    # Identity extensions
+    v5c_reference_number: str | None = None
+    type_designation: str | None = None
+    version: str | None = None
+    date_first_registered: date | None = None
+    date_first_registered_uk: date | None = None
+    # Specification
+    wheelplan: str | None = None
+    suspension_type: str | None = None
+    engine_number: str | None = None
+    standing_places: int | None = None
+    is_automated_vehicle: bool | None = None
+    # Performance
+    max_net_power_kw: int | None = None
+    power_to_weight_ratio: float | None = None
+    # Emissions and tax
+    taxation_class: str | None = None
+    vehicle_category: str | None = None
+    type_approval_number: str | None = None
+    euro_status: str | None = None
+    real_driving_emissions: str | None = None
+    co2_emissions: int | None = None
+    exhaust_co: float | None = None
+    exhaust_hc: float | None = None
+    exhaust_nox: float | None = None
+    exhaust_hc_nox: float | None = None
+    exhaust_particulates: float | None = None
+    # Weights and towing
+    kerb_weight: int | None = None
+    max_permissible_mass: int | None = None
+    revenue_weight: int | None = None
+    max_towable_mass_braked: int | None = None
+    max_towable_mass_unbraked: int | None = None
+    # Sound level
+    sound_level_stationary: int | None = None
+    sound_level_engine_speed: int | None = None
+    sound_level_drive_by: int | None = None
+    # Usage extensions
+    number_of_previous_keepers: int | None = None
+
+
 # ------------------------------ Create In -----------------------------------
 
 
-class VehicleCreateIn(BaseModel):
+class VehicleCreateIn(VehicleV5CFields):
     registration: str | None = None
     vin: str | None = None
     make: str | None = None
@@ -93,7 +141,7 @@ class VehicleCreateIn(BaseModel):
 # ------------------------------ Patch In ------------------------------------
 
 
-class VehiclePatchIn(BaseModel):
+class VehiclePatchIn(VehicleV5CFields):
     registration: str | None = None
     vin: str | None = None
     make: str | None = None
@@ -151,7 +199,7 @@ class VehicleCardOut(BaseModel):
 # ------------------------------ Full Out ------------------------------------
 
 
-class VehicleOut(BaseModel):
+class VehicleOut(VehicleV5CFields):
     id: uuid.UUID
     account_id: uuid.UUID
     registration: str | None

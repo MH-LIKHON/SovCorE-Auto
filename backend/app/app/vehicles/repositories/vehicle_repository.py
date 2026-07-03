@@ -57,29 +57,12 @@ class VehicleRepository:
     # ------------------------------ Create ----------------------------------
 
     async def create(self, account_id: uuid.UUID, data: VehicleCreateIn) -> Vehicle:
+        # data.model_dump() covers every basic-information and V5C field 1:1
+        # against Vehicle columns, so new fields never need a matching edit here.
         vehicle = Vehicle(
             account_id=account_id,
-            registration=data.registration,
-            vin=data.vin,
-            make=data.make,
-            model=data.model,
-            variant=data.variant,
-            year=data.year,
-            engine=data.engine,
-            fuel_type=data.fuel_type,
-            transmission=data.transmission,
-            body_type=data.body_type,
-            colour=data.colour,
-            doors=data.doors,
-            seats=data.seats,
-            horsepower=data.horsepower,
-            torque=data.torque,
-            emission_class=data.emission_class,
-            tyre_sizes=data.tyre_sizes,
-            battery_size=data.battery_size,
-            wheel_sizes=data.wheel_sizes,
-            mileage=data.mileage,
             lifecycle_state=LifecycleState.active,
+            **data.model_dump(),
         )
         self._db.add(vehicle)
         await self._db.flush()  # populate vehicle.id before creating child rows

@@ -33,7 +33,7 @@ import uuid
 from datetime import date, datetime, timezone
 from enum import Enum
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -109,6 +109,55 @@ class Vehicle(Base):
     wheel_sizes: Mapped[str | None] = mapped_column(String(200), nullable=True)
     mileage: Mapped[int | None] = mapped_column(Integer, nullable=True)
     image_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # ------------------------------ V5C: identity extensions -----------------
+    # Fields present on a UK V5C (Registration Certificate) that go beyond the
+    # original basic-information set. Grouped to mirror the Vehicle Details
+    # accordion categories in the frontend.
+    v5c_reference_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    type_designation: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    date_first_registered: Mapped[date | None] = mapped_column(Date, nullable=True)
+    date_first_registered_uk: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # ------------------------------ V5C: specification ------------------------
+    wheelplan: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    suspension_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    engine_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    standing_places: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_automated_vehicle: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
+    # ------------------------------ V5C: performance --------------------------
+    max_net_power_kw: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    power_to_weight_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # ------------------------------ V5C: emissions and tax ---------------------
+    taxation_class: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    vehicle_category: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    type_approval_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    euro_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    real_driving_emissions: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    co2_emissions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    exhaust_co: Mapped[float | None] = mapped_column(Float, nullable=True)
+    exhaust_hc: Mapped[float | None] = mapped_column(Float, nullable=True)
+    exhaust_nox: Mapped[float | None] = mapped_column(Float, nullable=True)
+    exhaust_hc_nox: Mapped[float | None] = mapped_column(Float, nullable=True)
+    exhaust_particulates: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # ------------------------------ V5C: weights and towing --------------------
+    kerb_weight: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_permissible_mass: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    revenue_weight: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_towable_mass_braked: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_towable_mass_unbraked: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # ------------------------------ V5C: sound level ----------------------------
+    sound_level_stationary: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sound_level_engine_speed: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    sound_level_drive_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # ------------------------------ V5C: usage extensions -----------------------
+    number_of_previous_keepers: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # ------------------------------ Lifecycle state -------------------------
     # A vehicle leaves active use by transitioning to sold, scrapped or
